@@ -1,0 +1,37 @@
+[Unit]
+Description=WorkSync Celery Worker
+After=network.target redis.service
+Wants=redis.service
+
+[Service]
+Type=exec
+User=worksync
+Group=worksync
+WorkingDirectory=/opt/worksync/backend
+Environment=DJANGO_SETTINGS_MODULE=worksync.settings_production
+EnvironmentFile=/opt/worksync/backend/.env.production
+ExecStart=/opt/worksync/backend/venv/bin/celery \
+    -A worksync worker \
+    --loglevel=info \
+    --logfile=/var/log/worksync/celery-worker.log \
+    --pidfile=/var/run/worksync/celery-worker.pid \
+    --concurrency=4
+
+ExecReload=/bin/kill -s HUP $MAINPID
+KillMode=mixed
+TimeoutStopSec=10
+Restart=always
+RestartSec=10
+
+# Security settings
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/opt/worksync/backend/media /opt/worksync/backend/logs /var/log/worksync /var/run/worksync
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+
+[Install]
+WantedBy=multi-user.target

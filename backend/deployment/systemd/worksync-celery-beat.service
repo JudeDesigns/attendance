@@ -1,0 +1,37 @@
+[Unit]
+Description=WorkSync Celery Beat Scheduler
+After=network.target redis.service postgresql.service
+Wants=redis.service postgresql.service
+
+[Service]
+Type=exec
+User=worksync
+Group=worksync
+WorkingDirectory=/opt/worksync/backend
+Environment=DJANGO_SETTINGS_MODULE=worksync.settings_production
+EnvironmentFile=/opt/worksync/backend/.env.production
+ExecStart=/opt/worksync/backend/venv/bin/celery \
+    -A worksync beat \
+    --loglevel=info \
+    --logfile=/var/log/worksync/celery-beat.log \
+    --pidfile=/var/run/worksync/celery-beat.pid \
+    --scheduler=django_celery_beat.schedulers:DatabaseScheduler
+
+ExecReload=/bin/kill -s HUP $MAINPID
+KillMode=mixed
+TimeoutStopSec=10
+Restart=always
+RestartSec=10
+
+# Security settings
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/opt/worksync/backend/media /opt/worksync/backend/logs /var/log/worksync /var/run/worksync
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+
+[Install]
+WantedBy=multi-user.target

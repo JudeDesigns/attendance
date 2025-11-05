@@ -1,0 +1,453 @@
+import React, { useState, useEffect } from 'react';
+import { useAuth } from '../contexts/AuthContext';
+import { attendanceAPI, locationAPI } from '../services/api';
+import { useQuery } from 'react-query';
+import QRScanner from '../components/QRScanner';
+import {
+  ClockIcon,
+  QrCodeIcon as QrcodeIcon,
+  MapPinIcon as LocationMarkerIcon,
+  CheckCircleIcon,
+  XCircleIcon,
+} from '@heroicons/react/24/outline';
+import toast from 'react-hot-toast';
+
+const ClockIn = () => {
+  const { user } = useAuth();
+  const [activeMethod, setActiveMethod] = useState('portal');
+  const [location, setLocation] = useState(null);
+  const [notes, setNotes] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  // Get current attendance status
+  const { data: statusData, refetch: refetchStatus } = useQuery(
+    'currentAttendanceStatus',
+    () => attendanceAPI.currentStatus(),
+    {
+      enabled: !!user?.employee_profile?.id,
+      refetchInterval: 10000,
+    }
+  );
+
+  // Get QR enforcement status
+  const { data: qrEnforcementData } = useQuery(
+    'qrEnforcementStatus',
+    () => attendanceAPI.qrEnforcementStatus(),
+    {
+      enabled: !!user?.employee_profile?.id,
+      refetchInterval: 30000,
+    }
+  );
+
+  // Get shift status
+  const { data: shiftStatusData } = useQuery(
+    'shiftStatus',
+    () => attendanceAPI.shiftStatus(),
+    {
+      enabled: !!user?.employee_profile?.id,
+      refetchInterval: 30000,
+    }
+  );
+
+  // Get locations for QR scanning
+  const { data: locationsData } = useQuery('locations', locationAPI.list);
+
+  const currentStatus = statusData?.data;
+  const isCurrentlyClockedIn = currentStatus?.is_clocked_in || false;
+  const locations = locationsData?.data?.results || locationsData?.results || [];
+  const qrEnforcement = qrEnforcementData?.data || {};
+  const shiftStatus = shiftStatusData?.data || {};
+
+  // Get current location
+  useEffect(() => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setLocation({
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+          });
+        },
+        (error) => {
+          console.warn('Location access denied:', error);
+        }
+      );
+    }
+  }, []);
+
+  const handleClockIn = async (locationId = null) => {
+    setLoading(true);
+    try {
+      const clockInData = {
+        method: activeMethod === 'qr' ? 'QR_CODE' : 'PORTAL',
+        notes: notes || `Clock-in via ${activeMethod}`,
+      };
+
+      if (locationId) {
+        clockInData.location_id = locationId;
+      }
+
+      await attendanceAPI.clockIn(clockInData);
+      toast.success('Clocked in successfully!');
+      setNotes('');
+      refetchStatus();
+    } catch (error) {
+      const errorData = error.response?.data;
+      if (errorData?.requires_qr) {
+        toast.error('You must use location QR code for clock-in');
+        setActiveMethod('qr');
+      } else if (errorData?.requires_shift) {
+        toast.error('No scheduled shift found. You can only clock in during scheduled shifts or within 15 minutes before shift start.');
+      } else {
+        toast.error(errorData?.detail || errorData?.message || 'Clock-in failed');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleClockOut = async () => {
+    setLoading(true);
+    try {
+      const clockOutData = {
+        method: activeMethod === 'qr' ? 'QR_CODE' : 'PORTAL',
+        notes: notes || `Clock-out via ${activeMethod}`,
+      };
+
+      const response = await attendanceAPI.clockOut(clockOutData);
+      const duration = response.data.duration_hours || 0;
+      toast.success(`Clocked out successfully! Worked ${duration.toFixed(1)} hours.`);
+      setNotes('');
+      refetchStatus();
+    } catch (error) {
+      const errorData = error.response?.data;
+      if (errorData?.requires_qr) {
+        toast.error('You must use location QR code for clock-out');
+        setActiveMethod('qr');
+      } else if (errorData?.requires_shift) {
+        toast.error('No active scheduled shift found. You can only clock out during an active scheduled shift.');
+      } else {
+        toast.error(errorData?.detail || errorData?.message || 'Clock-out failed');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleQRScan = (qrData) => {
+    const location = locations.find(loc => loc.qr_code_payload === qrData);
+    if (location) {
+      toast.success(`Scanned: ${location.name}`);
+      handleClockIn(location.qr_code_payload);
+    } else {
+      toast.error('Invalid QR code');
+    }
+  };
+
+  const handleQRError = (error) => {
+    toast.error(`QR Scanner Error: ${error}`);
+    setActiveMethod('portal');
+  };
+
+  return (
+    <div className="max-w-2xl mx-auto space-y-6">
+      {/* Header */}
+      <div className="text-center">
+        <h1 className="text-2xl font-bold text-gray-900">Time Tracking</h1>
+        <p className="text-gray-600 mt-2">
+          Current Status:
+          <span className={`ml-2 font-medium ${
+            isCurrentlyClockedIn ? 'text-green-600' : 'text-gray-600'
+          }`}>
+            {isCurrentlyClockedIn ? 'CLOCKED IN' : 'CLOCKED OUT'}
+          </span>
+        </p>
+      </div>
+
+      {/* QR Enforcement Notice */}
+      {qrEnforcement.requires_location_qr && qrEnforcement.qr_enforcement_type !== 'NONE' && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+          <div className="flex items-center">
+            <QrcodeIcon className="h-5 w-5 text-yellow-400 mr-2" />
+            <div>
+              <p className="text-sm font-medium text-yellow-800">
+                QR Code Required
+              </p>
+              <p className="text-sm text-yellow-600 mt-1">
+                {qrEnforcement.qr_enforcement_type === 'ALL_OPERATIONS'
+                  ? 'You must scan a location QR code for all clock-in and clock-out operations'
+                  : 'You must scan a location QR code for your first clock-in of the day'
+                }
+              </p>
+              {qrEnforcement.requires_qr_for_clock_in && (
+                <p className="text-sm text-yellow-600 mt-1 font-medium">
+                  ⚠️ QR code required for next clock-in
+                </p>
+              )}
+              {qrEnforcement.requires_qr_for_clock_out && isCurrentlyClockedIn && (
+                <p className="text-sm text-yellow-600 mt-1 font-medium">
+                  ⚠️ QR code required for clock-out
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Current Time Log Info */}
+      {isCurrentlyClockedIn && currentStatus?.clock_in_time && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <div className="flex items-center">
+            <CheckCircleIcon className="h-5 w-5 text-blue-400 mr-2" />
+            <div>
+              <p className="text-sm font-medium text-blue-800">
+                Clocked in at {new Date(currentStatus.clock_in_time).toLocaleTimeString()}
+              </p>
+              {currentStatus.clock_in_location && (
+                <p className="text-sm text-blue-600 mt-1">
+                  Location: {currentStatus.clock_in_location}
+                </p>
+              )}
+              {currentStatus.duration_hours && (
+                <p className="text-sm text-blue-600 mt-1">
+                  Duration: {currentStatus.duration_hours.toFixed(1)} hours
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Shift Information */}
+      {shiftStatus && (
+        <div className="glass-card glass-fade-in p-6 mb-6">
+          <h2 className="text-lg font-medium glass-text-primary mb-4">Shift Information</h2>
+
+          {shiftStatus.current_shift ? (
+            <div className="flex items-center mb-4">
+              <CheckCircleIcon className="h-5 w-5 text-green-400 mr-2" />
+              <div>
+                <p className="text-sm font-medium text-green-800">
+                  Current Shift: {new Date(shiftStatus.current_shift.start_time).toLocaleTimeString()} - {new Date(shiftStatus.current_shift.end_time).toLocaleTimeString()}
+                </p>
+                {shiftStatus.current_shift.location && (
+                  <p className="text-sm text-green-600 mt-1">
+                    Location: {shiftStatus.current_shift.location}
+                  </p>
+                )}
+              </div>
+            </div>
+          ) : shiftStatus.upcoming_shift ? (
+            <div className="flex items-center mb-4">
+              <ClockIcon className="h-5 w-5 text-yellow-400 mr-2" />
+              <div>
+                <p className="text-sm font-medium text-yellow-800">
+                  Upcoming Shift: {new Date(shiftStatus.upcoming_shift.start_time).toLocaleTimeString()} - {new Date(shiftStatus.upcoming_shift.end_time).toLocaleTimeString()}
+                </p>
+                <p className="text-sm text-yellow-600 mt-1">
+                  Starts in {shiftStatus.upcoming_shift.minutes_until_start} minutes
+                </p>
+                {shiftStatus.upcoming_shift.location && (
+                  <p className="text-sm text-yellow-600 mt-1">
+                    Location: {shiftStatus.upcoming_shift.location}
+                  </p>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center mb-4">
+              <XCircleIcon className="h-5 w-5 text-red-400 mr-2" />
+              <div>
+                <p className="text-sm font-medium text-red-800">
+                  No scheduled shift found
+                </p>
+                <p className="text-sm text-red-600 mt-1">
+                  You can only clock in during scheduled shifts or within 15 minutes before shift start
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Clock In/Out Eligibility Status */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+            <div className={`p-3 rounded-lg ${shiftStatus.can_clock_in ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
+              <p className={`text-sm font-medium ${shiftStatus.can_clock_in ? 'text-green-800' : 'text-red-800'}`}>
+                Clock In: {shiftStatus.can_clock_in ? 'Available' : 'Not Available'}
+              </p>
+            </div>
+            <div className={`p-3 rounded-lg ${shiftStatus.can_clock_out ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
+              <p className={`text-sm font-medium ${shiftStatus.can_clock_out ? 'text-green-800' : 'text-red-800'}`}>
+                Clock Out: {shiftStatus.can_clock_out ? 'Available' : 'Not Available'}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Method Selection */}
+      <div className="glass-card glass-fade-in p-6">
+        <h2 className="text-lg font-medium glass-text-primary mb-4">Clock-In Method</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <button
+            onClick={() => setActiveMethod('portal')}
+            className={`p-4 border-2 rounded-lg text-left transition-all duration-300 ${
+              activeMethod === 'portal'
+                ? 'border-blue-400 glass-gradient-primary'
+                : 'glass-button border-transparent hover:border-blue-300'
+            }`}
+          >
+            <ClockIcon className="h-6 w-6 text-blue-600 mb-2" />
+            <h3 className="font-medium glass-text-primary">Portal Clock-In</h3>
+            <p className="text-sm glass-text-secondary">Simple button click</p>
+          </button>
+
+          <button
+            onClick={() => setActiveMethod('qr')}
+            className={`p-4 border-2 rounded-lg text-left transition-all duration-300 ${
+              activeMethod === 'qr'
+                ? 'border-blue-400 glass-gradient-primary'
+                : 'glass-button border-transparent hover:border-blue-300'
+            }`}
+          >
+            <QrcodeIcon className="h-6 w-6 text-blue-600 mb-2" />
+            <h3 className="font-medium glass-text-primary">QR Code Scan</h3>
+            <p className="text-sm glass-text-secondary">Scan location QR code</p>
+          </button>
+        </div>
+      </div>
+
+      {/* Notes Input */}
+      <div className="glass-card glass-fade-in p-6">
+        <label htmlFor="notes" className="block text-sm font-medium glass-text-primary mb-2">
+          Notes (Optional)
+        </label>
+        <textarea
+          id="notes"
+          rows={3}
+          className="glass-input w-full placeholder-gray-400 glass-text-primary"
+          placeholder="Add any notes about your shift..."
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+        />
+      </div>
+
+      {/* Location Status */}
+      {location && (
+        <div className="glass-status-success p-4 rounded-lg">
+          <div className="flex items-center">
+            <LocationMarkerIcon className="h-5 w-5 mr-2" />
+            <p className="text-sm font-medium">
+              Location detected and will be recorded
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Clock-In/Out Interface */}
+      <div className="glass-card glass-slide-up p-6">
+        {activeMethod === 'portal' && (
+          <div className="text-center">
+            {isCurrentlyClockedIn ? (
+              <div>
+                <button
+                  onClick={handleClockOut}
+                  disabled={loading || qrEnforcement.requires_qr_for_clock_out || !shiftStatus.can_clock_out}
+                  className={`w-full sm:w-auto inline-flex items-center justify-center px-8 py-4 border border-transparent text-lg font-medium rounded-md text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed ${
+                    qrEnforcement.requires_qr_for_clock_out || !shiftStatus.can_clock_out
+                      ? 'bg-gray-400 cursor-not-allowed'
+                      : 'bg-red-600 hover:bg-red-700'
+                  }`}
+                >
+                  {loading ? (
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                  ) : (
+                    <XCircleIcon className="h-5 w-5 mr-2" />
+                  )}
+                  Clock Out
+                </button>
+                {qrEnforcement.requires_qr_for_clock_out && (
+                  <p className="text-sm text-yellow-600 mt-2">
+                    QR code required for clock-out. Switch to QR scanner.
+                  </p>
+                )}
+                {!shiftStatus.can_clock_out && (
+                  <p className="text-sm text-red-600 mt-2">
+                    No active scheduled shift found for clock-out.
+                  </p>
+                )}
+              </div>
+            ) : (
+              <div>
+                <button
+                  onClick={() => handleClockIn()}
+                  disabled={loading || qrEnforcement.requires_qr_for_clock_in || !shiftStatus.can_clock_in}
+                  className={`w-full sm:w-auto inline-flex items-center justify-center px-8 py-4 border border-transparent text-lg font-medium rounded-md text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed ${
+                    qrEnforcement.requires_qr_for_clock_in || !shiftStatus.can_clock_in
+                      ? 'bg-gray-400 cursor-not-allowed'
+                      : 'bg-green-600 hover:bg-green-700'
+                  }`}
+                >
+                  {loading ? (
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                  ) : (
+                    <CheckCircleIcon className="h-5 w-5 mr-2" />
+                  )}
+                  Clock In
+                </button>
+                {qrEnforcement.requires_qr_for_clock_in && (
+                  <p className="text-sm text-yellow-600 mt-2">
+                    QR code required for clock-in. Switch to QR scanner.
+                  </p>
+                )}
+                {!shiftStatus.can_clock_in && (
+                  <p className="text-sm text-red-600 mt-2">
+                    No scheduled shift found for clock-in.
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeMethod === 'qr' && (
+          <div>
+            <h3 className="text-lg font-medium text-gray-900 mb-4 text-center">
+              Scan QR Code to Clock In
+            </h3>
+            <QRScanner
+              onScan={handleQRScan}
+              onError={handleQRError}
+              isActive={activeMethod === 'qr'}
+            />
+            <div className="mt-4 text-center">
+              <button
+                onClick={() => setActiveMethod('portal')}
+                className="text-indigo-600 hover:text-indigo-500 text-sm font-medium"
+              >
+                Switch to Portal Clock-In
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Available Locations */}
+      {locations.length > 0 && (
+        <div className="glass-card-bright p-6 mb-8">
+          <h3 className="text-lg font-medium glass-text-primary mb-4">Available Locations</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {locations.map((loc) => (
+              <div key={loc.id} className="glass-location-card p-4">
+                <h4 className="font-medium glass-text-primary">{loc.name}</h4>
+                <p className="text-sm glass-text-secondary">{loc.description}</p>
+                <p className="text-xs glass-text-muted mt-1">QR: {loc.qr_code_payload}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default ClockIn;

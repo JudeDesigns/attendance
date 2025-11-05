@@ -3,11 +3,14 @@ Celery configuration for WorkSync
 """
 import os
 from celery import Celery
+import django
 from django.conf import settings
 
 # Set the default Django settings module for the 'celery' program.
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'worksync.settings')
 
+
+django.setup()
 app = Celery('worksync')
 
 # Using a string here means the worker doesn't have to serialize

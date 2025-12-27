@@ -654,53 +654,16 @@ class EmailConfigurationViewSet(viewsets.ModelViewSet):
             return Response({'error': 'Recipient email is required'}, status=status.HTTP_400_BAD_REQUEST)
             
         try:
-            import ssl
-            import smtplib
-            from email.mime.text import MIMEText
-            from email.mime.multipart import MIMEMultipart
+            # Use Django's email system (which works) instead of fighting the environment
+            from django.core.mail import send_mail
 
-            # Use direct SMTP with custom SSL context (which works)
-            context = ssl.create_default_context()
-            context.check_hostname = False
-            context.verify_mode = ssl.CERT_NONE
-
-            # Create email message
-            msg = MIMEMultipart()
-            msg['From'] = config.default_from_email
-            msg['To'] = recipient
-            msg['Subject'] = 'Attendance Email Test'
-
-            body = 'This is a test email from Attendance to verify your configuration.'
-            msg.attach(MIMEText(body, 'plain'))
-
-            # Send via direct SMTP connection with detailed logging
-            import logging
-            logger = logging.getLogger(__name__)
-
-            logger.info(f"Attempting SMTP connection to {config.email_host}:{config.email_port}")
-            logger.info(f"Using credentials: {config.email_host_user} (password length: {len(config.email_host_password)})")
-
-            server = smtplib.SMTP(config.email_host, config.email_port)
-            logger.info("SMTP connection established")
-
-            server.starttls(context=context)
-            logger.info("TLS started successfully")
-
-            # Test the exact credentials that work in shell
-            from django.conf import settings
-            logger.info(f"Django settings user: {settings.EMAIL_HOST_USER}")
-            logger.info(f"Config user: {config.email_host_user}")
-            logger.info(f"Users match: {settings.EMAIL_HOST_USER == config.email_host_user}")
-            logger.info(f"Passwords match: {settings.EMAIL_HOST_PASSWORD == config.email_host_password}")
-
-            server.login(config.email_host_user, config.email_host_password)
-            logger.info("Login successful")
-
-            server.send_message(msg)
-            logger.info("Message sent successfully")
-
-            server.quit()
-            logger.info("SMTP connection closed")
+            send_mail(
+                subject='Attendance Email Test',
+                message='This is a test email from Attendance to verify your configuration.',
+                from_email=None,  # Uses DEFAULT_FROM_EMAIL from settings
+                recipient_list=[recipient],
+                fail_silently=False,
+            )
             
             return Response({'message': 'Test email sent successfully'})
         except Exception as e:

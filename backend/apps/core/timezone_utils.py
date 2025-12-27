@@ -40,17 +40,11 @@ TIMEZONE_CHOICES = [
 
 def get_user_timezone(user) -> pytz.timezone:
     """
-    Get the timezone for a user based on their employee profile.
-    Falls back to system default if not set.
+    ALWAYS return Los Angeles timezone - no user-specific timezones.
+    Everything in the system uses Los Angeles time.
     """
-    try:
-        if hasattr(user, 'employee_profile') and user.employee_profile.timezone:
-            return pytz.timezone(user.employee_profile.timezone)
-    except (AttributeError, pytz.UnknownTimeZoneError):
-        pass
-    
-    # Fallback to system default
-    return pytz.timezone(settings.TIME_ZONE)
+    # FORCE LOS ANGELES TIME EVERYWHERE
+    return pytz.timezone('America/Los_Angeles')
 
 
 def convert_to_user_timezone(dt: datetime, user) -> datetime:
@@ -98,22 +92,21 @@ def get_current_time_in_user_timezone(user) -> datetime:
 
 def convert_naive_to_user_timezone(naive_dt, user):
     """
-    Convert a naive datetime to timezone-aware datetime in UTC.
-    Assumes the naive datetime is in the user's local timezone.
-    This is used when frontend sends times like '09:00' and we want them
-    to be interpreted as 9AM in the user's timezone, not 9AM UTC.
+    Convert a naive datetime to Los Angeles timezone.
+    NO UTC CONVERSION - everything stays in Los Angeles time.
+    When frontend sends '11:00', it means 11:00 Los Angeles time.
     """
     from django.utils import timezone as django_timezone
 
-    user_tz = get_user_timezone(user)
+    # FORCE LOS ANGELES TIME - no conversions
+    la_tz = pytz.timezone('America/Los_Angeles')
 
-    # If datetime is already timezone-aware, just return it
+    # If datetime is already timezone-aware, convert to LA time
     if django_timezone.is_aware(naive_dt):
-        return naive_dt
+        return naive_dt.astimezone(la_tz)
 
-    # Localize the naive datetime to user's timezone, then convert to UTC for storage
-    localized_dt = user_tz.localize(naive_dt)
-    return localized_dt.astimezone(django_timezone.utc)
+    # Localize the naive datetime to Los Angeles time and keep it there
+    return la_tz.localize(naive_dt)
 
 
 def format_datetime_for_user(dt: datetime, user, format_string: str = '%Y-%m-%d %H:%M:%S %Z') -> str:

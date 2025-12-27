@@ -37,19 +37,33 @@ class ShiftSerializer(serializers.ModelSerializer):
         return obj.employee.employee_id
 
     def get_start_time_local(self, obj):
-        """Get start time in employee's local timezone"""
-        if obj.start_time and obj.employee:
-            # Convert to employee's timezone for consistent display
-            local_time = convert_to_user_timezone(obj.start_time, obj.employee.user)
-            return local_time.isoformat()
+        """Get start time in Los Angeles timezone - NO CONVERSIONS"""
+        if obj.start_time:
+            # Everything is already in Los Angeles time - just return it
+            import pytz
+            la_tz = pytz.timezone('America/Los_Angeles')
+
+            # Ensure it's in LA time (in case it got stored differently)
+            if obj.start_time.tzinfo:
+                la_time = obj.start_time.astimezone(la_tz)
+            else:
+                la_time = la_tz.localize(obj.start_time)
+            return la_time.isoformat()
         return None
 
     def get_end_time_local(self, obj):
-        """Get end time in employee's local timezone"""
-        if obj.end_time and obj.employee:
-            # Convert to employee's timezone for consistent display
-            local_time = convert_to_user_timezone(obj.end_time, obj.employee.user)
-            return local_time.isoformat()
+        """Get end time in Los Angeles timezone - NO CONVERSIONS"""
+        if obj.end_time:
+            # Everything is already in Los Angeles time - just return it
+            import pytz
+            la_tz = pytz.timezone('America/Los_Angeles')
+
+            # Ensure it's in LA time (in case it got stored differently)
+            if obj.end_time.tzinfo:
+                la_time = obj.end_time.astimezone(la_tz)
+            else:
+                la_time = la_tz.localize(obj.end_time)
+            return la_time.isoformat()
         return None
 
     class Meta:
@@ -144,11 +158,28 @@ class ShiftCreateSerializer(serializers.ModelSerializer):
         return super().to_internal_value(data)
 
     def create(self, validated_data):
-        """Create shift with proper overnight shift handling"""
+        """Create shift with Los Angeles timezone and overnight shift handling"""
         start_time = validated_data.get('start_time')
         end_time = validated_data.get('end_time')
 
+        # FORCE LOS ANGELES TIME
+        import pytz
+        la_tz = pytz.timezone('America/Los_Angeles')
+
+        # Ensure times are in Los Angeles timezone
+        if start_time and not start_time.tzinfo:
+            validated_data['start_time'] = la_tz.localize(start_time)
+        elif start_time and start_time.tzinfo:
+            validated_data['start_time'] = start_time.astimezone(la_tz)
+
+        if end_time and not end_time.tzinfo:
+            validated_data['end_time'] = la_tz.localize(end_time)
+        elif end_time and end_time.tzinfo:
+            validated_data['end_time'] = end_time.astimezone(la_tz)
+
         # Fix overnight shifts by adjusting end_time to next day
+        start_time = validated_data.get('start_time')
+        end_time = validated_data.get('end_time')
         if start_time and end_time and end_time <= start_time:
             # This is an overnight shift - move end_time to next day
             validated_data['end_time'] = end_time + timedelta(days=1)

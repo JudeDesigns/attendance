@@ -131,8 +131,13 @@ AUTH_PASSWORD_VALIDATORS = [
 
 # Internationalization
 LANGUAGE_CODE = 'en-us'
+
+# FORCE LOS ANGELES TIME EVERYWHERE - NO CONVERSIONS
 TIME_ZONE = 'America/Los_Angeles'
+
 USE_I18N = True
+
+# Keep timezone support but everything will be Los Angeles time
 USE_TZ = True
 
 # VAPID Configuration for Web Push Notifications

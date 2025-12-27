@@ -137,9 +137,8 @@ TIME_ZONE = 'America/Los_Angeles'
 
 USE_I18N = True
 
-# DISABLE timezone support to prevent Django from converting to UTC
-# Everything will be stored and displayed as Los Angeles time
-USE_TZ = False
+# Keep timezone support but force everything to Los Angeles time
+USE_TZ = True
 
 # VAPID Configuration for Web Push Notifications
 VAPID_PRIVATE_KEY = """-----BEGIN PRIVATE KEY-----

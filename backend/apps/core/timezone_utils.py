@@ -123,8 +123,8 @@ def format_datetime_for_user(dt: datetime, user, format_string: str = '%Y-%m-%d 
 
 def parse_user_datetime(date_str: str, time_str: str, user) -> datetime:
     """
-    Parse date and time strings from user input as naive Los Angeles time.
-    NO TIMEZONE CONVERSION - everything is naive Los Angeles time.
+    Parse date and time strings from user input in Los Angeles timezone.
+    Store as timezone-aware but always Los Angeles time.
 
     Args:
         date_str: Date string in format 'YYYY-MM-DD'
@@ -132,16 +132,19 @@ def parse_user_datetime(date_str: str, time_str: str, user) -> datetime:
         user: User object (ignored - always use LA time)
 
     Returns:
-        naive datetime object (Los Angeles time)
+        timezone-aware datetime object in Los Angeles timezone
     """
     import logging
     logger = logging.getLogger(__name__)
 
+    # FORCE LOS ANGELES TIME - ignore user timezone
+    la_tz = pytz.timezone('America/Los_Angeles')
+
     # Combine date and time
     datetime_str = f"{date_str} {time_str}"
-    logger.error(f"🕐 PARSING: {datetime_str} -> will be naive LA time")
+    logger.error(f"🕐 PARSING: {datetime_str} -> will be LA time")
 
-    # Parse the datetime as NAIVE (no timezone info)
+    # Parse the datetime
     try:
         if len(time_str.split(':')) == 2:  # HH:MM format
             dt = datetime.strptime(datetime_str, '%Y-%m-%d %H:%M')
@@ -150,9 +153,10 @@ def parse_user_datetime(date_str: str, time_str: str, user) -> datetime:
     except ValueError as e:
         raise ValueError(f"Invalid date/time format: {e}")
 
-    # Return naive datetime - Django will treat this as Los Angeles time
-    logger.error(f"🕐 RESULT: {dt} (naive - will be stored as LA time)")
-    return dt
+    # Localize to Los Angeles timezone
+    result = la_tz.localize(dt)
+    logger.error(f"🕐 RESULT: {result} (LA timezone)")
+    return result
 
 
 def is_valid_timezone(tz_string: str) -> bool:

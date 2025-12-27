@@ -169,11 +169,17 @@ class ShiftViewSet(viewsets.ModelViewSet):
             # Check if current day is in the selected weekdays
             if current_date.weekday() in weekdays:
                 # Create datetime objects for the shift
-                # FORCE LOS ANGELES TIME - store as naive datetimes
+                # FORCE LOS ANGELES TIME - no conversions
+                import pytz
+                la_tz = pytz.timezone('America/Los_Angeles')
 
-                # Combine date and time as NAIVE datetimes (Los Angeles time)
-                shift_start = datetime.combine(current_date, start_time)
-                shift_end = datetime.combine(current_date, end_time)
+                # Combine date and time and localize to Los Angeles time
+                naive_start = datetime.combine(current_date, start_time)
+                naive_end = datetime.combine(current_date, end_time)
+
+                # Localize to Los Angeles time
+                shift_start = la_tz.localize(naive_start)
+                shift_end = la_tz.localize(naive_end)
                 
                 # Handle overnight shifts
                 if end_time <= start_time:
@@ -448,9 +454,16 @@ class ShiftTemplateViewSet(viewsets.ModelViewSet):
                 should_create = current_date.day == template.effective_from.day
 
             if should_create:
-                # Create shift - FORCE LOS ANGELES TIME (naive datetimes)
-                shift_start = datetime.combine(current_date, template.start_time)
-                shift_end = datetime.combine(current_date, template.end_time)
+                # Create shift - FORCE LOS ANGELES TIME
+                import pytz
+                la_tz = pytz.timezone('America/Los_Angeles')
+
+                shift_start = la_tz.localize(
+                    datetime.combine(current_date, template.start_time)
+                )
+                shift_end = la_tz.localize(
+                    datetime.combine(current_date, template.end_time)
+                )
 
                 # Handle overnight shifts
                 if template.end_time <= template.start_time:

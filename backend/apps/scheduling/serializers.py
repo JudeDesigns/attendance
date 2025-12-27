@@ -37,29 +37,49 @@ class ShiftSerializer(serializers.ModelSerializer):
         return obj.employee.employee_id
 
     def get_start_time_local(self, obj):
-        """Get start time as naive Los Angeles time - NO CONVERSIONS"""
+        """Get start time in Los Angeles timezone - NO CONVERSIONS"""
         if obj.start_time:
+            import pytz
             import logging
             logger = logging.getLogger(__name__)
 
-            logger.error(f"🕐 DB START TIME: {obj.start_time} (naive LA time)")
+            logger.error(f"🕐 DB START TIME: {obj.start_time} (timezone: {getattr(obj.start_time, 'tzinfo', 'naive')})")
 
-            # Return the naive datetime as-is (it's already Los Angeles time)
-            logger.error(f"🕐 DISPLAY START TIME: {obj.start_time}")
-            return obj.start_time.isoformat()
+            la_tz = pytz.timezone('America/Los_Angeles')
+
+            # Convert to LA time if timezone-aware, or localize if naive
+            if obj.start_time.tzinfo:
+                la_time = obj.start_time.astimezone(la_tz)
+            else:
+                la_time = la_tz.localize(obj.start_time)
+
+            # Return WITHOUT timezone info to prevent frontend conversion
+            naive_la_time = la_time.replace(tzinfo=None)
+            logger.error(f"🕐 SENDING TO FRONTEND: {naive_la_time} (naive LA time)")
+            return naive_la_time.isoformat()
         return None
 
     def get_end_time_local(self, obj):
-        """Get end time as naive Los Angeles time - NO CONVERSIONS"""
+        """Get end time in Los Angeles timezone - NO CONVERSIONS"""
         if obj.end_time:
+            import pytz
             import logging
             logger = logging.getLogger(__name__)
 
-            logger.error(f"🕐 DB END TIME: {obj.end_time} (naive LA time)")
+            logger.error(f"🕐 DB END TIME: {obj.end_time} (timezone: {getattr(obj.end_time, 'tzinfo', 'naive')})")
 
-            # Return the naive datetime as-is (it's already Los Angeles time)
-            logger.error(f"🕐 DISPLAY END TIME: {obj.end_time}")
-            return obj.end_time.isoformat()
+            la_tz = pytz.timezone('America/Los_Angeles')
+
+            # Convert to LA time if timezone-aware, or localize if naive
+            if obj.end_time.tzinfo:
+                la_time = obj.end_time.astimezone(la_tz)
+            else:
+                la_time = la_tz.localize(obj.end_time)
+
+            # Return WITHOUT timezone info to prevent frontend conversion
+            naive_la_time = la_time.replace(tzinfo=None)
+            logger.error(f"🕐 SENDING TO FRONTEND: {naive_la_time} (naive LA time)")
+            return naive_la_time.isoformat()
         return None
 
     class Meta:
@@ -154,11 +174,28 @@ class ShiftCreateSerializer(serializers.ModelSerializer):
         return super().to_internal_value(data)
 
     def create(self, validated_data):
-        """Create shift with naive Los Angeles time and overnight shift handling"""
+        """Create shift with Los Angeles timezone and overnight shift handling"""
         start_time = validated_data.get('start_time')
         end_time = validated_data.get('end_time')
 
+        # FORCE LOS ANGELES TIME
+        import pytz
+        la_tz = pytz.timezone('America/Los_Angeles')
+
+        # Ensure times are in Los Angeles timezone
+        if start_time and not start_time.tzinfo:
+            validated_data['start_time'] = la_tz.localize(start_time)
+        elif start_time and start_time.tzinfo:
+            validated_data['start_time'] = start_time.astimezone(la_tz)
+
+        if end_time and not end_time.tzinfo:
+            validated_data['end_time'] = la_tz.localize(end_time)
+        elif end_time and end_time.tzinfo:
+            validated_data['end_time'] = end_time.astimezone(la_tz)
+
         # Fix overnight shifts by adjusting end_time to next day
+        start_time = validated_data.get('start_time')
+        end_time = validated_data.get('end_time')
         if start_time and end_time and end_time <= start_time:
             # This is an overnight shift - move end_time to next day
             validated_data['end_time'] = end_time + timedelta(days=1)

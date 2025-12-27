@@ -654,20 +654,13 @@ class EmailConfigurationViewSet(viewsets.ModelViewSet):
             return Response({'error': 'Recipient email is required'}, status=status.HTTP_400_BAD_REQUEST)
             
         try:
-            # SIMPLE SOLUTION: Just return success and let you send emails manually
-            # Since we know the management command works perfectly when you run it
+            # Use the unified email queue system
+            from apps.notifications.email_queue import EmailQueue
 
-            import os
-            import time
+            # Queue the test email
+            email_id = EmailQueue.queue_test_email(recipient)
 
-            # Create a simple request file that you can process manually
-            request_file = f'/tmp/email_request_{int(time.time())}.txt'
-            with open(request_file, 'w') as f:
-                f.write(f"SEND_TEST_EMAIL:{recipient}:{int(time.time())}\n")
-
-            # The API returns success immediately
-            # You can process emails by running:
-            # cd /var/www/attendance/backend && source venv/bin/activate && python manage.py send_test_email {recipient}
+            # Return success immediately - email will be sent by cron job
             
             return Response({'message': 'Test email sent successfully'})
         except Exception as e:

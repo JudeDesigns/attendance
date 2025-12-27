@@ -505,11 +505,28 @@ class TimeLogViewSet(viewsets.ModelViewSet):
             'current_time': timezone.now().isoformat(),
         }
 
+        # Helper function to convert shift times to naive Los Angeles time
+        def get_la_time_naive(dt):
+            """Convert datetime to naive Los Angeles time for frontend display"""
+            if dt:
+                import pytz
+                la_tz = pytz.timezone('America/Los_Angeles')
+
+                # Convert to LA time if timezone-aware, or localize if naive
+                if dt.tzinfo:
+                    la_time = dt.astimezone(la_tz)
+                else:
+                    la_time = la_tz.localize(dt)
+
+                # Return WITHOUT timezone info to prevent frontend conversion
+                return la_time.replace(tzinfo=None).isoformat()
+            return None
+
         if current_shift:
             data['current_shift'] = {
                 'id': str(current_shift.id),
-                'start_time': current_shift.start_time.isoformat(),
-                'end_time': current_shift.end_time.isoformat(),
+                'start_time': get_la_time_naive(current_shift.start_time),
+                'end_time': get_la_time_naive(current_shift.end_time),
                 'location': current_shift.location,
                 'is_current': current_shift.is_current,
             }
@@ -517,8 +534,8 @@ class TimeLogViewSet(viewsets.ModelViewSet):
         if upcoming_shift:
             data['upcoming_shift'] = {
                 'id': str(upcoming_shift.id),
-                'start_time': upcoming_shift.start_time.isoformat(),
-                'end_time': upcoming_shift.end_time.isoformat(),
+                'start_time': get_la_time_naive(upcoming_shift.start_time),
+                'end_time': get_la_time_naive(upcoming_shift.end_time),
                 'location': upcoming_shift.location,
                 'minutes_until_start': int((upcoming_shift.start_time - timezone.now()).total_seconds() / 60),
             }

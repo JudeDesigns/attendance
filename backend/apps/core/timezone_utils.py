@@ -134,15 +134,11 @@ def parse_user_datetime(date_str: str, time_str: str, user) -> datetime:
     Returns:
         timezone-aware datetime object in Los Angeles timezone
     """
-    import logging
-    logger = logging.getLogger(__name__)
-
     # FORCE LOS ANGELES TIME - ignore user timezone
     la_tz = pytz.timezone('America/Los_Angeles')
 
     # Combine date and time
     datetime_str = f"{date_str} {time_str}"
-    logger.error(f"🕐 PARSING: {datetime_str} -> will be LA time")
 
     # Parse the datetime
     try:
@@ -154,9 +150,7 @@ def parse_user_datetime(date_str: str, time_str: str, user) -> datetime:
         raise ValueError(f"Invalid date/time format: {e}")
 
     # Localize to Los Angeles timezone
-    result = la_tz.localize(dt)
-    logger.error(f"🕐 RESULT: {result} (LA timezone)")
-    return result
+    return la_tz.localize(dt)
 
 
 def is_valid_timezone(tz_string: str) -> bool:

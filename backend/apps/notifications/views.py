@@ -628,10 +628,29 @@ class EmailConfigurationViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'])
     def test(self, request, pk=None):
         """Test email configuration"""
-        config = self.get_object()
-        recipient = request.data.get('recipient')
-        
+        import logging
+        logger = logging.getLogger(__name__)
+
+        logger.error(f"=== EMAIL TEST START === PK: {pk}")
+        logger.error(f"Request method: {request.method}")
+        logger.error(f"Request data: {getattr(request, 'data', 'NO DATA ATTR')}")
+
+        try:
+            config = self.get_object()
+            logger.error(f"Config retrieved: {config.id}")
+        except Exception as e:
+            logger.error(f"Failed to get config: {e}")
+            return Response({'error': f'Config error: {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            recipient = request.data.get('recipient')
+            logger.error(f"Recipient: {recipient}")
+        except Exception as e:
+            logger.error(f"Failed to get recipient: {e}")
+            return Response({'error': f'Request data error: {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
+
         if not recipient:
+            logger.error("No recipient provided")
             return Response({'error': 'Recipient email is required'}, status=status.HTTP_400_BAD_REQUEST)
             
         try:

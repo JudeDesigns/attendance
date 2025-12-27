@@ -49,38 +49,39 @@ def get_user_timezone(user) -> pytz.timezone:
 
 def convert_to_user_timezone(dt: datetime, user) -> datetime:
     """
-    Convert a datetime to the user's timezone.
+    Convert a datetime to Los Angeles timezone - NO USER-SPECIFIC TIMEZONES.
     """
     if not dt:
         return dt
-    
-    user_tz = get_user_timezone(user)
-    
-    # If datetime is naive, assume it's in UTC
+
+    # FORCE LOS ANGELES TIME
+    la_tz = pytz.timezone('America/Los_Angeles')
+
+    # If datetime is naive, assume it's already in LA time
     if timezone.is_naive(dt):
-        dt = timezone.make_aware(dt, pytz.UTC)
-    
-    return dt.astimezone(user_tz)
+        return la_tz.localize(dt)
+
+    # If it's timezone-aware, convert to LA time
+    return dt.astimezone(la_tz)
 
 
 def convert_from_user_timezone(dt: datetime, user, target_tz: Optional[Union[str, pytz.timezone]] = None) -> datetime:
     """
-    Convert a datetime from user's timezone to target timezone (default: UTC).
+    Convert a datetime from Los Angeles timezone to target timezone.
+    BUT WE DON'T WANT CONVERSIONS - everything stays in LA time.
     """
     if not dt:
         return dt
-    
-    user_tz = get_user_timezone(user)
-    target_tz = target_tz or pytz.UTC
-    
-    if isinstance(target_tz, str):
-        target_tz = pytz.timezone(target_tz)
-    
-    # If datetime is naive, assume it's in user's timezone
+
+    # FORCE LOS ANGELES TIME - no conversions
+    la_tz = pytz.timezone('America/Los_Angeles')
+
+    # If datetime is naive, assume it's in LA time and keep it there
     if timezone.is_naive(dt):
-        dt = user_tz.localize(dt)
-    
-    return dt.astimezone(target_tz)
+        return la_tz.localize(dt)
+
+    # If it's timezone-aware, convert to LA time and keep it there
+    return dt.astimezone(la_tz)
 
 
 def get_current_time_in_user_timezone(user) -> datetime:
@@ -122,22 +123,27 @@ def format_datetime_for_user(dt: datetime, user, format_string: str = '%Y-%m-%d 
 
 def parse_user_datetime(date_str: str, time_str: str, user) -> datetime:
     """
-    Parse date and time strings from user input and convert to UTC.
-    Assumes the input is in the user's timezone.
-    
+    Parse date and time strings from user input in Los Angeles timezone.
+    NO UTC CONVERSION - everything stays in Los Angeles time.
+
     Args:
         date_str: Date string in format 'YYYY-MM-DD'
         time_str: Time string in format 'HH:MM' or 'HH:MM:SS'
-        user: User object
-    
+        user: User object (ignored - always use LA time)
+
     Returns:
-        datetime object in UTC
+        datetime object in Los Angeles timezone
     """
-    user_tz = get_user_timezone(user)
-    
+    import logging
+    logger = logging.getLogger(__name__)
+
+    # FORCE LOS ANGELES TIME - ignore user timezone
+    la_tz = pytz.timezone('America/Los_Angeles')
+
     # Combine date and time
     datetime_str = f"{date_str} {time_str}"
-    
+    logger.error(f"🕐 PARSING: {datetime_str} -> will be LA time")
+
     # Parse the datetime
     try:
         if len(time_str.split(':')) == 2:  # HH:MM format
@@ -146,12 +152,11 @@ def parse_user_datetime(date_str: str, time_str: str, user) -> datetime:
             dt = datetime.strptime(datetime_str, '%Y-%m-%d %H:%M:%S')
     except ValueError as e:
         raise ValueError(f"Invalid date/time format: {e}")
-    
-    # Localize to user's timezone
-    dt = user_tz.localize(dt)
-    
-    # Convert to UTC
-    return dt.astimezone(pytz.UTC)
+
+    # Localize to Los Angeles timezone and KEEP IT THERE
+    result = la_tz.localize(dt)
+    logger.error(f"🕐 RESULT: {result} (timezone: {result.tzinfo})")
+    return result
 
 
 def is_valid_timezone(tz_string: str) -> bool:

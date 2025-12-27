@@ -39,8 +39,12 @@ class ShiftSerializer(serializers.ModelSerializer):
     def get_start_time_local(self, obj):
         """Get start time in Los Angeles timezone - NO CONVERSIONS"""
         if obj.start_time:
-            # Everything is already in Los Angeles time - just return it
             import pytz
+            import logging
+            logger = logging.getLogger(__name__)
+
+            logger.error(f"🕐 DB START TIME: {obj.start_time} (timezone: {obj.start_time.tzinfo})")
+
             la_tz = pytz.timezone('America/Los_Angeles')
 
             # Ensure it's in LA time (in case it got stored differently)
@@ -48,14 +52,20 @@ class ShiftSerializer(serializers.ModelSerializer):
                 la_time = obj.start_time.astimezone(la_tz)
             else:
                 la_time = la_tz.localize(obj.start_time)
+
+            logger.error(f"🕐 DISPLAY START TIME: {la_time}")
             return la_time.isoformat()
         return None
 
     def get_end_time_local(self, obj):
         """Get end time in Los Angeles timezone - NO CONVERSIONS"""
         if obj.end_time:
-            # Everything is already in Los Angeles time - just return it
             import pytz
+            import logging
+            logger = logging.getLogger(__name__)
+
+            logger.error(f"🕐 DB END TIME: {obj.end_time} (timezone: {obj.end_time.tzinfo})")
+
             la_tz = pytz.timezone('America/Los_Angeles')
 
             # Ensure it's in LA time (in case it got stored differently)
@@ -63,6 +73,8 @@ class ShiftSerializer(serializers.ModelSerializer):
                 la_time = obj.end_time.astimezone(la_tz)
             else:
                 la_time = la_tz.localize(obj.end_time)
+
+            logger.error(f"🕐 DISPLAY END TIME: {la_time}")
             return la_time.isoformat()
         return None
 

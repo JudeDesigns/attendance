@@ -635,16 +635,31 @@ class EmailConfigurationViewSet(viewsets.ModelViewSet):
             return Response({'error': 'Recipient email is required'}, status=status.HTTP_400_BAD_REQUEST)
             
         try:
-            from django.core.mail import send_mail
+            import ssl
+            import smtplib
+            from email.mime.text import MIMEText
+            from email.mime.multipart import MIMEMultipart
 
-            # Use Django's default email settings (which work) instead of EmailConfiguration
-            send_mail(
-                subject='Attendance Email Test',
-                message='This is a test email from Attendance to verify your configuration.',
-                from_email=None,  # Uses DEFAULT_FROM_EMAIL from settings
-                recipient_list=[recipient],
-                fail_silently=False,
-            )
+            # Use direct SMTP with custom SSL context (which works)
+            context = ssl.create_default_context()
+            context.check_hostname = False
+            context.verify_mode = ssl.CERT_NONE
+
+            # Create email message
+            msg = MIMEMultipart()
+            msg['From'] = config.default_from_email
+            msg['To'] = recipient
+            msg['Subject'] = 'Attendance Email Test'
+
+            body = 'This is a test email from Attendance to verify your configuration.'
+            msg.attach(MIMEText(body, 'plain'))
+
+            # Send via direct SMTP connection
+            server = smtplib.SMTP(config.email_host, config.email_port)
+            server.starttls(context=context)
+            server.login(config.email_host_user, config.email_host_password)
+            server.send_message(msg)
+            server.quit()
             
             return Response({'message': 'Test email sent successfully'})
         except Exception as e:

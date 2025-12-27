@@ -227,16 +227,30 @@ def send_email_notification(employee_id, subject, message, event_type=None):
             status='PENDING'
         )
         
-        # Use Django's default email settings (which work) instead of EmailConfiguration
-        from django.core.mail import send_mail
+        # Use direct SMTP with custom SSL context (which works)
+        import ssl
+        import smtplib
+        from email.mime.text import MIMEText
+        from email.mime.multipart import MIMEMultipart
 
-        send_mail(
-            subject=subject,
-            message=message,
-            from_email=None,  # Uses DEFAULT_FROM_EMAIL from settings
-            recipient_list=[employee.email],
-            fail_silently=False,
-        )
+        context = ssl.create_default_context()
+        context.check_hostname = False
+        context.verify_mode = ssl.CERT_NONE
+
+        # Create email message
+        msg = MIMEMultipart()
+        msg['From'] = config.default_from_email
+        msg['To'] = employee.email
+        msg['Subject'] = subject
+
+        msg.attach(MIMEText(message, 'plain'))
+
+        # Send via direct SMTP connection
+        server = smtplib.SMTP(config.email_host, config.email_port)
+        server.starttls(context=context)
+        server.login(config.email_host_user, config.email_host_password)
+        server.send_message(msg)
+        server.quit()
         
         # Update notification log
         notification_log.status = 'SENT'

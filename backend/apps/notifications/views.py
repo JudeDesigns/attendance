@@ -654,29 +654,39 @@ class EmailConfigurationViewSet(viewsets.ModelViewSet):
             return Response({'error': 'Recipient email is required'}, status=status.HTTP_400_BAD_REQUEST)
             
         try:
-            # FINAL SOLUTION: Use the direct script that we know works
+            # PERFECT SOLUTION: Use shell command that we KNOW works
             import subprocess
-            import logging
+            import tempfile
+            import os
 
-            logger = logging.getLogger(__name__)
+            # Create a temporary shell script that runs the email command
+            script_content = f'''#!/bin/bash
+cd /var/www/attendance/backend
+source venv/bin/activate
+python manage.py send_test_email "{recipient}"
+'''
 
-            # Change to the backend directory and run the script
-            result = subprocess.run([
-                'python', '/var/www/attendance/backend/test_email_direct.py'
-            ], capture_output=True, text=True, cwd='/var/www/attendance/backend')
+            # Write to temporary file
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.sh', delete=False) as f:
+                f.write(script_content)
+                script_path = f.name
 
-            logger.error(f"Direct script stdout: {result.stdout}")
-            logger.error(f"Direct script stderr: {result.stderr}")
-            logger.error(f"Direct script return code: {result.returncode}")
+            # Make it executable
+            os.chmod(script_path, 0o755)
 
-            if result.returncode != 0:
-                raise Exception(f"Script failed with return code {result.returncode}: {result.stderr}")
+            # Run the shell script as if you're running it manually
+            result = subprocess.run(['/bin/bash', script_path],
+                                  capture_output=True, text=True, timeout=30)
 
-            if "ERROR:" in result.stdout:
-                raise Exception(f"Script reported error: {result.stdout}")
+            # Clean up
+            os.unlink(script_path)
 
-            if "Email sent successfully!" not in result.stdout:
-                raise Exception(f"Script did not confirm success: {result.stdout}")
+            # Check if it worked
+            if "Email sent successfully!" in result.stdout:
+                # SUCCESS!
+                pass
+            else:
+                raise Exception(f"Shell command failed: {result.stdout} {result.stderr}")
             
             return Response({'message': 'Test email sent successfully'})
         except Exception as e:

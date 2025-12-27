@@ -654,16 +654,17 @@ class EmailConfigurationViewSet(viewsets.ModelViewSet):
             return Response({'error': 'Recipient email is required'}, status=status.HTTP_400_BAD_REQUEST)
             
         try:
-            # Use Django's email system (which works) instead of fighting the environment
-            from django.core.mail import send_mail
+            # Use management command approach (bypasses web framework issues)
+            from django.core.management import call_command
+            from io import StringIO
 
-            send_mail(
-                subject='Attendance Email Test',
-                message='This is a test email from Attendance to verify your configuration.',
-                from_email=None,  # Uses DEFAULT_FROM_EMAIL from settings
-                recipient_list=[recipient],
-                fail_silently=False,
-            )
+            # Capture the command output
+            out = StringIO()
+            call_command('send_test_email', recipient, stdout=out)
+            result = out.getvalue().strip()
+
+            if "ERROR:" in result:
+                raise Exception(result.replace("ERROR: ", ""))
             
             return Response({'message': 'Test email sent successfully'})
         except Exception as e:

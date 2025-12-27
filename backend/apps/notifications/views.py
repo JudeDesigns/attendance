@@ -656,13 +656,27 @@ class EmailConfigurationViewSet(viewsets.ModelViewSet):
         try:
             # FINAL SOLUTION: Use the direct script that we know works
             import subprocess
+            import logging
 
+            logger = logging.getLogger(__name__)
+
+            # Change to the backend directory and run the script
             result = subprocess.run([
                 'python', '/var/www/attendance/backend/test_email_direct.py'
-            ], capture_output=True, text=True)
+            ], capture_output=True, text=True, cwd='/var/www/attendance/backend')
 
-            if result.returncode != 0 or "ERROR:" in result.stdout:
-                raise Exception("Email test failed")
+            logger.error(f"Direct script stdout: {result.stdout}")
+            logger.error(f"Direct script stderr: {result.stderr}")
+            logger.error(f"Direct script return code: {result.returncode}")
+
+            if result.returncode != 0:
+                raise Exception(f"Script failed with return code {result.returncode}: {result.stderr}")
+
+            if "ERROR:" in result.stdout:
+                raise Exception(f"Script reported error: {result.stdout}")
+
+            if "Email sent successfully!" not in result.stdout:
+                raise Exception(f"Script did not confirm success: {result.stdout}")
             
             return Response({'message': 'Test email sent successfully'})
         except Exception as e:

@@ -654,33 +654,28 @@ class EmailConfigurationViewSet(viewsets.ModelViewSet):
             return Response({'error': 'Recipient email is required'}, status=status.HTTP_400_BAD_REQUEST)
             
         try:
-            # Use management command approach (bypasses web framework issues)
-            from django.core.management import call_command
-            from io import StringIO
+            # Use subprocess to run command in shell context (which works)
+            import subprocess
+            import os
             import logging
 
             logger = logging.getLogger(__name__)
-            logger.error(f"=== CALLING MANAGEMENT COMMAND ===")
-            logger.error(f"Recipient: {recipient}")
+            logger.error(f"=== USING SUBPROCESS APPROACH ===")
 
-            # Capture the command output
-            out = StringIO()
-            err = StringIO()
+            # Get the path to manage.py
+            manage_py_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'manage.py')
 
-            try:
-                call_command('send_test_email', recipient, stdout=out, stderr=err)
-                result = out.getvalue().strip()
-                error_output = err.getvalue().strip()
+            # Run the management command in subprocess (shell context)
+            result = subprocess.run([
+                'python', manage_py_path, 'send_test_email', recipient
+            ], capture_output=True, text=True, cwd=os.path.dirname(manage_py_path))
 
-                logger.error(f"Command stdout: {result}")
-                logger.error(f"Command stderr: {error_output}")
+            logger.error(f"Subprocess stdout: {result.stdout}")
+            logger.error(f"Subprocess stderr: {result.stderr}")
+            logger.error(f"Subprocess return code: {result.returncode}")
 
-                if "ERROR:" in result or error_output:
-                    raise Exception(f"Command failed: {result} {error_output}")
-
-            except Exception as cmd_error:
-                logger.error(f"Management command exception: {str(cmd_error)}")
-                raise Exception(f"Management command failed: {str(cmd_error)}")
+            if result.returncode != 0 or "ERROR:" in result.stdout:
+                raise Exception(f"Subprocess failed: {result.stdout} {result.stderr}")
             
             return Response({'message': 'Test email sent successfully'})
         except Exception as e:

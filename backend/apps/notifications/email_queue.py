@@ -108,6 +108,17 @@ class EmailQueue:
         )
     
     @classmethod
+    def queue_notification_email(cls, employee_email, employee_name, subject, message, event_type='notification'):
+        """Queue a general notification email"""
+        return cls.queue_email(
+            email_type=event_type,
+            recipient=employee_email,
+            subject=subject,
+            message=message,
+            template_data={'employee_name': employee_name}
+        )
+
+    @classmethod
     def get_queue_count(cls):
         """Get number of emails in queue"""
         cls.ensure_queue_dir()

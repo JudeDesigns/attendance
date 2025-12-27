@@ -227,15 +227,15 @@ def send_email_notification(employee_id, subject, message, event_type=None):
             status='PENDING'
         )
         
-        # Use Django's email system (which works) instead of fighting the environment
-        from django.core.mail import send_mail
+        # Use the email queue system that works in production
+        from apps.notifications.email_queue import EmailQueue
 
-        send_mail(
+        EmailQueue.queue_email(
+            email_type=event_type or 'notification',
+            recipient=employee.email,
             subject=subject,
             message=message,
-            from_email=None,  # Uses DEFAULT_FROM_EMAIL from settings
-            recipient_list=[employee.email],
-            fail_silently=False,
+            template_data={'employee_name': employee.name}
         )
         
         # Update notification log

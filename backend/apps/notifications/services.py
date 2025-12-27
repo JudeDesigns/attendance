@@ -129,12 +129,15 @@ class NotificationService:
             from_email = settings.DEFAULT_FROM_EMAIL
             recipient_list = [notification_log.recipient.user.email]
 
-            send_mail(
+            # Use the email queue system that works in production
+            from apps.notifications.email_queue import EmailQueue
+
+            EmailQueue.queue_email(
+                email_type=notification_log.event_type,
+                recipient=notification_log.recipient.user.email,
                 subject=subject,
                 message=message,
-                from_email=from_email,
-                recipient_list=recipient_list,
-                fail_silently=False,
+                template_data={'employee_name': notification_log.recipient.name}
             )
 
             notification_log.status = 'SENT'

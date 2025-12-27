@@ -161,10 +161,14 @@ class RequestLoggingMiddleware(MiddlewareMixin):
     def check_suspicious_request(self, request):
         """Check for suspicious request patterns"""
         suspicious_patterns = [
-            'admin', 'wp-admin', 'phpmyadmin', '.env', 'config',
+            'admin', 'wp-admin', 'phpmyadmin', '.env',
             'backup', 'sql', 'database', 'passwd', 'shadow'
         ]
-        
+
+        # Skip legitimate API endpoints
+        if request.path.startswith('/api/v1/'):
+            return
+
         # Check URL for suspicious patterns
         path_lower = request.path.lower()
         for pattern in suspicious_patterns:

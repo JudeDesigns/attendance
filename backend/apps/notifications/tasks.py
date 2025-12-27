@@ -227,47 +227,16 @@ def send_email_notification(employee_id, subject, message, event_type=None):
             status='PENDING'
         )
         
-        # Create connection with SSL context fix
-        import ssl
-        import smtplib
+        # Use Django's default email settings (which work) instead of EmailConfiguration
+        from django.core.mail import send_mail
 
-        connection = get_connection(
-            backend=config.email_backend,
-            host=config.email_host,
-            port=config.email_port,
-            username=config.email_host_user,
-            password=config.email_host_password,
-            use_tls=config.email_use_tls,
-            ssl_certfile=None,
-            ssl_keyfile=None,
-            timeout=60
+        send_mail(
+            subject=subject,
+            message=message,
+            from_email=None,  # Uses DEFAULT_FROM_EMAIL from settings
+            recipient_list=[employee.email],
+            fail_silently=False,
         )
-
-        # Patch SMTP to handle SSL context properly
-        original_starttls = smtplib.SMTP.starttls
-
-        def patched_starttls(self, keyfile=None, certfile=None, context=None):
-            if context is None:
-                context = ssl.create_default_context()
-                context.check_hostname = False
-                context.verify_mode = ssl.CERT_NONE
-            return original_starttls(self, keyfile, certfile, context)
-
-        smtplib.SMTP.starttls = patched_starttls
-
-        try:
-            # Send email
-            email = EmailMessage(
-                subject=subject,
-                body=message,
-                from_email=config.default_from_email,
-                to=[employee.email],
-                connection=connection
-            )
-            email.send()
-        finally:
-            # Restore original method
-            smtplib.SMTP.starttls = original_starttls
         
         # Update notification log
         notification_log.status = 'SENT'

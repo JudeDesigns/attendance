@@ -1,0 +1,146 @@
+{
+  "summary": {
+    "total": 19,
+    "passed": 17,
+    "failed": 1,
+    "errors": 0,
+    "skipped": 1,
+    "total_time": 1.309643030166626,
+    "timestamp": "2025-12-03T02:17:30.903474"
+  },
+  "results": [
+    {
+      "test_name": "Login with invalid credentials",
+      "status": "PASS",
+      "details": "Correctly rejected invalid credentials",
+      "response_time": 0.4169638156890869,
+      "timestamp": "2025-12-03T02:17:30.010328"
+    },
+    {
+      "test_name": "Login as admin",
+      "status": "PASS",
+      "details": "Successfully authenticated user",
+      "response_time": 0.42017269134521484,
+      "timestamp": "2025-12-03T02:17:30.430679"
+    },
+    {
+      "test_name": "Token verification",
+      "status": "PASS",
+      "details": "Token is valid",
+      "response_time": 0.003480195999145508,
+      "timestamp": "2025-12-03T02:17:30.434278"
+    },
+    {
+      "test_name": "Employee list",
+      "status": "PASS",
+      "details": "Retrieved 4 employees",
+      "response_time": 0.017791032791137695,
+      "timestamp": "2025-12-03T02:17:30.452195"
+    },
+    {
+      "test_name": "Employee profile",
+      "status": "PASS",
+      "details": "Retrieved profile for EMP001",
+      "response_time": 0.012189149856567383,
+      "timestamp": "2025-12-03T02:17:30.464487"
+    },
+    {
+      "test_name": "Employee statistics",
+      "status": "PASS",
+      "details": "Total: 4, Active: 4",
+      "response_time": 0.011229991912841797,
+      "timestamp": "2025-12-03T02:17:30.475865"
+    },
+    {
+      "test_name": "Time logs list",
+      "status": "PASS",
+      "details": "Retrieved 20 time logs",
+      "response_time": 0.10051894187927246,
+      "timestamp": "2025-12-03T02:17:30.576666"
+    },
+    {
+      "test_name": "Current attendance status",
+      "status": "PASS",
+      "details": "User is currently clocked out",
+      "response_time": 0.011901140213012695,
+      "timestamp": "2025-12-03T02:17:30.588672"
+    },
+    {
+      "test_name": "Shifts list",
+      "status": "PASS",
+      "details": "Retrieved 12 shifts",
+      "response_time": 0.06545281410217285,
+      "timestamp": "2025-12-03T02:17:30.654301"
+    },
+    {
+      "test_name": "Leave requests list",
+      "status": "PASS",
+      "details": "Retrieved 6 leave requests",
+      "response_time": 0.035299062728881836,
+      "timestamp": "2025-12-03T02:17:30.689749"
+    },
+    {
+      "test_name": "Notifications list",
+      "status": "PASS",
+      "details": "Retrieved 8 notifications",
+      "response_time": 0.06418204307556152,
+      "timestamp": "2025-12-03T02:17:30.754034"
+    },
+    {
+      "test_name": "Notifications list",
+      "status": "PASS",
+      "details": "Retrieved 8 notifications",
+      "response_time": 0.007658958435058594,
+      "timestamp": "2025-12-03T02:17:30.761792"
+    },
+    {
+      "test_name": "Locations list",
+      "status": "PASS",
+      "details": "Retrieved 3 locations",
+      "response_time": 0.010465860366821289,
+      "timestamp": "2025-12-03T02:17:30.772368"
+    },
+    {
+      "test_name": "QR Clock In",
+      "status": "PASS",
+      "details": "Successfully clocked in with QR",
+      "response_time": 0.032823801040649414,
+      "timestamp": "2025-12-03T02:17:30.817332"
+    },
+    {
+      "test_name": "QR Clock Out",
+      "status": "PASS",
+      "details": "Successfully clocked out with QR",
+      "response_time": 0.04453468322753906,
+      "timestamp": "2025-12-03T02:17:30.861936"
+    },
+    {
+      "test_name": "Invalid QR Rejection",
+      "status": "PASS",
+      "details": "Correctly rejected invalid QR",
+      "response_time": 0.010019063949584961,
+      "timestamp": "2025-12-03T02:17:30.872026"
+    },
+    {
+      "test_name": "Check Break Requirements",
+      "status": "PASS",
+      "details": "Requires break: False",
+      "response_time": 0.011047840118408203,
+      "timestamp": "2025-12-03T02:17:30.883199"
+    },
+    {
+      "test_name": "Break System",
+      "status": "SKIP",
+      "details": "User not clocked in, cannot test breaks",
+      "response_time": 0,
+      "timestamp": "2025-12-03T02:17:30.894775"
+    },
+    {
+      "test_name": "Generate Detailed Report",
+      "status": "FAIL",
+      "details": "Status: 405 - {\"detail\":\"Method \\\"GET\\\" not allowed.\"}",
+      "response_time": 0.00797891616821289,
+      "timestamp": "2025-12-03T02:17:30.902927"
+    }
+  ]
+}

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import NotificationBell from './NotificationBell';
+import ErrorBoundary from './ErrorBoundary';
 import {
   HomeIcon,
   ClockIcon,
@@ -16,8 +17,6 @@ import {
   DocumentChartBarIcon as DocumentReportIcon,
   MapPinIcon,
   BellIcon,
-
-
 } from '@heroicons/react/24/outline';
 
 const Layout = ({ children }) => {
@@ -73,8 +72,6 @@ const Layout = ({ children }) => {
     );
   }
 
-
-
   return (
     <div className="h-screen flex overflow-hidden glass-gradient-dark">
       {/* Mobile sidebar - Higher z-index to appear above header */}
@@ -98,11 +95,10 @@ const Layout = ({ children }) => {
                 <Link
                   key={item.name}
                   to={item.href}
-                  className={`${
-                    item.current
+                  className={`${item.current
                       ? 'glass-nav-item active'
                       : 'glass-nav-item'
-                  } group flex items-center px-2 py-2 text-base font-medium`}
+                    } group flex items-center px-2 py-2 text-base font-medium`}
                   onClick={() => setSidebarOpen(false)}
                 >
                   <item.icon className="mr-4 h-6 w-6" />
@@ -144,11 +140,10 @@ const Layout = ({ children }) => {
                   <Link
                     key={item.name}
                     to={item.href}
-                    className={`${
-                      item.current
+                    className={`${item.current
                         ? 'glass-nav-item active'
                         : 'glass-nav-item'
-                    } group flex items-center px-2 py-2 text-sm font-medium`}
+                      } group flex items-center px-2 py-2 text-sm font-medium`}
                   >
                     <item.icon className="mr-3 h-5 w-5" />
                     {item.name}
@@ -177,11 +172,10 @@ const Layout = ({ children }) => {
       {/* Main content */}
       <div className="flex flex-col w-0 flex-1 overflow-hidden">
         {/* Header */}
-        <div className={`transition-all duration-300 relative z-40 ${
-          isScrolled
+        <div className={`transition-all duration-300 relative z-40 ${isScrolled
             ? 'glass-header-transparent backdrop-blur-md'
             : 'glass-nav'
-        }`}>
+          }`}>
           <div className="flex items-center justify-between px-4 py-3 md:py-3">
             {/* Mobile menu button - Enhanced visibility */}
             <div className="md:hidden">
@@ -232,7 +226,9 @@ const Layout = ({ children }) => {
         <main className="flex-1 relative z-10 overflow-y-auto focus:outline-none glass-main-bg">
           <div className="py-6 pb-16">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8">
-              {children}
+              <ErrorBoundary>
+                {children}
+              </ErrorBoundary>
             </div>
           </div>
         </main>

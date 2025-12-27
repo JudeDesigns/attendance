@@ -8,7 +8,7 @@ from .views import TimeLogViewSet, BreakViewSet
 app_name = 'attendance'
 
 router = DefaultRouter()
-router.register(r'logs', TimeLogViewSet, basename='timelog')
+router.register(r'time-logs', TimeLogViewSet, basename='timelog')
 router.register(r'breaks', BreakViewSet, basename='break')
 
 urlpatterns = [

@@ -1,10 +1,3 @@
-# Environment variables
-.env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
-
 # Python
 __pycache__/
 *.py[cod]
@@ -35,14 +28,37 @@ db.sqlite3
 db.sqlite3-journal
 media/
 staticfiles/
-static/
 
-# Virtual Environment
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.production
+
+# Virtual environments
 venv/
 env/
 ENV/
 env.bak/
 venv.bak/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
 
 # Node.js
 node_modules/
@@ -51,23 +67,9 @@ yarn-debug.log*
 yarn-error.log*
 lerna-debug.log*
 
-# React
-/frontend/build
-/frontend/.pnp
-/frontend/.pnp.js
-
-# Testing
-/frontend/coverage
-
-# Production
-/frontend/build
-
-# Misc
-.DS_Store
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
+# React build
+frontend/build/
+frontend/dist/
 
 # Logs
 logs
@@ -75,7 +77,6 @@ logs
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-lerna-debug.log*
 
 # Runtime data
 pids
@@ -91,7 +92,6 @@ coverage/
 .nyc_output
 
 # Dependency directories
-node_modules/
 jspm_packages/
 
 # Optional npm cache directory
@@ -99,12 +99,6 @@ jspm_packages/
 
 # Optional eslint cache
 .eslintcache
-
-# Microbundle cache
-.rpt2_cache/
-.rts2_cache_cjs/
-.rts2_cache_es/
-.rts2_cache_umd/
 
 # Optional REPL history
 .node_repl_history
@@ -115,86 +109,57 @@ jspm_packages/
 # Yarn Integrity file
 .yarn-integrity
 
+# dotenv environment variables file
+.env.test
+
 # parcel-bundler cache (https://parceljs.org/)
 .cache
 .parcel-cache
 
-# Next.js build output
+# next.js build output
 .next
 
-# Nuxt.js build / generate output
+# nuxt.js build output
 .nuxt
-dist
 
-# Gatsby files
-.cache/
+# vuepress build output
+.vuepress/dist
 
+# Serverless directories
+.serverless/
 
-# Storybook build outputs
-.out
-.storybook-out
+# FuseBox cache
+.fusebox/
 
-# Temporary folders
-tmp/
-temp/
+# DynamoDB Local files
+.dynamodb/
 
-# Editor directories and files
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
+# TernJS port file
+.tern-port
 
-# OS generated files
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
+# Testing
+testing_scripts/test_results/
+testing_scripts/*.json
+testing_scripts/*.csv
 
-# Docker
-.dockerignore
-
-# Celery
-celerybeat-schedule
-celerybeat.pid
-
-# Redis dump file
-dump.rdb
-
-# PostgreSQL
-*.sql
-
-# Backup files
-*.bak
-*.backup
-
-# IDE
-.vscode/
-.idea/
-*.sublime-project
-*.sublime-workspace
-
-# Local development
-local/
-dev/
+# Deployment
+deployment/logs/
+deployment/backups/
+deployment/*.pid
 
 # SSL certificates
 *.pem
 *.key
 *.crt
+*.csr
 
-# Uploads
-uploads/
-media/
+# Temporary files
+*.tmp
+*.temp
+temp/
+tmp/
 
-# Test files
-test_*.py
-*_test.py
-tests/
-
-# Documentation builds
-docs/_build/
-site/
+# Production files
+production.log
+error.log
+access.log

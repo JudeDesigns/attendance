@@ -255,7 +255,7 @@ class EmployeeDetailSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'user', 'employee_id', 'role',
             'employment_status', 'hire_date', 'requires_location_qr', 'qr_enforcement_type',
-            'created_at', 'updated_at'
+            'timezone', 'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
 

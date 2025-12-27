@@ -1,0 +1,3126 @@
+{
+  "backend": {
+    "models": {
+      "apps": {
+        "attendance": {
+          "file": "/Users/mac/code_projects/WorkSync/backend/apps/attendance/models.py",
+          "models": [
+            {
+              "name": "TimeLog",
+              "line": 8,
+              "fields": [
+                {
+                  "name": "STATUS_CHOICES",
+                  "type": "unknown",
+                  "line": 10
+                },
+                {
+                  "name": "METHOD_CHOICES",
+                  "type": "unknown",
+                  "line": 15
+                },
+                {
+                  "name": "id",
+                  "type": "UUIDField",
+                  "line": 21
+                },
+                {
+                  "name": "employee",
+                  "type": "ForeignKey",
+                  "line": 22
+                },
+                {
+                  "name": "clock_in_time",
+                  "type": "DateTimeField",
+                  "line": 23
+                },
+                {
+                  "name": "clock_out_time",
+                  "type": "DateTimeField",
+                  "line": 24
+                },
+                {
+                  "name": "clock_in_location",
+                  "type": "ForeignKey",
+                  "line": 25
+                },
+                {
+                  "name": "clock_out_location",
+                  "type": "ForeignKey",
+                  "line": 26
+                },
+                {
+                  "name": "clock_in_method",
+                  "type": "CharField",
+                  "line": 27
+                },
+                {
+                  "name": "clock_out_method",
+                  "type": "CharField",
+                  "line": 28
+                },
+                {
+                  "name": "status",
+                  "type": "CharField",
+                  "line": 29
+                },
+                {
+                  "name": "clock_in_latitude",
+                  "type": "DecimalField",
+                  "line": 32
+                },
+                {
+                  "name": "clock_in_longitude",
+                  "type": "DecimalField",
+                  "line": 33
+                },
+                {
+                  "name": "clock_out_latitude",
+                  "type": "DecimalField",
+                  "line": 34
+                },
+                {
+                  "name": "clock_out_longitude",
+                  "type": "DecimalField",
+                  "line": 35
+                },
+                {
+                  "name": "CLOCK_OUT_REASON_CHOICES",
+                  "type": "unknown",
+                  "line": 38
+                },
+                {
+                  "name": "clock_out_reason",
+                  "type": "CharField",
+                  "line": 47
+                },
+                {
+                  "name": "break_reminder_sent_at",
+                  "type": "DateTimeField",
+                  "line": 54
+                },
+                {
+                  "name": "break_reminder_count",
+                  "type": "IntegerField",
+                  "line": 59
+                },
+                {
+                  "name": "notes",
+                  "type": "TextField",
+                  "line": 64
+                },
+                {
+                  "name": "created_at",
+                  "type": "DateTimeField",
+                  "line": 65
+                },
+                {
+                  "name": "updated_at",
+                  "type": "DateTimeField",
+                  "line": 66
+                }
+              ],
+              "methods": [
+                {
+                  "name": "duration_minutes",
+                  "line": 69,
+                  "args": [
+                    "self"
+                  ]
+                },
+                {
+                  "name": "duration_hours",
+                  "line": 77,
+                  "args": [
+                    "self"
+                  ]
+                },
+                {
+                  "name": "calculate_distance",
+                  "line": 82,
+                  "args": [
+                    "self",
+                    "lat1",
+                    "lon1",
+                    "lat2",
+                    "lon2"
+                  ]
+                },
+                {
+                  "name": "is_within_geofence",
+                  "line": 103,
+                  "args": [
+                    "self",
+                    "latitude",
+                    "longitude",
+                    "location"
+                  ]
+                },
+                {
+                  "name": "validate_clock_in_location",
+                  "line": 123,
+                  "args": [
+                    "self"
+                  ]
+                },
+                {
+                  "name": "validate_clock_out_location",
+                  "line": 133,
+                  "args": [
+                    "self"
+                  ]
+                },
+                {
+                  "name": "work_date",
+                  "line": 144,
+                  "args": [
+                    "self"
+                  ]
+                },
+                {
+                  "name": "is_overtime",
+                  "line": 149,
+                  "args": [
+                    "self"
+                  ]
+                },
+                {
+                  "name": "scheduled_shift",
+                  "line": 155,
+                  "args": [
+                    "self"
+                  ]
+                },
+                {
+                  "name": "attendance_status",
+                  "line": 176,
+                  "args": [
+                    "self"
+                  ]
+                },
+                {
+                  "name": "is_shift_compliant",
+                  "line": 199,
+                  "args": [
+                    "self"
+                  ]
+                },
+                {
+                  "name": "__str__",
+                  "line": 216,
+                  "args": [
+                    "self"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Break",
+              "line": 223,
+              "fields": [
+                {
+                  "name": "BREAK_TYPE_CHOICES",
+                  "type": "unknown",
+                  "line": 225
+                },
+                {
+                  "name": "id",
+                  "type": "UUIDField",
+                  "line": 231
+                },
+                {
+                  "name": "time_log",
+                  "type": "ForeignKey",
+                  "line": 232
+                },
+                {
+                  "name": "break_type",
+                  "type": "CharField",
+                  "line": 233
+                },
+                {
+                  "name": "start_time",
+                  "type": "DateTimeField",
+                  "line": 234
+                },
+                {
+                  "name": "end_time",
+                  "type": "DateTimeField",
+                  "line": 235
+                },
+                {
+                  "name": "notes",
+                  "type": "TextField",
+                  "line": 236
+                },
+                {
+                  "name": "was_waived",
+                  "type": "BooleanField",
+                  "line": 239
+                },
+                {
+                  "name": "waiver_reason",
+                  "type": "TextField",
+                  "line": 243
+                },
+                {
+                  "name": "is_compliant",
+                  "type": "BooleanField",
+                  "line": 247
+                },
+                {
+                  "name": "reminder_acknowledged",
+                  "type": "BooleanField",
+                  "line": 251
+                },
+                {
+                  "name": "reminder_acknowledged_at",
+                  "type": "DateTimeField",
+                  "line": 255
+                },
+                {
+                  "name": "created_at",
+                  "type": "DateTimeField",
+                  "line": 261
+                },
+                {
+                  "name": "updated_at",
+                  "type": "DateTimeField",
+                  "line": 262
+                }
+              ],
+              "methods": [
+                {
+                  "name": "duration_minutes",
+                  "line": 265,
+                  "args": [
+                    "self"
+                  ]
+                },
+                {
+                  "name": "duration_hours",
+                  "line": 273,
+                  "args": [
+                    "self"
+                  ]
+                },
+                {
+                  "name": "is_active",
+                  "line": 279,
+                  "args": [
+                    "self"
+                  ]
+                },
+                {
+                  "name": "__str__",
+                  "line": 283,
+                  "args": [
+                    "self"
+                  ]
+                }
+              ]
+            }
+          ],
+          "model_count": 2
+        },
+        "scheduling": {
+          "file": "/Users/mac/code_projects/WorkSync/backend/apps/scheduling/models.py",
+          "models": [
+            {
+              "name": "Shift",
+              "line": 13,
+              "fields": [
+                {
+                  "name": "id",
+                  "type": "UUIDField",
+                  "line": 16
+                },
+                {
+                  "name": "employee",
+                  "type": "ForeignKey",
+                  "line": 17
+                },
+                {
+                  "name": "location",
+                  "type": "CharField",
+                  "line": 18
+                },
+                {
+                  "name": "start_time",
+                  "type": "DateTimeField",
+                  "line": 19
+                },
+                {
+                  "name": "end_time",
+                  "type": "DateTimeField",
+                  "line": 20
+                },
+                {
+                  "name": "notes",
+                  "type": "TextField",
+                  "line": 21
+                },
+                {
+                  "name": "is_published",
+                  "type": "BooleanField",
+                  "line": 22
+                },
+                {
+                  "name": "created_by",
+                  "type": "ForeignKey",
+                  "line": 23
+                },
+                {
+                  "name": "created_at",
+                  "type": "DateTimeField",
+                  "line": 24
+                },
+                {
+                  "name": "updated_at",
+                  "type": "DateTimeField",
+                  "line": 25
+                }
+              ],
+              "methods": [
+                {
+                  "name": "duration_minutes",
+                  "line": 28,
+                  "args": [
+                    "self"
+                  ]
+                },
+                {
+                  "name": "duration_hours",
+                  "line": 39,
+                  "args": [
+                    "self"
+                  ]
+                },
+                {
+                  "name": "is_past",
+                  "line": 45,
+                  "args": [
+                    "self"
+                  ]
+                },
+                {
+                  "name": "is_current",
+                  "line": 50,
+                  "args": [
+                    "self"
+                  ]
+                },
+                {
+                  "name": "is_future",
+                  "line": 63,
+                  "args": [
+                    "self"
+                  ]
+                },
+                {
+                  "name": "allows_clock_in",
+                  "line": 68,
+                  "args": [
+                    "self"
+                  ]
+                },
+                {
+                  "name": "allows_clock_out",
+                  "line": 82,
+                  "args": [
+                    "self"
+                  ]
+                },
+                {
+                  "name": "get_current_shift",
+                  "line": 95,
+                  "args": [
+                    "cls",
+                    "employee"
+                  ]
+                },
+                {
+                  "name": "get_upcoming_shift",
+                  "line": 113,
+                  "args": [
+                    "cls",
+                    "employee",
+                    "within_minutes"
+                  ]
+                },
+                {
+                  "name": "get_clockin_eligible_shift",
+                  "line": 125,
+                  "args": [
+                    "cls",
+                    "employee"
+                  ]
+                },
+                {
+                  "name": "get_clockout_eligible_shift",
+                  "line": 138,
+                  "args": [
+                    "cls",
+                    "employee"
+                  ]
+                },
+                {
+                  "name": "clean",
+                  "line": 142,
+                  "args": [
+                    "self"
+                  ]
+                },
+                {
+                  "name": "save",
+                  "line": 172,
+                  "args": [
+                    "self"
+                  ]
+                },
+                {
+                  "name": "__str__",
+                  "line": 177,
+                  "args": [
+                    "self"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "ShiftTemplate",
+              "line": 191,
+              "fields": [
+                {
+                  "name": "RECURRENCE_CHOICES",
+                  "type": "unknown",
+                  "line": 194
+                },
+                {
+                  "name": "WEEKDAY_CHOICES",
+                  "type": "unknown",
+                  "line": 201
+                },
+                {
+                  "name": "id",
+                  "type": "UUIDField",
+                  "line": 211
+                },
+                {
+                  "name": "name",
+                  "type": "CharField",
+                  "line": 212
+                },
+                {
+                  "name": "employee",
+                  "type": "ForeignKey",
+                  "line": 213
+                },
+                {
+                  "name": "location",
+                  "type": "CharField",
+                  "line": 214
+                },
+                {
+                  "name": "start_time",
+                  "type": "TimeField",
+                  "line": 217
+                },
+                {
+                  "name": "end_time",
+                  "type": "TimeField",
+                  "line": 218
+                },
+                {
+                  "name": "recurrence_type",
+                  "type": "CharField",
+                  "line": 221
+                },
+                {
+                  "name": "weekdays",
+                  "type": "JSONField",
+                  "line": 222
+                },
+                {
+                  "name": "effective_from",
+                  "type": "DateField",
+                  "line": 228
+                },
+                {
+                  "name": "effective_until",
+                  "type": "DateField",
+                  "line": 229
+                },
+                {
+                  "name": "is_active",
+                  "type": "BooleanField",
+                  "line": 231
+                },
+                {
+                  "name": "notes",
+                  "type": "TextField",
+                  "line": 232
+                },
+                {
+                  "name": "created_by",
+                  "type": "ForeignKey",
+                  "line": 233
+                },
+                {
+                  "name": "created_at",
+                  "type": "DateTimeField",
+                  "line": 234
+                },
+                {
+                  "name": "updated_at",
+                  "type": "DateTimeField",
+                  "line": 235
+                }
+              ],
+              "methods": [
+                {
+                  "name": "__str__",
+                  "line": 237,
+                  "args": [
+                    "self"
+                  ]
+                }
+              ]
+            }
+          ],
+          "model_count": 2
+        },
+        "webhooks": {
+          "file": "/Users/mac/code_projects/WorkSync/backend/apps/webhooks/models.py",
+          "models": [
+            {
+              "name": "WebhookEndpoint",
+              "line": 7,
+              "fields": [
+                {
+                  "name": "EVENT_TYPES",
+                  "type": "unknown",
+                  "line": 10
+                },
+                {
+                  "name": "STATUS_CHOICES",
+                  "type": "unknown",
+                  "line": 30
+                },
+                {
+                  "name": "id",
+                  "type": "UUIDField",
+                  "line": 36
+                },
+                {
+                  "name": "name",
+                  "type": "CharField",
+                  "line": 37
+                },
+                {
+                  "name": "url",
+                  "type": "URLField",
+                  "line": 38
+                },
+                {
+                  "name": "description",
+                  "type": "TextField",
+                  "line": 39
+                },
+                {
+                  "name": "event_types",
+                  "type": "JSONField",
+                  "line": 42
+                },
+                {
+                  "name": "secret_key",
+                  "type": "CharField",
+                  "line": 45
+                },
+                {
+                  "name": "is_active",
+                  "type": "BooleanField",
+                  "line": 48
+                },
+                {
+                  "name": "status",
+                  "type": "CharField",
+                  "line": 49
+                },
+                {
+                  "name": "headers",
+                  "type": "JSONField",
+                  "line": 52
+                },
+                {
+                  "name": "auth_type",
+                  "type": "CharField",
+                  "line": 53
+                },
+                {
+                  "name": "auth_credentials",
+                  "type": "JSONField",
+                  "line": 59
+                },
+                {
+                  "name": "max_retries",
+                  "type": "IntegerField",
+                  "line": 62
+                },
+                {
+                  "name": "retry_delay",
+                  "type": "IntegerField",
+                  "line": 63
+                },
+                {
+                  "name": "timeout",
+                  "type": "IntegerField",
+                  "line": 64
+                },
+                {
+                  "name": "filter_conditions",
+                  "type": "JSONField",
+                  "line": 67
+                },
+                {
+                  "name": "created_by",
+                  "type": "ForeignKey",
+                  "line": 70
+                },
+                {
+                  "name": "created_at",
+                  "type": "DateTimeField",
+                  "line": 71
+                },
+                {
+                  "name": "updated_at",
+                  "type": "DateTimeField",
+                  "line": 72
+                },
+                {
+                  "name": "last_triggered",
+                  "type": "DateTimeField",
+                  "line": 73
+                },
+                {
+                  "name": "total_deliveries",
+                  "type": "IntegerField",
+                  "line": 76
+                },
+                {
+                  "name": "successful_deliveries",
+                  "type": "IntegerField",
+                  "line": 77
+                },
+                {
+                  "name": "failed_deliveries",
+                  "type": "IntegerField",
+                  "line": 78
+                }
+              ],
+              "methods": [
+                {
+                  "name": "__str__",
+                  "line": 84,
+                  "args": [
+                    "self"
+                  ]
+                },
+                {
+                  "name": "success_rate",
+                  "line": 88,
+                  "args": [
+                    "self"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "WebhookDelivery",
+              "line": 94,
+              "fields": [
+                {
+                  "name": "STATUS_CHOICES",
+                  "type": "unknown",
+                  "line": 97
+                },
+                {
+                  "name": "id",
+                  "type": "UUIDField",
+                  "line": 104
+                },
+                {
+                  "name": "endpoint",
+                  "type": "ForeignKey",
+                  "line": 105
+                },
+                {
+                  "name": "event_type",
+                  "type": "CharField",
+                  "line": 108
+                },
+                {
+                  "name": "event_id",
+                  "type": "UUIDField",
+                  "line": 109
+                },
+                {
+                  "name": "payload",
+                  "type": "JSONField",
+                  "line": 110
+                },
+                {
+                  "name": "status",
+                  "type": "CharField",
+                  "line": 113
+                },
+                {
+                  "name": "http_status",
+                  "type": "IntegerField",
+                  "line": 114
+                },
+                {
+                  "name": "response_body",
+                  "type": "TextField",
+                  "line": 115
+                },
+                {
+                  "name": "response_headers",
+                  "type": "JSONField",
+                  "line": 116
+                },
+                {
+                  "name": "created_at",
+                  "type": "DateTimeField",
+                  "line": 119
+                },
+                {
+                  "name": "delivered_at",
+                  "type": "DateTimeField",
+                  "line": 120
+                },
+                {
+                  "name": "attempt_count",
+                  "type": "IntegerField",
+                  "line": 123
+                },
+                {
+                  "name": "next_retry_at",
+                  "type": "DateTimeField",
+                  "line": 124
+                },
+                {
+                  "name": "error_message",
+                  "type": "TextField",
+                  "line": 127
+                }
+              ],
+              "methods": [
+                {
+                  "name": "__str__",
+                  "line": 138,
+                  "args": [
+                    "self"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "WebhookEvent",
+              "line": 142,
+              "fields": [
+                {
+                  "name": "id",
+                  "type": "UUIDField",
+                  "line": 145
+                },
+                {
+                  "name": "event_type",
+                  "type": "CharField",
+                  "line": 146
+                },
+                {
+                  "name": "resource_type",
+                  "type": "CharField",
+                  "line": 147
+                },
+                {
+                  "name": "resource_id",
+                  "type": "UUIDField",
+                  "line": 148
+                },
+                {
+                  "name": "data",
+                  "type": "JSONField",
+                  "line": 151
+                },
+                {
+                  "name": "metadata",
+                  "type": "JSONField",
+                  "line": 152
+                },
+                {
+                  "name": "created_at",
+                  "type": "DateTimeField",
+                  "line": 155
+                },
+                {
+                  "name": "triggered_by",
+                  "type": "ForeignKey",
+                  "line": 156
+                },
+                {
+                  "name": "endpoints_notified",
+                  "type": "IntegerField",
+                  "line": 159
+                },
+                {
+                  "name": "successful_deliveries",
+                  "type": "IntegerField",
+                  "line": 160
+                },
+                {
+                  "name": "failed_deliveries",
+                  "type": "IntegerField",
+                  "line": 161
+                }
+              ],
+              "methods": [
+                {
+                  "name": "__str__",
+                  "line": 171,
+                  "args": [
+                    "self"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "WebhookTemplate",
+              "line": 175,
+              "fields": [
+                {
+                  "name": "INTEGRATION_TYPES",
+                  "type": "unknown",
+                  "line": 178
+                },
+                {
+                  "name": "id",
+                  "type": "UUIDField",
+                  "line": 187
+                },
+                {
+                  "name": "name",
+                  "type": "CharField",
+                  "line": 188
+                },
+                {
+                  "name": "description",
+                  "type": "TextField",
+                  "line": 189
+                },
+                {
+                  "name": "integration_type",
+                  "type": "CharField",
+                  "line": 190
+                },
+                {
+                  "name": "url_template",
+                  "type": "CharField",
+                  "line": 193
+                },
+                {
+                  "name": "headers_template",
+                  "type": "JSONField",
+                  "line": 194
+                },
+                {
+                  "name": "payload_template",
+                  "type": "JSONField",
+                  "line": 195
+                },
+                {
+                  "name": "default_event_types",
+                  "type": "JSONField",
+                  "line": 198
+                },
+                {
+                  "name": "default_auth_type",
+                  "type": "CharField",
+                  "line": 199
+                },
+                {
+                  "name": "is_active",
+                  "type": "BooleanField",
+                  "line": 202
+                },
+                {
+                  "name": "created_at",
+                  "type": "DateTimeField",
+                  "line": 203
+                },
+                {
+                  "name": "updated_at",
+                  "type": "DateTimeField",
+                  "line": 204
+                }
+              ],
+              "methods": [
+                {
+                  "name": "__str__",
+                  "line": 210,
+                  "args": [
+                    "self"
+                  ]
+                }
+              ]
+            }
+          ],
+          "model_count": 4
+        },
+        "notifications": {
+          "file": "/Users/mac/code_projects/WorkSync/backend/apps/notifications/models.py",
+          "models": [
+            {
+              "name": "WebhookSubscription",
+              "line": 11,
+              "fields": [
+                {
+                  "name": "EVENT_TYPE_CHOICES",
+                  "type": "unknown",
+                  "line": 13
+                },
+                {
+                  "name": "id",
+                  "type": "UUIDField",
+                  "line": 22
+                },
+                {
+                  "name": "event_type",
+                  "type": "CharField",
+                  "line": 23
+                },
+                {
+                  "name": "target_url",
+                  "type": "URLField",
+                  "line": 24
+                },
+                {
+                  "name": "is_active",
+                  "type": "BooleanField",
+                  "line": 25
+                },
+                {
+                  "name": "created_by_app",
+                  "type": "CharField",
+                  "line": 28
+                },
+                {
+                  "name": "secret_key",
+                  "type": "CharField",
+                  "line": 29
+                },
+                {
+                  "name": "created_at",
+                  "type": "DateTimeField",
+                  "line": 31
+                },
+                {
+                  "name": "updated_at",
+                  "type": "DateTimeField",
+                  "line": 32
+                }
+              ],
+              "methods": [
+                {
+                  "name": "__str__",
+                  "line": 34,
+                  "args": [
+                    "self"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "WebhookDelivery",
+              "line": 42,
+              "fields": [
+                {
+                  "name": "STATUS_CHOICES",
+                  "type": "unknown",
+                  "line": 44
+                },
+                {
+                  "name": "subscription",
+                  "type": "ForeignKey",
+                  "line": 51
+                },
+                {
+                  "name": "event_type",
+                  "type": "CharField",
+                  "line": 52
+                },
+                {
+                  "name": "payload",
+                  "type": "JSONField",
+                  "line": 53
+                },
+                {
+                  "name": "status",
+                  "type": "CharField",
+                  "line": 56
+                },
+                {
+                  "name": "http_status_code",
+                  "type": "IntegerField",
+                  "line": 57
+                },
+                {
+                  "name": "response_body",
+                  "type": "TextField",
+                  "line": 58
+                },
+                {
+                  "name": "error_message",
+                  "type": "TextField",
+                  "line": 59
+                },
+                {
+                  "name": "attempt_count",
+                  "type": "IntegerField",
+                  "line": 62
+                },
+                {
+                  "name": "max_attempts",
+                  "type": "IntegerField",
+                  "line": 63
+                },
+                {
+                  "name": "next_retry_at",
+                  "type": "DateTimeField",
+                  "line": 64
+                },
+                {
+                  "name": "created_at",
+                  "type": "DateTimeField",
+                  "line": 66
+                },
+                {
+                  "name": "updated_at",
+                  "type": "DateTimeField",
+                  "line": 67
+                }
+              ],
+              "methods": [
+                {
+                  "name": "__str__",
+                  "line": 69,
+                  "args": [
+                    "self"
+                  ]
+                },
+                {
+                  "name": "can_retry",
+                  "line": 73,
+                  "args": [
+                    "self"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "NotificationTemplate",
+              "line": 81,
+              "fields": [
+                {
+                  "name": "NOTIFICATION_TYPE_CHOICES",
+                  "type": "unknown",
+                  "line": 83
+                },
+                {
+                  "name": "name",
+                  "type": "CharField",
+                  "line": 90
+                },
+                {
+                  "name": "notification_type",
+                  "type": "CharField",
+                  "line": 91
+                },
+                {
+                  "name": "event_type",
+                  "type": "CharField",
+                  "line": 92
+                },
+                {
+                  "name": "subject",
+                  "type": "CharField",
+                  "line": 95
+                },
+                {
+                  "name": "message_template",
+                  "type": "TextField",
+                  "line": 96
+                },
+                {
+                  "name": "is_active",
+                  "type": "BooleanField",
+                  "line": 98
+                },
+                {
+                  "name": "created_at",
+                  "type": "DateTimeField",
+                  "line": 99
+                },
+                {
+                  "name": "updated_at",
+                  "type": "DateTimeField",
+                  "line": 100
+                }
+              ],
+              "methods": [
+                {
+                  "name": "__str__",
+                  "line": 102,
+                  "args": [
+                    "self"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "NotificationLog",
+              "line": 109,
+              "fields": [
+                {
+                  "name": "STATUS_CHOICES",
+                  "type": "unknown",
+                  "line": 111
+                },
+                {
+                  "name": "recipient",
+                  "type": "ForeignKey",
+                  "line": 118
+                },
+                {
+                  "name": "template",
+                  "type": "ForeignKey",
+                  "line": 119
+                },
+                {
+                  "name": "notification_type",
+                  "type": "CharField",
+                  "line": 121
+                },
+                {
+                  "name": "event_type",
+                  "type": "CharField",
+                  "line": 122
+                },
+                {
+                  "name": "subject",
+                  "type": "CharField",
+                  "line": 125
+                },
+                {
+                  "name": "message",
+                  "type": "TextField",
+                  "line": 126
+                },
+                {
+                  "name": "recipient_address",
+                  "type": "CharField",
+                  "line": 127
+                },
+                {
+                  "name": "status",
+                  "type": "CharField",
+                  "line": 130
+                },
+                {
+                  "name": "external_id",
+                  "type": "CharField",
+                  "line": 131
+                },
+                {
+                  "name": "error_message",
+                  "type": "TextField",
+                  "line": 132
+                },
+                {
+                  "name": "sent_at",
+                  "type": "DateTimeField",
+                  "line": 134
+                },
+                {
+                  "name": "delivered_at",
+                  "type": "DateTimeField",
+                  "line": 135
+                },
+                {
+                  "name": "created_at",
+                  "type": "DateTimeField",
+                  "line": 136
+                },
+                {
+                  "name": "updated_at",
+                  "type": "DateTimeField",
+                  "line": 137
+                }
+              ],
+              "methods": [
+                {
+                  "name": "__str__",
+                  "line": 139,
+                  "args": [
+                    "self"
+                  ]
+                }
+              ]
+            }
+          ],
+          "model_count": 4
+        },
+        "reports": {
+          "file": "/Users/mac/code_projects/WorkSync/backend/apps/reports/models.py",
+          "models": [
+            {
+              "name": "ReportTemplate",
+              "line": 11,
+              "fields": [
+                {
+                  "name": "REPORT_TYPE_CHOICES",
+                  "type": "unknown",
+                  "line": 13
+                },
+                {
+                  "name": "FORMAT_CHOICES",
+                  "type": "unknown",
+                  "line": 22
+                },
+                {
+                  "name": "id",
+                  "type": "UUIDField",
+                  "line": 28
+                },
+                {
+                  "name": "name",
+                  "type": "CharField",
+                  "line": 29
+                },
+                {
+                  "name": "description",
+                  "type": "TextField",
+                  "line": 30
+                },
+                {
+                  "name": "report_type",
+                  "type": "CharField",
+                  "line": 31
+                },
+                {
+                  "name": "format",
+                  "type": "CharField",
+                  "line": 32
+                },
+                {
+                  "name": "config",
+                  "type": "JSONField",
+                  "line": 35
+                },
+                {
+                  "name": "created_by",
+                  "type": "ForeignKey",
+                  "line": 38
+                },
+                {
+                  "name": "is_active",
+                  "type": "BooleanField",
+                  "line": 39
+                },
+                {
+                  "name": "created_at",
+                  "type": "DateTimeField",
+                  "line": 40
+                },
+                {
+                  "name": "updated_at",
+                  "type": "DateTimeField",
+                  "line": 41
+                }
+              ],
+              "methods": [
+                {
+                  "name": "__str__",
+                  "line": 43,
+                  "args": [
+                    "self"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "ReportExecution",
+              "line": 54,
+              "fields": [
+                {
+                  "name": "STATUS_CHOICES",
+                  "type": "unknown",
+                  "line": 56
+                },
+                {
+                  "name": "id",
+                  "type": "UUIDField",
+                  "line": 63
+                },
+                {
+                  "name": "template",
+                  "type": "ForeignKey",
+                  "line": 64
+                },
+                {
+                  "name": "start_date",
+                  "type": "DateField",
+                  "line": 67
+                },
+                {
+                  "name": "end_date",
+                  "type": "DateField",
+                  "line": 68
+                },
+                {
+                  "name": "filters",
+                  "type": "JSONField",
+                  "line": 69
+                },
+                {
+                  "name": "status",
+                  "type": "CharField",
+                  "line": 72
+                },
+                {
+                  "name": "progress",
+                  "type": "IntegerField",
+                  "line": 73
+                },
+                {
+                  "name": "file_path",
+                  "type": "CharField",
+                  "line": 76
+                },
+                {
+                  "name": "file_size",
+                  "type": "BigIntegerField",
+                  "line": 77
+                },
+                {
+                  "name": "record_count",
+                  "type": "IntegerField",
+                  "line": 78
+                },
+                {
+                  "name": "error_message",
+                  "type": "TextField",
+                  "line": 81
+                },
+                {
+                  "name": "requested_by",
+                  "type": "ForeignKey",
+                  "line": 84
+                },
+                {
+                  "name": "started_at",
+                  "type": "DateTimeField",
+                  "line": 85
+                },
+                {
+                  "name": "completed_at",
+                  "type": "DateTimeField",
+                  "line": 86
+                },
+                {
+                  "name": "created_at",
+                  "type": "DateTimeField",
+                  "line": 87
+                }
+              ],
+              "methods": [
+                {
+                  "name": "duration_seconds",
+                  "line": 90,
+                  "args": [
+                    "self"
+                  ]
+                },
+                {
+                  "name": "is_expired",
+                  "line": 98,
+                  "args": [
+                    "self"
+                  ]
+                },
+                {
+                  "name": "__str__",
+                  "line": 105,
+                  "args": [
+                    "self"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "ReportSchedule",
+              "line": 117,
+              "fields": [
+                {
+                  "name": "FREQUENCY_CHOICES",
+                  "type": "unknown",
+                  "line": 119
+                },
+                {
+                  "name": "id",
+                  "type": "UUIDField",
+                  "line": 126
+                },
+                {
+                  "name": "template",
+                  "type": "ForeignKey",
+                  "line": 127
+                },
+                {
+                  "name": "name",
+                  "type": "CharField",
+                  "line": 128
+                },
+                {
+                  "name": "frequency",
+                  "type": "CharField",
+                  "line": 131
+                },
+                {
+                  "name": "day_of_week",
+                  "type": "IntegerField",
+                  "line": 132
+                },
+                {
+                  "name": "day_of_month",
+                  "type": "IntegerField",
+                  "line": 133
+                },
+                {
+                  "name": "time_of_day",
+                  "type": "TimeField",
+                  "line": 134
+                },
+                {
+                  "name": "recipients",
+                  "type": "JSONField",
+                  "line": 137
+                },
+                {
+                  "name": "is_active",
+                  "type": "BooleanField",
+                  "line": 140
+                },
+                {
+                  "name": "last_run",
+                  "type": "DateTimeField",
+                  "line": 141
+                },
+                {
+                  "name": "next_run",
+                  "type": "DateTimeField",
+                  "line": 142
+                },
+                {
+                  "name": "created_by",
+                  "type": "ForeignKey",
+                  "line": 145
+                },
+                {
+                  "name": "created_at",
+                  "type": "DateTimeField",
+                  "line": 146
+                },
+                {
+                  "name": "updated_at",
+                  "type": "DateTimeField",
+                  "line": 147
+                }
+              ],
+              "methods": [
+                {
+                  "name": "__str__",
+                  "line": 149,
+                  "args": [
+                    "self"
+                  ]
+                }
+              ]
+            }
+          ],
+          "model_count": 3
+        },
+        "employees": {
+          "file": "/Users/mac/code_projects/WorkSync/backend/apps/employees/models.py",
+          "models": [
+            {
+              "name": "Role",
+              "line": 13,
+              "fields": [
+                {
+                  "name": "ROLE_CHOICES",
+                  "type": "unknown",
+                  "line": 15
+                },
+                {
+                  "name": "id",
+                  "type": "UUIDField",
+                  "line": 22
+                },
+                {
+                  "name": "name",
+                  "type": "CharField",
+                  "line": 23
+                },
+                {
+                  "name": "description",
+                  "type": "TextField",
+                  "line": 24
+                },
+                {
+                  "name": "permissions",
+                  "type": "JSONField",
+                  "line": 25
+                },
+                {
+                  "name": "is_active",
+                  "type": "BooleanField",
+                  "line": 26
+                },
+                {
+                  "name": "created_at",
+                  "type": "DateTimeField",
+                  "line": 27
+                },
+                {
+                  "name": "updated_at",
+                  "type": "DateTimeField",
+                  "line": 28
+                }
+              ],
+              "methods": [
+                {
+                  "name": "__str__",
+                  "line": 30,
+                  "args": [
+                    "self"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Employee",
+              "line": 37,
+              "fields": [
+                {
+                  "name": "EMPLOYMENT_STATUS_CHOICES",
+                  "type": "unknown",
+                  "line": 39
+                },
+                {
+                  "name": "id",
+                  "type": "UUIDField",
+                  "line": 46
+                },
+                {
+                  "name": "user",
+                  "type": "OneToOneField",
+                  "line": 47
+                },
+                {
+                  "name": "employee_id",
+                  "type": "CharField",
+                  "line": 48
+                },
+                {
+                  "name": "role",
+                  "type": "ForeignKey",
+                  "line": 54
+                },
+                {
+                  "name": "phone_number",
+                  "type": "CharField",
+                  "line": 57
+                },
+                {
+                  "name": "address",
+                  "type": "TextField",
+                  "line": 62
+                },
+                {
+                  "name": "date_of_birth",
+                  "type": "DateField",
+                  "line": 63
+                },
+                {
+                  "name": "emergency_contact_name",
+                  "type": "CharField",
+                  "line": 64
+                },
+                {
+                  "name": "emergency_contact_phone",
+                  "type": "CharField",
+                  "line": 65
+                },
+                {
+                  "name": "hire_date",
+                  "type": "DateField",
+                  "line": 68
+                },
+                {
+                  "name": "employment_status",
+                  "type": "CharField",
+                  "line": 69
+                },
+                {
+                  "name": "termination_date",
+                  "type": "DateField",
+                  "line": 70
+                },
+                {
+                  "name": "department",
+                  "type": "CharField",
+                  "line": 71
+                },
+                {
+                  "name": "job_title",
+                  "type": "CharField",
+                  "line": 72
+                },
+                {
+                  "name": "hourly_rate",
+                  "type": "DecimalField",
+                  "line": 73
+                },
+                {
+                  "name": "timezone",
+                  "type": "CharField",
+                  "line": 76
+                },
+                {
+                  "name": "notification_preferences",
+                  "type": "JSONField",
+                  "line": 81
+                },
+                {
+                  "name": "qr_code_payload",
+                  "type": "CharField",
+                  "line": 84
+                },
+                {
+                  "name": "requires_location_qr",
+                  "type": "BooleanField",
+                  "line": 91
+                },
+                {
+                  "name": "qr_enforcement_type",
+                  "type": "CharField",
+                  "line": 95
+                },
+                {
+                  "name": "created_at",
+                  "type": "DateTimeField",
+                  "line": 107
+                },
+                {
+                  "name": "updated_at",
+                  "type": "DateTimeField",
+                  "line": 108
+                }
+              ],
+              "methods": [
+                {
+                  "name": "save",
+                  "line": 110,
+                  "args": [
+                    "self"
+                  ]
+                },
+                {
+                  "name": "__str__",
+                  "line": 116,
+                  "args": [
+                    "self"
+                  ]
+                },
+                {
+                  "name": "full_name",
+                  "line": 120,
+                  "args": [
+                    "self"
+                  ]
+                },
+                {
+                  "name": "is_driver",
+                  "line": 124,
+                  "args": [
+                    "self"
+                  ]
+                },
+                {
+                  "name": "is_admin",
+                  "line": 128,
+                  "args": [
+                    "self"
+                  ]
+                },
+                {
+                  "name": "is_active_employee",
+                  "line": 132,
+                  "args": [
+                    "self"
+                  ]
+                },
+                {
+                  "name": "has_permission",
+                  "line": 135,
+                  "args": [
+                    "self",
+                    "permission"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Location",
+              "line": 149,
+              "fields": [
+                {
+                  "name": "id",
+                  "type": "UUIDField",
+                  "line": 152
+                },
+                {
+                  "name": "name",
+                  "type": "CharField",
+                  "line": 153
+                },
+                {
+                  "name": "description",
+                  "type": "TextField",
+                  "line": 154
+                },
+                {
+                  "name": "address",
+                  "type": "TextField",
+                  "line": 155
+                },
+                {
+                  "name": "latitude",
+                  "type": "DecimalField",
+                  "line": 158
+                },
+                {
+                  "name": "longitude",
+                  "type": "DecimalField",
+                  "line": 159
+                },
+                {
+                  "name": "qr_code_payload",
+                  "type": "CharField",
+                  "line": 162
+                },
+                {
+                  "name": "radius_meters",
+                  "type": "PositiveIntegerField",
+                  "line": 169
+                },
+                {
+                  "name": "is_active",
+                  "type": "BooleanField",
+                  "line": 170
+                },
+                {
+                  "name": "requires_gps_verification",
+                  "type": "BooleanField",
+                  "line": 171
+                },
+                {
+                  "name": "created_at",
+                  "type": "DateTimeField",
+                  "line": 173
+                },
+                {
+                  "name": "updated_at",
+                  "type": "DateTimeField",
+                  "line": 174
+                }
+              ],
+              "methods": [
+                {
+                  "name": "__str__",
+                  "line": 176,
+                  "args": [
+                    "self"
+                  ]
+                }
+              ]
+            }
+          ],
+          "model_count": 3
+        }
+      },
+      "missing_fields": [],
+      "incomplete_models": [],
+      "validation_issues": []
+    },
+    "views": {
+      "apps": {
+        "attendance": {
+          "views_file_exists": true,
+          "urls_file_exists": true,
+          "viewsets": [
+            "TimeLogViewSet",
+            "BreakViewSet"
+          ],
+          "function_views": [],
+          "url_patterns": []
+        },
+        "core": {
+          "views_file_exists": true,
+          "urls_file_exists": true,
+          "viewsets": [],
+          "function_views": [],
+          "url_patterns": [
+            "timezones/",
+            "timezones/update/",
+            "time-info/"
+          ]
+        },
+        "scheduling": {
+          "views_file_exists": true,
+          "urls_file_exists": true,
+          "viewsets": [
+            "ShiftViewSet",
+            "ShiftTemplateViewSet"
+          ],
+          "function_views": [],
+          "url_patterns": []
+        },
+        "__pycache__": {
+          "views_file_exists": false,
+          "urls_file_exists": false,
+          "viewsets": [],
+          "function_views": [],
+          "url_patterns": []
+        },
+        "api": {
+          "views_file_exists": true,
+          "urls_file_exists": true,
+          "viewsets": [],
+          "function_views": [],
+          "url_patterns": [
+            "attendance/clock-in/",
+            "attendance/clock-out/",
+            "employees/<str:employee_id>/status/",
+            "webhooks/subscribe/"
+          ]
+        },
+        "webhooks": {
+          "views_file_exists": true,
+          "urls_file_exists": true,
+          "viewsets": [
+            "WebhookEndpointViewSet",
+            "WebhookDeliveryViewSet",
+            "WebhookEventViewSet",
+            "WebhookTemplateViewSet"
+          ],
+          "function_views": [],
+          "url_patterns": []
+        },
+        "authentication": {
+          "views_file_exists": true,
+          "urls_file_exists": true,
+          "viewsets": [],
+          "function_views": [],
+          "url_patterns": [
+            "login/",
+            "refresh/",
+            "verify/",
+            "profile/",
+            "logout/"
+          ]
+        },
+        "notifications": {
+          "views_file_exists": true,
+          "urls_file_exists": true,
+          "viewsets": [
+            "NotificationLogViewSet",
+            "NotificationTemplateViewSet",
+            "WebhookSubscriptionViewSet",
+            "WebhookDeliveryViewSet",
+            "NotificationManagementViewSet"
+          ],
+          "function_views": [],
+          "url_patterns": []
+        },
+        "reports": {
+          "views_file_exists": true,
+          "urls_file_exists": true,
+          "viewsets": [
+            "ReportTemplateViewSet",
+            "ReportExecutionViewSet",
+            "ReportScheduleViewSet",
+            "ReportsViewSet"
+          ],
+          "function_views": [],
+          "url_patterns": []
+        },
+        "employees": {
+          "views_file_exists": true,
+          "urls_file_exists": true,
+          "viewsets": [
+            "RoleViewSet",
+            "LocationViewSet",
+            "EmployeeViewSet"
+          ],
+          "function_views": [],
+          "url_patterns": []
+        }
+      },
+      "endpoints": [],
+      "missing_permissions": [],
+      "incomplete_crud": []
+    }
+  },
+  "frontend": {
+    "components": {
+      "components": {
+        "QRScanner": {
+          "file": "/Users/mac/code_projects/WorkSync/frontend/src/components/QRScanner.js",
+          "has_error_boundary": false,
+          "has_loading_state": false,
+          "has_error_handling": true,
+          "uses_hooks": true,
+          "has_prop_types": false,
+          "imports": [
+            "jsqr"
+          ],
+          "exports": [
+            "QRScanner"
+          ]
+        },
+        "BreakButton": {
+          "file": "/Users/mac/code_projects/WorkSync/frontend/src/components/BreakButton.js",
+          "has_error_boundary": false,
+          "has_loading_state": true,
+          "has_error_handling": true,
+          "uses_hooks": true,
+          "has_prop_types": false,
+          "imports": [
+            "react-query",
+            "@heroicons/react/24/outline",
+            "react-hot-toast",
+            "../services/api"
+          ],
+          "exports": [
+            "BreakButton"
+          ]
+        },
+        "Layout": {
+          "file": "/Users/mac/code_projects/WorkSync/frontend/src/components/Layout.js",
+          "has_error_boundary": false,
+          "has_loading_state": false,
+          "has_error_handling": false,
+          "uses_hooks": true,
+          "has_prop_types": false,
+          "imports": [
+            "react-router-dom",
+            "../contexts/AuthContext",
+            "./NotificationBell",
+            "@heroicons/react/24/outline"
+          ],
+          "exports": [
+            "Layout"
+          ]
+        },
+        "ResponsiveTable": {
+          "file": "/Users/mac/code_projects/WorkSync/frontend/src/components/ResponsiveTable.js",
+          "has_error_boundary": false,
+          "has_loading_state": true,
+          "has_error_handling": false,
+          "uses_hooks": true,
+          "has_prop_types": false,
+          "imports": [
+            "@heroicons/react/24/outline",
+            "./Pagination",
+            "../hooks/usePagination"
+          ],
+          "exports": [
+            "ResponsiveTable"
+          ]
+        },
+        "QuickActions": {
+          "file": "/Users/mac/code_projects/WorkSync/frontend/src/components/QuickActions.js",
+          "has_error_boundary": false,
+          "has_loading_state": true,
+          "has_error_handling": true,
+          "uses_hooks": true,
+          "has_prop_types": false,
+          "imports": [
+            "react-router-dom",
+            "react-query",
+            "@heroicons/react/24/outline",
+            "../services/api",
+            "../contexts/AuthContext"
+          ],
+          "exports": [
+            "QuickActions"
+          ]
+        },
+        "PushSubscriptionManager": {
+          "file": "/Users/mac/code_projects/WorkSync/frontend/src/components/PushSubscriptionManager.js",
+          "has_error_boundary": false,
+          "has_loading_state": true,
+          "has_error_handling": true,
+          "uses_hooks": true,
+          "has_prop_types": false,
+          "imports": [
+            "react-hot-toast",
+            "../contexts/AuthContext"
+          ],
+          "exports": [
+            "PushSubscriptionManager"
+          ]
+        },
+        "RecentActivity": {
+          "file": "/Users/mac/code_projects/WorkSync/frontend/src/components/RecentActivity.js",
+          "has_error_boundary": false,
+          "has_loading_state": false,
+          "has_error_handling": false,
+          "uses_hooks": true,
+          "has_prop_types": false,
+          "imports": [
+            "react-query",
+            "@heroicons/react/24/outline",
+            "../services/api",
+            "../hooks/useWebSocket"
+          ],
+          "exports": [
+            "RecentActivity"
+          ]
+        },
+        "BreakManager": {
+          "file": "/Users/mac/code_projects/WorkSync/frontend/src/components/BreakManager.js",
+          "has_error_boundary": false,
+          "has_loading_state": true,
+          "has_error_handling": false,
+          "uses_hooks": true,
+          "has_prop_types": false,
+          "imports": [
+            "react-query",
+            "@heroicons/react/24/outline",
+            "../services/api"
+          ],
+          "exports": [
+            "BreakManager"
+          ]
+        },
+        "NotificationBell": {
+          "file": "/Users/mac/code_projects/WorkSync/frontend/src/components/NotificationBell.js",
+          "has_error_boundary": false,
+          "has_loading_state": true,
+          "has_error_handling": true,
+          "uses_hooks": true,
+          "has_prop_types": false,
+          "imports": [
+            "@heroicons/react/24/outline",
+            "@heroicons/react/24/solid",
+            "react-query",
+            "../services/api",
+            "../hooks/useWebSocket",
+            "./PushSubscriptionManager"
+          ],
+          "exports": [
+            "NotificationBell"
+          ]
+        },
+        "Pagination": {
+          "file": "/Users/mac/code_projects/WorkSync/frontend/src/components/Pagination.js",
+          "has_error_boundary": false,
+          "has_loading_state": false,
+          "has_error_handling": false,
+          "uses_hooks": false,
+          "has_prop_types": false,
+          "imports": [
+            "react",
+            "@heroicons/react/24/outline"
+          ],
+          "exports": [
+            "Pagination"
+          ]
+        },
+        "EmployeeForm": {
+          "file": "/Users/mac/code_projects/WorkSync/frontend/src/components/EmployeeForm.js",
+          "has_error_boundary": false,
+          "has_loading_state": true,
+          "has_error_handling": true,
+          "uses_hooks": true,
+          "has_prop_types": false,
+          "imports": [
+            "react-query",
+            "@heroicons/react/24/outline",
+            "../services/api"
+          ],
+          "exports": [
+            "EmployeeForm"
+          ]
+        },
+        "TouchButton": {
+          "file": "/Users/mac/code_projects/WorkSync/frontend/src/components/TouchButton.js",
+          "has_error_boundary": false,
+          "has_loading_state": true,
+          "has_error_handling": false,
+          "uses_hooks": true,
+          "has_prop_types": false,
+          "imports": [],
+          "exports": [
+            "PrimaryButton",
+            "SecondaryButton",
+            "SuccessButton",
+            "DangerButton",
+            "OutlineButton",
+            "GhostButton",
+            "LinkButton",
+            "FloatingActionButton",
+            "TouchButton"
+          ]
+        },
+        "MobileForm": {
+          "file": "/Users/mac/code_projects/WorkSync/frontend/src/components/MobileForm.js",
+          "has_error_boundary": false,
+          "has_loading_state": true,
+          "has_error_handling": true,
+          "uses_hooks": true,
+          "has_prop_types": false,
+          "imports": [
+            "@heroicons/react/24/outline"
+          ],
+          "exports": [
+            "MobileForm"
+          ]
+        },
+        "ProtectedRoute": {
+          "file": "/Users/mac/code_projects/WorkSync/frontend/src/components/ProtectedRoute.js",
+          "has_error_boundary": false,
+          "has_loading_state": true,
+          "has_error_handling": false,
+          "uses_hooks": false,
+          "has_prop_types": false,
+          "imports": [
+            "react",
+            "react-router-dom",
+            "../contexts/AuthContext"
+          ],
+          "exports": [
+            "ProtectedRoute"
+          ]
+        },
+        "DashboardStats": {
+          "file": "/Users/mac/code_projects/WorkSync/frontend/src/components/DashboardStats.js",
+          "has_error_boundary": false,
+          "has_loading_state": true,
+          "has_error_handling": true,
+          "uses_hooks": true,
+          "has_prop_types": false,
+          "imports": [
+            "chart.js",
+            "react-chartjs-2",
+            "@heroicons/react/24/outline",
+            "../services/api",
+            "react-query",
+            "../utils/helpers"
+          ],
+          "exports": [
+            "DashboardStats"
+          ]
+        },
+        "SpreadsheetImporter": {
+          "file": "/Users/mac/code_projects/WorkSync/frontend/src/components/SpreadsheetImporter.js",
+          "has_error_boundary": false,
+          "has_loading_state": false,
+          "has_error_handling": true,
+          "uses_hooks": true,
+          "has_prop_types": false,
+          "imports": [
+            "react-dropzone",
+            "xlsx",
+            "date-fns",
+            "@heroicons/react/24/outline"
+          ],
+          "exports": [
+            "SpreadsheetImporter"
+          ]
+        },
+        "StuckClockInAlert": {
+          "file": "/Users/mac/code_projects/WorkSync/frontend/src/components/StuckClockInAlert.js",
+          "has_error_boundary": false,
+          "has_loading_state": true,
+          "has_error_handling": false,
+          "uses_hooks": true,
+          "has_prop_types": false,
+          "imports": [
+            "react-query",
+            "@heroicons/react/24/outline",
+            "../services/api"
+          ],
+          "exports": [
+            "StuckClockInAlert"
+          ]
+        },
+        "TimezoneSettings": {
+          "file": "/Users/mac/code_projects/WorkSync/frontend/src/components/TimezoneSettings.js",
+          "has_error_boundary": false,
+          "has_loading_state": true,
+          "has_error_handling": true,
+          "uses_hooks": true,
+          "has_prop_types": false,
+          "imports": [
+            "../services/api",
+            "react-hot-toast"
+          ],
+          "exports": [
+            "TimezoneSettings"
+          ]
+        }
+      },
+      "pages": {
+        "TimeTracking": {
+          "file": "/Users/mac/code_projects/WorkSync/frontend/src/pages/TimeTracking.js",
+          "has_error_boundary": false,
+          "has_loading_state": true,
+          "has_error_handling": true,
+          "uses_hooks": true,
+          "has_prop_types": false,
+          "imports": [
+            "../contexts/AuthContext",
+            "../services/api",
+            "react-query",
+            "date-fns",
+            "../components/Pagination",
+            "../hooks/usePagination",
+            "@heroicons/react/24/outline"
+          ],
+          "exports": [
+            "TimeTracking"
+          ]
+        },
+        "EmployeeList": {
+          "file": "/Users/mac/code_projects/WorkSync/frontend/src/pages/EmployeeList.js",
+          "has_error_boundary": false,
+          "has_loading_state": true,
+          "has_error_handling": true,
+          "uses_hooks": true,
+          "has_prop_types": false,
+          "imports": [
+            "react-query",
+            "@heroicons/react/24/outline",
+            "../services/api",
+            "../components/EmployeeForm",
+            "../components/ResponsiveTable",
+            "../components/TouchButton",
+            "../components/Pagination",
+            "../hooks/usePagination"
+          ],
+          "exports": [
+            "EmployeeList"
+          ]
+        },
+        "AdminScheduling": {
+          "file": "/Users/mac/code_projects/WorkSync/frontend/src/pages/AdminScheduling.js",
+          "has_error_boundary": false,
+          "has_loading_state": true,
+          "has_error_handling": true,
+          "uses_hooks": true,
+          "has_prop_types": false,
+          "imports": [
+            "react-router-dom",
+            "react-query",
+            "../services/api",
+            "../contexts/AuthContext",
+            "date-fns",
+            "../components/SpreadsheetImporter",
+            "@heroicons/react/24/outline",
+            "react-hot-toast"
+          ],
+          "exports": [
+            "AdminScheduling"
+          ]
+        },
+        "LocationManagement": {
+          "file": "/Users/mac/code_projects/WorkSync/frontend/src/pages/LocationManagement.js",
+          "has_error_boundary": false,
+          "has_loading_state": true,
+          "has_error_handling": true,
+          "uses_hooks": true,
+          "has_prop_types": false,
+          "imports": [
+            "react-query",
+            "../services/api",
+            "../contexts/AuthContext",
+            "../utils/helpers",
+            "@heroicons/react/24/outline",
+            "react-hot-toast"
+          ],
+          "exports": [
+            "LocationManagement"
+          ]
+        },
+        "WebhookManagement": {
+          "file": "/Users/mac/code_projects/WorkSync/frontend/src/pages/WebhookManagement.js",
+          "has_error_boundary": false,
+          "has_loading_state": true,
+          "has_error_handling": true,
+          "uses_hooks": true,
+          "has_prop_types": false,
+          "imports": [
+            "react-query",
+            "../services/api",
+            "../contexts/AuthContext",
+            "date-fns",
+            "@heroicons/react/24/outline",
+            "react-hot-toast"
+          ],
+          "exports": [
+            "WebhookManagement"
+          ]
+        },
+        "EmployeeDetails": {
+          "file": "/Users/mac/code_projects/WorkSync/frontend/src/pages/EmployeeDetails.js",
+          "has_error_boundary": false,
+          "has_loading_state": true,
+          "has_error_handling": true,
+          "uses_hooks": true,
+          "has_prop_types": false,
+          "imports": [
+            "react-router-dom",
+            "react-query",
+            "date-fns",
+            "@heroicons/react/24/outline",
+            "../services/api"
+          ],
+          "exports": [
+            "API",
+            "EmployeeDetails"
+          ]
+        },
+        "AdminDashboard": {
+          "file": "/Users/mac/code_projects/WorkSync/frontend/src/pages/AdminDashboard.js",
+          "has_error_boundary": false,
+          "has_loading_state": false,
+          "has_error_handling": false,
+          "uses_hooks": true,
+          "has_prop_types": false,
+          "imports": [
+            "react",
+            "../services/api",
+            "react-query",
+            "date-fns",
+            "../utils/helpers",
+            "../components/DashboardStats",
+            "../components/RecentActivity",
+            "../components/QuickActions",
+            "../components/StuckClockInAlert",
+            "../components/Pagination",
+            "../hooks/usePagination",
+            "@heroicons/react/24/outline"
+          ],
+          "exports": [
+            "AdminDashboard"
+          ]
+        },
+        "Login": {
+          "file": "/Users/mac/code_projects/WorkSync/frontend/src/pages/Login.js",
+          "has_error_boundary": false,
+          "has_loading_state": true,
+          "has_error_handling": true,
+          "uses_hooks": true,
+          "has_prop_types": false,
+          "imports": [
+            "react-router-dom",
+            "../contexts/AuthContext",
+            "react-hot-toast"
+          ],
+          "exports": [
+            "Login"
+          ]
+        },
+        "Schedule": {
+          "file": "/Users/mac/code_projects/WorkSync/frontend/src/pages/Schedule.js",
+          "has_error_boundary": false,
+          "has_loading_state": true,
+          "has_error_handling": true,
+          "uses_hooks": true,
+          "has_prop_types": false,
+          "imports": [
+            "../contexts/AuthContext",
+            "../services/api",
+            "react-query",
+            "date-fns",
+            "@heroicons/react/24/outline"
+          ],
+          "exports": [
+            "Schedule"
+          ]
+        },
+        "LeaveManagement": {
+          "file": "/Users/mac/code_projects/WorkSync/frontend/src/pages/LeaveManagement.js",
+          "has_error_boundary": false,
+          "has_loading_state": true,
+          "has_error_handling": true,
+          "uses_hooks": true,
+          "has_prop_types": false,
+          "imports": [
+            "react-query",
+            "@heroicons/react/24/outline",
+            "../services/api",
+            "../contexts/AuthContext",
+            "../components/ResponsiveTable",
+            "../components/MobileForm",
+            "../components/TouchButton",
+            "react-hot-toast"
+          ],
+          "exports": [
+            "LeaveManagement"
+          ]
+        },
+        "AdminLeaveManagement": {
+          "file": "/Users/mac/code_projects/WorkSync/frontend/src/pages/AdminLeaveManagement.js",
+          "has_error_boundary": false,
+          "has_loading_state": true,
+          "has_error_handling": true,
+          "uses_hooks": true,
+          "has_prop_types": false,
+          "imports": [
+            "react-query",
+            "../services/api",
+            "../contexts/AuthContext",
+            "date-fns",
+            "@heroicons/react/24/outline",
+            "react-hot-toast"
+          ],
+          "exports": [
+            "AdminLeaveManagement"
+          ]
+        },
+        "NotificationSettings": {
+          "file": "/Users/mac/code_projects/WorkSync/frontend/src/pages/NotificationSettings.js",
+          "has_error_boundary": false,
+          "has_loading_state": true,
+          "has_error_handling": true,
+          "uses_hooks": true,
+          "has_prop_types": false,
+          "imports": [
+            "react-query",
+            "@heroicons/react/24/outline",
+            "react-hot-toast"
+          ],
+          "exports": [
+            "NotificationSettings"
+          ]
+        },
+        "NotificationManagement": {
+          "file": "/Users/mac/code_projects/WorkSync/frontend/src/pages/NotificationManagement.js",
+          "has_error_boundary": false,
+          "has_loading_state": true,
+          "has_error_handling": true,
+          "uses_hooks": true,
+          "has_prop_types": false,
+          "imports": [
+            "react-query",
+            "../services/api",
+            "../contexts/AuthContext",
+            "@heroicons/react/24/outline",
+            "react-hot-toast"
+          ],
+          "exports": [
+            "NotificationManagement"
+          ]
+        },
+        "Dashboard": {
+          "file": "/Users/mac/code_projects/WorkSync/frontend/src/pages/Dashboard.js",
+          "has_error_boundary": false,
+          "has_loading_state": true,
+          "has_error_handling": true,
+          "uses_hooks": true,
+          "has_prop_types": false,
+          "imports": [
+            "../contexts/AuthContext",
+            "react-router-dom",
+            "../services/api",
+            "react-query",
+            "@heroicons/react/24/outline",
+            "date-fns",
+            "react-hot-toast",
+            "../components/BreakManager",
+            "../components/BreakButton"
+          ],
+          "exports": [
+            "Dashboard"
+          ]
+        },
+        "ClockIn": {
+          "file": "/Users/mac/code_projects/WorkSync/frontend/src/pages/ClockIn.js",
+          "has_error_boundary": false,
+          "has_loading_state": true,
+          "has_error_handling": true,
+          "uses_hooks": true,
+          "has_prop_types": false,
+          "imports": [
+            "../contexts/AuthContext",
+            "../services/api",
+            "react-query",
+            "../components/QRScanner",
+            "@heroicons/react/24/outline",
+            "react-hot-toast"
+          ],
+          "exports": [
+            "ClockIn"
+          ]
+        },
+        "Reports": {
+          "file": "/Users/mac/code_projects/WorkSync/frontend/src/pages/Reports.js",
+          "has_error_boundary": false,
+          "has_loading_state": true,
+          "has_error_handling": true,
+          "uses_hooks": true,
+          "has_prop_types": false,
+          "imports": [
+            "react-query",
+            "@heroicons/react/24/outline",
+            "../services/api"
+          ],
+          "exports": [
+            "Reports"
+          ]
+        },
+        "Settings": {
+          "file": "/Users/mac/code_projects/WorkSync/frontend/src/pages/Settings.js",
+          "has_error_boundary": false,
+          "has_loading_state": false,
+          "has_error_handling": false,
+          "uses_hooks": true,
+          "has_prop_types": false,
+          "imports": [
+            "../contexts/AuthContext",
+            "../components/TimezoneSettings",
+            "react-hot-toast"
+          ],
+          "exports": [
+            "Settings"
+          ]
+        },
+        "EmployeeStatusDashboard": {
+          "file": "/Users/mac/code_projects/WorkSync/frontend/src/pages/EmployeeStatusDashboard.js",
+          "has_error_boundary": false,
+          "has_loading_state": true,
+          "has_error_handling": true,
+          "uses_hooks": true,
+          "has_prop_types": false,
+          "imports": [
+            "react-query",
+            "react-router-dom",
+            "date-fns",
+            "@heroicons/react/24/outline",
+            "../services/api",
+            "../contexts/AuthContext"
+          ],
+          "exports": [
+            "API",
+            "EmployeeStatusDashboard"
+          ]
+        }
+      },
+      "missing_error_handling": [],
+      "incomplete_components": []
+    }
+  },
+  "integration": {
+    "api_endpoints_used": [
+      {
+        "name": "login",
+        "method": "post",
+        "url": "/auth/login/"
+      },
+      {
+        "name": "refresh",
+        "method": "post",
+        "url": "/auth/refresh/"
+      },
+      {
+        "name": "verify",
+        "method": "post",
+        "url": "/auth/verify/"
+      },
+      {
+        "name": "profile",
+        "method": "get",
+        "url": "/auth/profile/"
+      },
+      {
+        "name": "list",
+        "method": "get",
+        "url": "/employees/"
+      },
+      {
+        "name": "create",
+        "method": "post",
+        "url": "/employees/"
+      },
+      {
+        "name": "me",
+        "method": "get",
+        "url": "/employees/me/"
+      },
+      {
+        "name": "statistics",
+        "method": "get",
+        "url": "/employees/statistics/"
+      },
+      {
+        "name": "getRoles",
+        "method": "get",
+        "url": "/roles/"
+      },
+      {
+        "name": "clockIn",
+        "method": "post",
+        "url": "/attendance/logs/clock_in/"
+      },
+      {
+        "name": "clockOut",
+        "method": "post",
+        "url": "/attendance/logs/clock_out/"
+      },
+      {
+        "name": "timeLogs",
+        "method": "get",
+        "url": "/attendance/logs/"
+      },
+      {
+        "name": "currentStatus",
+        "method": "get",
+        "url": "/attendance/logs/current_status/"
+      },
+      {
+        "name": "getCurrentStatus",
+        "method": "get",
+        "url": "/attendance/logs/current_status/"
+      },
+      {
+        "name": "myLogs",
+        "method": "get",
+        "url": "/attendance/logs/my_logs/"
+      },
+      {
+        "name": "qrScan",
+        "method": "post",
+        "url": "/attendance/logs/qr_scan/"
+      },
+      {
+        "name": "summary",
+        "method": "get",
+        "url": "/attendance/logs/summary/"
+      },
+      {
+        "name": "statistics",
+        "method": "get",
+        "url": "/attendance/logs/statistics/"
+      },
+      {
+        "name": "qrEnforcementStatus",
+        "method": "get",
+        "url": "/attendance/logs/qr_enforcement_status/"
+      },
+      {
+        "name": "shiftStatus",
+        "method": "get",
+        "url": "/attendance/logs/shift_status/"
+      },
+      {
+        "name": "breaks",
+        "method": "get",
+        "url": "/attendance/breaks/"
+      },
+      {
+        "name": "startBreak",
+        "method": "post",
+        "url": "/attendance/breaks/"
+      },
+      {
+        "name": "exportEmployee",
+        "method": "get",
+        "url": "/attendance/logs/export/"
+      },
+      {
+        "name": "list",
+        "method": "get",
+        "url": "/scheduling/shifts/"
+      },
+      {
+        "name": "create",
+        "method": "post",
+        "url": "/scheduling/shifts/"
+      },
+      {
+        "name": "mySchedule",
+        "method": "get",
+        "url": "/scheduling/shifts/my_schedule/"
+      },
+      {
+        "name": "bulkCreate",
+        "method": "post",
+        "url": "/scheduling/shifts/bulk_create/"
+      },
+      {
+        "name": "importSpreadsheet",
+        "method": "post",
+        "url": "/scheduling/shifts/import_spreadsheet/"
+      },
+      {
+        "name": "getShiftTemplates",
+        "method": "get",
+        "url": "/scheduling/templates/"
+      },
+      {
+        "name": "createShiftTemplate",
+        "method": "post",
+        "url": "/scheduling/templates/"
+      },
+      {
+        "name": "shifts",
+        "method": "get",
+        "url": "/scheduling/shifts/"
+      },
+      {
+        "name": "createShift",
+        "method": "post",
+        "url": "/scheduling/shifts/"
+      },
+      {
+        "name": "bulkCreateShifts",
+        "method": "post",
+        "url": "/scheduling/shifts/bulk_create/"
+      },
+      {
+        "name": "getLeaveTypes",
+        "method": "get",
+        "url": "/scheduling/leave-types/"
+      },
+      {
+        "name": "createLeaveType",
+        "method": "post",
+        "url": "/scheduling/leave-types/"
+      },
+      {
+        "name": "getLeaveBalances",
+        "method": "get",
+        "url": "/scheduling/leave-balances/"
+      },
+      {
+        "name": "getMyLeaveBalances",
+        "method": "get",
+        "url": "/scheduling/leave-balances/my_balances/"
+      },
+      {
+        "name": "initializeLeaveBalances",
+        "method": "post",
+        "url": "/scheduling/leave-balances/initialize_balances/"
+      },
+      {
+        "name": "createOrUpdateLeaveBalance",
+        "method": "post",
+        "url": "/scheduling/leave-balances/create_or_update_balance/"
+      },
+      {
+        "name": "getLeaveRequests",
+        "method": "get",
+        "url": "/scheduling/leave-requests/"
+      },
+      {
+        "name": "getMyLeaveRequests",
+        "method": "get",
+        "url": "/scheduling/leave-requests/my_requests/"
+      },
+      {
+        "name": "getPendingLeaveApprovals",
+        "method": "get",
+        "url": "/scheduling/leave-requests/pending_approvals/"
+      },
+      {
+        "name": "createLeaveRequest",
+        "method": "post",
+        "url": "/scheduling/leave-requests/"
+      },
+      {
+        "name": "getLeaveCalendar",
+        "method": "get",
+        "url": "/scheduling/leave-requests/calendar/"
+      },
+      {
+        "name": "getLeaveWorkflows",
+        "method": "get",
+        "url": "/scheduling/leave-workflows/"
+      },
+      {
+        "name": "createLeaveWorkflow",
+        "method": "post",
+        "url": "/scheduling/leave-workflows/"
+      },
+      {
+        "name": "list",
+        "method": "get",
+        "url": "/locations/"
+      },
+      {
+        "name": "create",
+        "method": "post",
+        "url": "/locations/"
+      },
+      {
+        "name": "getTemplates",
+        "method": "get",
+        "url": "/reports/templates/"
+      },
+      {
+        "name": "createTemplate",
+        "method": "post",
+        "url": "/reports/templates/"
+      },
+      {
+        "name": "getExecutions",
+        "method": "get",
+        "url": "/reports/executions/"
+      },
+      {
+        "name": "generateReport",
+        "method": "post",
+        "url": "/reports/generate/"
+      },
+      {
+        "name": "getLateArrivals",
+        "method": "get",
+        "url": "/reports/late_arrivals/"
+      },
+      {
+        "name": "getOvertime",
+        "method": "get",
+        "url": "/reports/overtime/"
+      },
+      {
+        "name": "getDepartmentSummary",
+        "method": "get",
+        "url": "/reports/department_summary/"
+      },
+      {
+        "name": "getAttendanceSummary",
+        "method": "get",
+        "url": "/reports/attendance_summary/"
+      },
+      {
+        "name": "getStats",
+        "method": "get",
+        "url": "/reports/stats/"
+      },
+      {
+        "name": "getSchedules",
+        "method": "get",
+        "url": "/reports/schedules/"
+      },
+      {
+        "name": "createSchedule",
+        "method": "post",
+        "url": "/reports/schedules/"
+      },
+      {
+        "name": "list",
+        "method": "get",
+        "url": "/notifications/"
+      },
+      {
+        "name": "getLogs",
+        "method": "get",
+        "url": "/notifications/logs/"
+      },
+      {
+        "name": "getMyNotifications",
+        "method": "get",
+        "url": "/notifications/logs/my_notifications/"
+      },
+      {
+        "name": "markAsRead",
+        "method": "post",
+        "url": "/notifications/logs/mark_as_read/"
+      },
+      {
+        "name": "markAllAsRead",
+        "method": "post",
+        "url": "/notifications/logs/mark_all_as_read/"
+      },
+      {
+        "name": "getTemplates",
+        "method": "get",
+        "url": "/notifications/templates/"
+      },
+      {
+        "name": "createTemplate",
+        "method": "post",
+        "url": "/notifications/templates/"
+      },
+      {
+        "name": "getStats",
+        "method": "get",
+        "url": "/notifications/management/statistics/"
+      },
+      {
+        "name": "webhooks",
+        "method": "get",
+        "url": "/notifications/webhooks/"
+      },
+      {
+        "name": "createWebhook",
+        "method": "post",
+        "url": "/notifications/webhooks/"
+      },
+      {
+        "name": "getEndpoints",
+        "method": "get",
+        "url": "/webhooks/endpoints/"
+      },
+      {
+        "name": "createEndpoint",
+        "method": "post",
+        "url": "/webhooks/endpoints/"
+      },
+      {
+        "name": "bulkAction",
+        "method": "post",
+        "url": "/webhooks/endpoints/bulk_action/"
+      },
+      {
+        "name": "getStats",
+        "method": "get",
+        "url": "/webhooks/endpoints/stats/"
+      },
+      {
+        "name": "getDeliveries",
+        "method": "get",
+        "url": "/webhooks/deliveries/"
+      },
+      {
+        "name": "getEvents",
+        "method": "get",
+        "url": "/webhooks/events/"
+      },
+      {
+        "name": "getTemplates",
+        "method": "get",
+        "url": "/webhooks/templates/"
+      },
+      {
+        "name": "createTemplate",
+        "method": "post",
+        "url": "/webhooks/templates/"
+      },
+      {
+        "name": "getTimezones",
+        "method": "get",
+        "url": "/core/timezones/"
+      },
+      {
+        "name": "updateUserTimezone",
+        "method": "post",
+        "url": "/core/timezones/update/"
+      },
+      {
+        "name": "getCurrentTimeInfo",
+        "method": "get",
+        "url": "/core/time-info/"
+      }
+    ],
+    "websocket_usage": false,
+    "missing_api_calls": [],
+    "error_handling_coverage": {}
+  },
+  "issues": [
+    {
+      "type": "missing_error_handling",
+      "severity": "medium",
+      "file": "/Users/mac/code_projects/WorkSync/frontend/src/components/Layout.js",
+      "description": "Component Layout lacks error handling"
+    },
+    {
+      "type": "missing_error_handling",
+      "severity": "medium",
+      "file": "/Users/mac/code_projects/WorkSync/frontend/src/components/ResponsiveTable.js",
+      "description": "Component ResponsiveTable lacks error handling"
+    },
+    {
+      "type": "missing_error_handling",
+      "severity": "medium",
+      "file": "/Users/mac/code_projects/WorkSync/frontend/src/components/RecentActivity.js",
+      "description": "Component RecentActivity lacks error handling"
+    },
+    {
+      "type": "missing_error_handling",
+      "severity": "medium",
+      "file": "/Users/mac/code_projects/WorkSync/frontend/src/components/BreakManager.js",
+      "description": "Component BreakManager lacks error handling"
+    },
+    {
+      "type": "missing_error_handling",
+      "severity": "medium",
+      "file": "/Users/mac/code_projects/WorkSync/frontend/src/components/Pagination.js",
+      "description": "Component Pagination lacks error handling"
+    },
+    {
+      "type": "missing_error_handling",
+      "severity": "medium",
+      "file": "/Users/mac/code_projects/WorkSync/frontend/src/components/TouchButton.js",
+      "description": "Component TouchButton lacks error handling"
+    },
+    {
+      "type": "missing_error_handling",
+      "severity": "medium",
+      "file": "/Users/mac/code_projects/WorkSync/frontend/src/components/ProtectedRoute.js",
+      "description": "Component ProtectedRoute lacks error handling"
+    },
+    {
+      "type": "missing_error_handling",
+      "severity": "medium",
+      "file": "/Users/mac/code_projects/WorkSync/frontend/src/components/StuckClockInAlert.js",
+      "description": "Component StuckClockInAlert lacks error handling"
+    },
+    {
+      "type": "missing_error_handling",
+      "severity": "medium",
+      "file": "/Users/mac/code_projects/WorkSync/frontend/src/pages/AdminDashboard.js",
+      "description": "Component AdminDashboard lacks error handling"
+    },
+    {
+      "type": "missing_error_handling",
+      "severity": "medium",
+      "file": "/Users/mac/code_projects/WorkSync/frontend/src/pages/Settings.js",
+      "description": "Component Settings lacks error handling"
+    }
+  ],
+  "recommendations": [],
+  "summary": {
+    "analysis_timestamp": "2025-12-03T01:27:23.067411",
+    "duration_seconds": 0.045128,
+    "total_issues": 10,
+    "high_priority_issues": 0,
+    "recommendations_count": 0
+  }
+}

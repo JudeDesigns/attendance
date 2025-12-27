@@ -507,13 +507,13 @@ const EmployeeDetails = () => {
                   {shifts.map((shift) => (
                     <tr key={shift.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        {shift.start_time ? format(new Date(shift.start_time), 'MMM d, yyyy') : '-'}
+                        {(shift.start_time_local || shift.start_time) ? format(new Date(shift.start_time_local || shift.start_time), 'MMM d, yyyy') : '-'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {shift.start_time ? format(new Date(shift.start_time), 'h:mm a') : '-'}
+                        {(shift.start_time_local || shift.start_time) ? format(new Date(shift.start_time_local || shift.start_time), 'h:mm a') : '-'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {shift.end_time ? format(new Date(shift.end_time), 'h:mm a') : '-'}
+                        {(shift.end_time_local || shift.end_time) ? format(new Date(shift.end_time_local || shift.end_time), 'h:mm a') : '-'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         {shift.duration_hours ? (

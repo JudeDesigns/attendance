@@ -10,13 +10,14 @@ from django.db import transaction
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter, OrderingFilter
 from datetime import datetime, timedelta
-from .models import NotificationLog, NotificationTemplate, WebhookSubscription, WebhookDelivery
+from .models import NotificationLog, NotificationTemplate, WebhookSubscription, WebhookDelivery, EmailConfiguration
 from apps.employees.models import Employee
 from .serializers import (
     NotificationLogSerializer, NotificationTemplateSerializer,
     WebhookSubscriptionSerializer, WebhookDeliverySerializer,
     NotificationStatsSerializer, SendNotificationSerializer,
-    MarkNotificationReadSerializer, WebhookTestSerializer
+    MarkNotificationReadSerializer, WebhookTestSerializer,
+    EmailConfigurationSerializer
 )
 # from .tasks import send_webhook_notification, send_sms_notification
 import logging
@@ -539,3 +540,123 @@ class NotificationManagementViewSet(viewsets.GenericViewSet):
                     for item in unread_counts
                 ]
             })
+    @action(detail=False, methods=['get'], permission_classes=[IsAdminUser])
+    def stats(self, request):
+        """Get notification statistics (admin only)"""
+        # Get date range from query params
+        days = int(request.query_params.get('days', 30))
+        start_date = timezone.now() - timedelta(days=days)
+        
+        # Basic stats
+        total_notifications = NotificationLog.objects.filter(created_at__gte=start_date).count()
+        pending_notifications = NotificationLog.objects.filter(
+            created_at__gte=start_date, status='PENDING'
+        ).count()
+        sent_notifications = NotificationLog.objects.filter(
+            created_at__gte=start_date, status='SENT'
+        ).count()
+        failed_notifications = NotificationLog.objects.filter(
+            created_at__gte=start_date, status='FAILED'
+        ).count()
+        delivered_notifications = NotificationLog.objects.filter(
+            created_at__gte=start_date, status='DELIVERED'
+        ).count()
+        
+        # Webhook stats
+        total_webhooks = WebhookSubscription.objects.count()
+        active_webhooks = WebhookSubscription.objects.filter(is_active=True).count()
+        failed_webhook_deliveries = WebhookDelivery.objects.filter(
+            created_at__gte=start_date, status='FAILED'
+        ).count()
+        
+        # By type breakdown
+        by_type = NotificationLog.objects.filter(
+            created_at__gte=start_date
+        ).values('notification_type').annotate(
+            count=Count('id')
+        ).order_by('-count')
+        
+        # Recent activity (last 10 notifications)
+        recent_activity = NotificationLog.objects.select_related(
+            'recipient__user'
+        ).order_by('-created_at')[:10]
+        
+        recent_serializer = NotificationLogSerializer(recent_activity, many=True)
+        
+        stats_data = {
+            'total_notifications': total_notifications,
+            'pending_notifications': pending_notifications,
+            'sent_notifications': sent_notifications,
+            'failed_notifications': failed_notifications,
+            'delivered_notifications': delivered_notifications,
+            'total_webhooks': total_webhooks,
+            'active_webhooks': active_webhooks,
+            'failed_webhook_deliveries': failed_webhook_deliveries,
+            'by_type': {item['notification_type']: item['count'] for item in by_type},
+            'recent_activity': recent_serializer.data
+        }
+        
+        serializer = NotificationStatsSerializer(stats_data)
+        return Response(serializer.data)
+
+class EmailConfigurationViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for managing email configuration
+    """
+    
+    queryset = EmailConfiguration.objects.all()
+    serializer_class = EmailConfigurationSerializer
+    permission_classes = [IsAdminUser]
+    
+    def get_queryset(self):
+        # Only allow seeing the active configuration or all if admin
+        return EmailConfiguration.objects.all().order_by('-is_active', '-created_at')
+
+    @action(detail=False, methods=['get'])
+    def active(self, request):
+        """Get the currently active configuration"""
+        try:
+            config = EmailConfiguration.objects.filter(is_active=True).first()
+            if not config:
+                return Response({'detail': 'No active email configuration found'}, status=status.HTTP_404_NOT_FOUND)
+            
+            serializer = self.get_serializer(config)
+            return Response(serializer.data)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+    @action(detail=True, methods=['post'])
+    def test(self, request, pk=None):
+        """Test email configuration"""
+        config = self.get_object()
+        recipient = request.data.get('recipient')
+        
+        if not recipient:
+            return Response({'error': 'Recipient email is required'}, status=status.HTTP_400_BAD_REQUEST)
+            
+        try:
+            from django.core.mail import get_connection, EmailMessage
+            
+            # Create connection using config
+            connection = get_connection(
+                backend=config.email_backend,
+                host=config.email_host,
+                port=config.email_port,
+                username=config.email_host_user,
+                password=config.email_host_password,
+                use_tls=config.email_use_tls
+            )
+            
+            # Send test email
+            email = EmailMessage(
+                subject='WorkSync Email Test',
+                body='This is a test email from WorkSync to verify your configuration.',
+                from_email=config.default_from_email,
+                to=[recipient],
+                connection=connection
+            )
+            email.send()
+            
+            return Response({'message': 'Test email sent successfully'})
+        except Exception as e:
+            return Response({'error': f'Failed to send test email: {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)

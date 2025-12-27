@@ -286,6 +286,40 @@ class ReportsViewSet(viewsets.ViewSet):
         
         serializer = AttendanceSummaryReportSerializer(data, many=True)
         return Response(serializer.data)
+
+    @action(detail=False, methods=['get'])
+    def detailed_timesheet(self, request):
+        """Get detailed timesheet report data"""
+        start_date = request.query_params.get('start_date')
+        end_date = request.query_params.get('end_date')
+        
+        if not start_date or not end_date:
+            return Response(
+                {'detail': 'start_date and end_date are required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            start_date = datetime.fromisoformat(start_date).date()
+            end_date = datetime.fromisoformat(end_date).date()
+        except ValueError:
+            return Response(
+                {'detail': 'Invalid date format. Use YYYY-MM-DD'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Get filters
+        filters = {}
+        if request.query_params.get('department'):
+            filters['department'] = request.query_params.get('department')
+        if request.query_params.get('employee_ids'):
+            filters['employee_ids'] = request.query_params.get('employee_ids').split(',')
+        
+        # Generate report
+        generator = get_report_generator('DETAILED_TIMESHEET')(start_date, end_date, filters)
+        data = generator.get_data()
+        
+        return Response(data)
     
     @action(detail=False, methods=['get'], permission_classes=[permissions.IsAdminUser])
     def stats(self, request):

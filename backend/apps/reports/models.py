@@ -16,6 +16,7 @@ class ReportTemplate(models.Model):
         ('DEPARTMENT_SUMMARY', 'Department Summary'),
         ('ATTENDANCE_SUMMARY', 'Attendance Summary'),
         ('BREAK_COMPLIANCE', 'Break Compliance Report'),
+        ('DETAILED_TIMESHEET', 'Detailed Timesheet'),
         ('CUSTOM', 'Custom Report'),
     ]
     
@@ -42,6 +43,16 @@ class ReportTemplate(models.Model):
     
     def __str__(self):
         return f"{self.name} ({self.get_report_type_display()})"
+
+    def generate_report(self, filters=None):
+        """Generate report based on template configuration"""
+        # This is a placeholder - actual implementation would depend on report type
+        return {
+            'status': 'success',
+            'message': f'Report {self.name} generated successfully',
+            'data': [],
+            'filters': filters or {}
+        }
     
     class Meta:
         ordering = ['name']

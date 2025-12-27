@@ -181,3 +181,20 @@ class WebhookTestSerializer(serializers.Serializer):
         required=False,
         help_text="Optional custom test payload"
     )
+
+
+class EmailConfigurationSerializer(serializers.ModelSerializer):
+    """Serializer for email configuration"""
+    
+    class Meta:
+        from .models import EmailConfiguration
+        model = EmailConfiguration
+        fields = [
+            'id', 'email_backend', 'email_host', 'email_port',
+            'email_use_tls', 'email_host_user', 'email_host_password',
+            'default_from_email', 'is_active', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
+        extra_kwargs = {
+            'email_host_password': {'write_only': True}
+        }

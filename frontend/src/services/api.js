@@ -84,18 +84,19 @@ export const employeeAPI = {
 };
 
 // Attendance API
+// Attendance API
 export const attendanceAPI = {
-  clockIn: (data) => api.post('/attendance/logs/clock_in/', data),
-  clockOut: (data) => api.post('/attendance/logs/clock_out/', data),
-  timeLogs: (params) => api.get('/attendance/logs/', { params }),
-  currentStatus: () => api.get('/attendance/logs/current_status/'),
-  getCurrentStatus: () => api.get('/attendance/logs/current_status/'),
-  myLogs: (params) => api.get('/attendance/logs/my_logs/', { params }),
-  qrScan: (data) => api.post('/attendance/logs/qr_scan/', data),
-  summary: (params) => api.get('/attendance/logs/summary/', { params }),
-  statistics: () => api.get('/attendance/logs/statistics/'),
-  qrEnforcementStatus: () => api.get('/attendance/logs/qr_enforcement_status/'),
-  shiftStatus: () => api.get('/attendance/logs/shift_status/'),
+  clockIn: (data) => api.post('/attendance/time-logs/clock_in/', data),
+  clockOut: (data) => api.post('/attendance/time-logs/clock_out/', data),
+  timeLogs: (params) => api.get('/attendance/time-logs/', { params }),
+  currentStatus: () => api.get('/attendance/time-logs/current_status/'),
+  getCurrentStatus: () => api.get('/attendance/time-logs/current_status/'),
+  myLogs: (params) => api.get('/attendance/time-logs/my_logs/', { params }),
+  qrScan: (data) => api.post('/attendance/time-logs/qr_scan/', data),
+  summary: (params) => api.get('/attendance/time-logs/summary/', { params }),
+  statistics: () => api.get('/attendance/time-logs/statistics/'),
+  qrEnforcementStatus: () => api.get('/attendance/time-logs/qr_enforcement_status/'),
+  shiftStatus: () => api.get('/attendance/time-logs/shift_status/'),
 
   // Break management
   breaks: (params) => api.get('/attendance/breaks/', { params }),
@@ -105,8 +106,9 @@ export const attendanceAPI = {
   // Break compliance endpoints
   get: (endpoint) => api.get(`/attendance${endpoint}`),
   post: (endpoint, data) => api.post(`/attendance${endpoint}`, data),
+  patch: (endpoint, data) => api.patch(`/attendance${endpoint}`, data),
 
-  exportEmployee: (params) => api.get('/attendance/logs/export/', { params, responseType: 'blob' }),
+  exportEmployee: (params) => api.get('/attendance/time-logs/export/', { params, responseType: 'blob' }),
 };
 
 // Scheduling API
@@ -235,6 +237,12 @@ export const notificationAPI = {
   // Webhooks
   webhooks: () => api.get('/notifications/webhooks/'),
   createWebhook: (data) => api.post('/notifications/webhooks/', data),
+
+  // Email Configuration
+  getEmailConfig: () => api.get('/notifications/email-config/active/'),
+  createEmailConfig: (data) => api.post('/notifications/email-config/', data),
+  updateEmailConfig: (id, data) => api.put(`/notifications/email-config/${id}/`, data),
+  testEmailConfig: (id, data) => api.post(`/notifications/email-config/${id}/test/`, data),
 };
 
 // Webhook API
@@ -267,6 +275,13 @@ export const webhookAPI = {
   updateTemplate: (id, data) => api.put(`/webhooks/templates/${id}/`, data),
   deleteTemplate: (id) => api.delete(`/webhooks/templates/${id}/`),
   createEndpointFromTemplate: (id, data) => api.post(`/webhooks/templates/${id}/create_endpoint/`, data),
+};
+
+// Core/Timezone API
+export const coreAPI = {
+  getTimezones: () => api.get('/core/timezones/'),
+  updateUserTimezone: (timezone) => api.post('/core/timezones/update/', { timezone }),
+  getCurrentTimeInfo: () => api.get('/core/time-info/'),
 };
 
 export default api;

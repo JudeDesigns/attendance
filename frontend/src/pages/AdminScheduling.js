@@ -33,15 +33,31 @@ const AdminScheduling = () => {
   const formatTime = (datetimeString) => {
     if (!datetimeString) return '';
     try {
-      // Parse the datetime string and keep it in UTC to avoid timezone conversion
+      // Parse the datetime string - if it has timezone info, it will be handled correctly
       const date = new Date(datetimeString);
-      // Use UTC methods to avoid local timezone conversion
-      const hours = date.getUTCHours().toString().padStart(2, '0');
-      const minutes = date.getUTCMinutes().toString().padStart(2, '0');
-      return `${hours}:${minutes}`;
+      if (isNaN(date.getTime())) {
+        return datetimeString;
+      }
+
+      // Use toLocaleTimeString to display in user's timezone
+      return date.toLocaleTimeString([], {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+      });
     } catch (error) {
       return datetimeString;
     }
+  };
+
+  // Helper function to get the correct time field (local time preferred)
+  const getDisplayTime = (shift, field) => {
+    if (field === 'start') {
+      return shift.start_time_local || shift.start_time;
+    } else if (field === 'end') {
+      return shift.end_time_local || shift.end_time;
+    }
+    return null;
   };
   const [selectedShift, setSelectedShift] = useState(null);
   const [viewMode, setViewMode] = useState('week'); // 'week', 'month', 'employee'
@@ -146,8 +162,9 @@ const AdminScheduling = () => {
 
   // Group shifts by date and employee
   const groupedShifts = shifts.reduce((acc, shift) => {
-    // Extract date from start_time (format: 2025-10-31T09:00:00Z -> 2025-10-31)
-    const date = shift.start_time ? shift.start_time.split('T')[0] : null;
+    // Extract date from start_time_local if available, fallback to start_time
+    const timeToUse = shift.start_time_local || shift.start_time;
+    const date = timeToUse ? timeToUse.split('T')[0] : null;
     if (!date) return acc; // Skip shifts without valid start_time
 
     if (!acc[date]) acc[date] = {};
@@ -167,7 +184,8 @@ const AdminScheduling = () => {
   });
 
   const handleCreateShift = (shiftData) => {
-    // Convert time fields to datetime format
+    // CRITICAL FIX: Send times as naive datetime strings (no timezone info)
+    // The backend will interpret these as local times based on user's timezone setting
     const processedData = {
       ...shiftData,
       start_time: `${shiftData.date}T${shiftData.start_time}:00`,
@@ -175,6 +193,7 @@ const AdminScheduling = () => {
     };
 
     console.log('Creating/updating shift with data:', processedData);
+    console.log('Times will be interpreted as local time by backend');
 
     if (selectedShift && selectedShift.id) {
       updateShiftMutation.mutate({ id: selectedShift.id, data: processedData });
@@ -476,9 +495,14 @@ const AdminScheduling = () => {
                                   <div className="flex items-center justify-between">
                                     <div>
                                       <div className="font-medium">
-                                        {formatTime(shift.start_time)} - {formatTime(shift.end_time)}
+                                        {formatTime(getDisplayTime(shift, 'start'))} - {formatTime(getDisplayTime(shift, 'end'))}
                                       </div>
                                       <div>{shift.location || 'No location'}</div>
+                                      {shift.employee_timezone && (
+                                        <div className="text-xs text-gray-500">
+                                          {shift.employee_timezone}
+                                        </div>
+                                      )}
                                     </div>
                                     <div className="flex space-x-1">
                                       <button
@@ -637,14 +661,30 @@ const AdminScheduling = () => {
 
 // Simple ShiftForm component
 const ShiftForm = ({ shift, employees, templates, onSubmit, onClose, isLoading }) => {
+  // Helper function to extract time from datetime string
+  const extractTimeFromDatetime = (datetimeString) => {
+    if (!datetimeString) return '';
+    try {
+      const date = new Date(datetimeString);
+      return date.toLocaleTimeString('en-GB', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+      });
+    } catch (error) {
+      return '';
+    }
+  };
+
   const [formData, setFormData] = useState({
     employee: shift?.employee || '',
     date: shift?.date || format(new Date(), 'yyyy-MM-dd'),
-    start_time: shift?.start_time || '09:00',
-    end_time: shift?.end_time || '17:00',
+    start_time: shift ? extractTimeFromDatetime(shift.start_time_local || shift.start_time) : '09:00',
+    end_time: shift ? extractTimeFromDatetime(shift.end_time_local || shift.end_time) : '17:00',
     shift_type: shift?.shift_type || 'REGULAR',
     location: shift?.location || '',
     notes: shift?.notes || '',
+    is_published: shift?.is_published !== undefined ? shift.is_published : true, // Default to published for new shifts
   });
 
   const handleSubmit = (e) => {
@@ -653,8 +693,11 @@ const ShiftForm = ({ shift, employees, templates, onSubmit, onClose, isLoading }
   };
 
   const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    const { name, value, type, checked } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : value
+    }));
   };
 
   return (
@@ -767,6 +810,19 @@ const ShiftForm = ({ shift, employees, templates, onSubmit, onClose, isLoading }
             />
           </div>
 
+          <div className="flex items-center">
+            <input
+              type="checkbox"
+              name="is_published"
+              checked={formData.is_published}
+              onChange={handleChange}
+              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+            />
+            <label className="ml-2 block text-sm font-medium text-gray-700">
+              Publish shift (make visible to employee)
+            </label>
+          </div>
+
           <div className="flex justify-end space-x-3 pt-4">
             <button
               type="button"
@@ -799,6 +855,7 @@ const BulkShiftForm = ({ employees, templates, onSubmit, onClose, isLoading }) =
     end_time: '17:00',
     shift_type: 'REGULAR',
     days_of_week: [1, 2, 3, 4, 5], // Monday to Friday
+    is_published: true, // Default to published for bulk shifts
   });
 
   const handleSubmit = (e) => {
@@ -807,8 +864,11 @@ const BulkShiftForm = ({ employees, templates, onSubmit, onClose, isLoading }) =
   };
 
   const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    const { name, value, type, checked } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : value
+    }));
   };
 
   const handleEmployeeChange = (employeeId) => {
@@ -922,6 +982,19 @@ const BulkShiftForm = ({ employees, templates, onSubmit, onClose, isLoading }) =
                 </label>
               ))}
             </div>
+          </div>
+
+          <div className="flex items-center">
+            <input
+              type="checkbox"
+              name="is_published"
+              checked={formData.is_published}
+              onChange={handleChange}
+              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+            />
+            <label className="ml-2 block text-sm font-medium text-gray-700">
+              Publish all shifts (make visible to employees)
+            </label>
           </div>
 
           <div className="flex justify-end space-x-3 pt-4">

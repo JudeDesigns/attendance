@@ -15,7 +15,8 @@ SECRET_KEY = config('SECRET_KEY', default='django-insecure-change-me-in-producti
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = config('DEBUG', default=True, cast=bool)
 
-ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1', cast=lambda v: [s.strip() for s in v.split(',')])
+# Allow all hosts unconditionally to resolve persistent connection issues
+ALLOWED_HOSTS = ['*']
 
 # Application definition
 DJANGO_APPS = [
@@ -130,20 +131,18 @@ AUTH_PASSWORD_VALIDATORS = [
 
 # Internationalization
 LANGUAGE_CODE = 'en-us'
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'America/Los_Angeles'
 USE_I18N = True
 USE_TZ = True
 
 # VAPID Configuration for Web Push Notifications
-VAPID_PRIVATE_KEY = """
------BEGIN PRIVATE KEY-----
-MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQg/nSOtvNR3x4wUpto
-Dr5wdKMbHWdaxcXr3B5d7NpfokuhRANCAASEn1uy6ywaGqI7oOefAHoDVQwjUOJm
-zKBAsO1trqsWVMeTEjG9RH39SjqRhefztFq4CH1aiWG8MnM8T7WSihUs
------END PRIVATE KEY-----
-"""
+VAPID_PRIVATE_KEY = """-----BEGIN PRIVATE KEY-----
+MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgLHcy2c+d2S2gjYn+
+sVe7C+DvFDtiK9CFs5+0NS5fPdWhRANCAASBUWO5LNnwUklKHKyrEmErb3UJZRSL
+MgVO9xDJaD1CTBasaKoQW7cYqxXMpjbPsidHizSVMT91tjf/bEOB6Ik8
+-----END PRIVATE KEY-----"""
 
-VAPID_PUBLIC_KEY = "BISfW7LrLBoaojug558AegNVDCNQ4mbMoECw7W2uqxZUx5MSMb1Eff1KOpGF5_O0WrgIfVqJYbwyczxPtZKKFSw"
+VAPID_PUBLIC_KEY = "BIFRY7ks2fBSSUocrKsSYStvdQllFIsyBU73EMloPUJMFqxoqhBbtxirFcymNs-yJ0eLNJUxP3W2N_9sQ4HoiTw"
 
 VAPID_CLAIMS = {
     "sub": "mailto:admin@worksync.com"
@@ -186,10 +185,7 @@ SIMPLE_JWT = {
 }
 
 # CORS Configuration
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",  # React development server
-    "http://127.0.0.1:3000",
-]
+CORS_ALLOW_ALL_ORIGINS = True
 
 CORS_ALLOW_CREDENTIALS = True
 
@@ -243,7 +239,7 @@ CSRF_COOKIE_SAMESITE = 'Lax'
 CSRF_TRUSTED_ORIGINS = config('CSRF_TRUSTED_ORIGINS', default='http://localhost:3000', cast=lambda v: [s.strip() for s in v.split(',')])
 
 # Django Axes Configuration (Brute Force Protection)
-AXES_ENABLED = True
+AXES_ENABLED = False
 AXES_FAILURE_LIMIT = 5
 AXES_COOLOFF_TIME = 1  # 1 hour
 AXES_LOCK_OUT_BY_COMBINATION_USER_AND_IP = True
@@ -278,7 +274,7 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 # Rate Limiting
-RATELIMIT_ENABLE = True
+RATELIMIT_ENABLE = False
 RATELIMIT_USE_CACHE = 'default'
 
 # Cache Configuration
@@ -373,3 +369,13 @@ LOGGING = {
         },
     },
 }
+
+# Email Configuration
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = config('MAIL_HOST', default='smtp.gmail.com')
+EMAIL_PORT = config('EMAIL_PORT', default=587, cast=int)
+EMAIL_USE_TLS = True  # Port 587 requires TLS
+EMAIL_HOST_USER = config('EMAIL_USER', default='infobrfood@gmail.com')
+EMAIL_HOST_PASSWORD = config('EMAIL_PASS', default='ykthrhugoqeuetgp')
+DEFAULT_FROM_EMAIL = config('EMAIL_FROM', default='infobrfood@gmail.com')
+SERVER_EMAIL = config('OFFICE_EMAIL', default='infobrfood@gmail.com')

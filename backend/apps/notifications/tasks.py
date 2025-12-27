@@ -194,6 +194,81 @@ def send_sms_notification(employee_id, message, event_type=None):
 
 
 @shared_task
+def send_email_notification(employee_id, subject, message, event_type=None):
+    """
+    Send email notification using dynamic configuration
+    """
+    try:
+        from django.core.mail import get_connection, EmailMessage
+        from .models import EmailConfiguration
+        
+        # Get active email configuration
+        config = EmailConfiguration.objects.filter(is_active=True).first()
+        
+        if not config:
+            logger.warning("No active email configuration found, skipping email")
+            return
+            
+        # Get employee
+        employee = Employee.objects.get(id=employee_id)
+        
+        if not employee.email:
+            logger.warning(f"No email address for employee {employee.employee_id}")
+            return
+            
+        # Create notification log
+        notification_log = NotificationLog.objects.create(
+            recipient=employee,
+            notification_type='EMAIL',
+            event_type=event_type or 'general',
+            subject=subject,
+            message=message,
+            recipient_address=employee.email,
+            status='PENDING'
+        )
+        
+        # Create connection
+        connection = get_connection(
+            backend=config.email_backend,
+            host=config.email_host,
+            port=config.email_port,
+            username=config.email_host_user,
+            password=config.email_host_password,
+            use_tls=config.email_use_tls
+        )
+        
+        # Send email
+        email = EmailMessage(
+            subject=subject,
+            body=message,
+            from_email=config.default_from_email,
+            to=[employee.email],
+            connection=connection
+        )
+        email.send()
+        
+        # Update notification log
+        notification_log.status = 'SENT'
+        notification_log.sent_at = timezone.now()
+        notification_log.save()
+        
+        logger.info(f"Email sent to {employee.employee_id}")
+        
+    except Employee.DoesNotExist:
+        logger.error(f"Employee not found: {employee_id}")
+    except Exception as e:
+        logger.error(f"Error sending email to employee {employee_id}: {str(e)}")
+        
+        # Update notification log if it exists
+        try:
+            notification_log.status = 'FAILED'
+            notification_log.error_message = str(e)
+            notification_log.save()
+        except:
+            pass
+
+
+@shared_task
 def cleanup_old_webhook_deliveries():
     """
     Clean up old webhook delivery records (older than 30 days)

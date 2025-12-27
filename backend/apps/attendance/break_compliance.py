@@ -22,12 +22,35 @@ class BreakComplianceManager:
         self.notification_service = NotificationService()
     
     def check_break_requirements(self, employee, time_log):
+        """Legacy method name - use get_break_requirements instead"""
+        return self.get_break_requirements(employee, time_log)
+
+    def get_break_requirements(self, employee, time_log=None):
         """
         Check if employee needs a break based on work hours
         Returns dict with break requirement info
         """
+        # If no time_log provided, get the current active one
+        if not time_log:
+            from .models import TimeLog
+            time_log = TimeLog.objects.filter(
+                employee=employee,
+                status='CLOCKED_IN'
+            ).first()
+
+        if not time_log:
+            return {
+                'requires_break': False,
+                'can_take_manual_break': False,
+                'reason': 'Employee not currently clocked in'
+            }
+
         if not time_log.clock_in_time:
-            return {'requires_break': False, 'reason': 'No clock-in time'}
+            return {
+                'requires_break': False,
+                'can_take_manual_break': False,
+                'reason': 'No clock-in time recorded'
+            }
         
         # Calculate hours worked so far
         current_time = timezone.now()
@@ -45,32 +68,33 @@ class BreakComplianceManager:
             'break_type': None,
             'hours_worked': round(hours_worked, 2),
             'reason': '',
-            'is_overdue': False
+            'is_overdue': False,
+            'can_take_manual_break': hours_worked >= 1.0  # Allow manual breaks after 1 hour
         }
         
-        # Lunch break required after 6 hours
-        if hours_worked >= 6.0 and existing_breaks == 0:
-            requirements.update({
-                'requires_break': True,
-                'break_type': 'LUNCH',
-                'reason': 'Lunch break required after 6 hours of work',
-                'is_overdue': hours_worked >= 6.5  # Overdue after 6.5 hours
-            })
-        
-        # Short break recommendations
-        elif hours_worked >= 4.0 and existing_breaks == 0:
+        # Short break recommended after 2 hours (FIXED: was 3 hours)
+        if hours_worked >= 2.0:
             short_breaks = Break.objects.filter(
                 time_log=time_log,
                 break_type='SHORT'
             ).count()
-            
+
             if short_breaks == 0:
                 requirements.update({
                     'requires_break': True,
                     'break_type': 'SHORT',
-                    'reason': 'Short break recommended after 4 hours of work',
-                    'is_overdue': False
+                    'reason': 'Short break recommended after 2 hours of work',
+                    'is_overdue': hours_worked >= 2.5  # Overdue after 2.5 hours
                 })
+
+        # Lunch break required after 4 hours (FIXED: was 6 hours)
+        elif hours_worked >= 4.0 and existing_breaks == 0:
+            requirements.update({
+                'requires_break': True,
+                'break_type': 'LUNCH',
+                'reason': 'Lunch break required after 4 hours of work',
+                'is_overdue': hours_worked >= 5.0  # Overdue after 5 hours
+            })
         
         return requirements
     

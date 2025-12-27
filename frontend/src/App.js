@@ -30,6 +30,7 @@ import LocationManagement from './pages/LocationManagement';
 // EmployeeQRManagement removed - individual employee QR codes no longer supported
 import NotificationManagement from './pages/NotificationManagement';
 import NotificationSettings from './pages/NotificationSettings';
+import Settings from './pages/Settings';
 
 
 // Context
@@ -169,6 +170,14 @@ function App() {
                 <ProtectedRoute requireAdmin={true}>
                   <Layout>
                     <NotificationSettings />
+                  </Layout>
+                </ProtectedRoute>
+              } />
+
+              <Route path="/settings" element={
+                <ProtectedRoute>
+                  <Layout>
+                    <Settings />
                   </Layout>
                 </ProtectedRoute>
               } />

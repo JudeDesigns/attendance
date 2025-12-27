@@ -9,7 +9,7 @@ const urlsToCache = [
 ];
 
 // VAPID public key for push notifications
-const VAPID_PUBLIC_KEY = 'BISfW7LrLBoaojug558AegNVDCNQ4mbMoECw7W2uqxZUx5MSMb1Eff1KOpGF5_O0WrgIfVqJYbwyczxPtZKKFSw';
+const VAPID_PUBLIC_KEY = 'BIFRY7ks2fBSSUocrKsSYStvdQllFIsyBU73EMloPUJMFqxoqhBbtxirFcymNs-yJ0eLNJUxP3W2N_9sQ4HoiTw';
 
 // Install event - cache resources
 self.addEventListener('install', (event) => {
@@ -18,25 +18,46 @@ self.addEventListener('install', (event) => {
     caches.open(CACHE_NAME)
       .then((cache) => {
         console.log('Opened cache');
-        return cache.addAll(urlsToCache);
+        // Attempt to cache, but don't fail installation if some files are missing
+        return cache.addAll(urlsToCache).catch(err => {
+          console.warn('Failed to cache some resources:', err);
+        });
       })
   );
   // Skip waiting to activate immediately
   self.skipWaiting();
 });
 
-// Fetch event - serve from cache when offline
+// Fetch event - serve from cache when offline, but skip API requests
 self.addEventListener('fetch', (event) => {
+  const url = new URL(event.request.url);
+
+  // Don't intercept API requests - let them go directly to the backend
+  if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/ws/')) {
+    return;
+  }
+
   event.respondWith(
     caches.match(event.request)
       .then((response) => {
-        // Return cached version or fetch from network
+        // Return cached version if available
         if (response) {
           return response;
         }
-        return fetch(event.request);
-      }
-    )
+
+        // Otherwise fetch from network with error handling
+        return fetch(event.request).catch((error) => {
+          console.warn('Fetch failed for:', event.request.url, error);
+          // Return a basic response for failed requests
+          return new Response('Offline - resource not available', {
+            status: 503,
+            statusText: 'Service Unavailable',
+            headers: new Headers({
+              'Content-Type': 'text/plain'
+            })
+          });
+        });
+      })
   );
 });
 

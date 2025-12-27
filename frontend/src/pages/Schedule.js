@@ -51,34 +51,63 @@ const Schedule = () => {
   };
 
   const getShiftsForDay = (date) => {
-    return shifts.filter(shift => 
-      isSameDay(new Date(shift.start_time), date)
+    return shifts.filter(shift =>
+      // Use start_time_local if available, fallback to start_time
+      isSameDay(new Date(shift.start_time_local || shift.start_time), date)
     );
   };
 
   const formatTime = (timeString) => {
     if (!timeString) return '';
     try {
-      // Parse the datetime string and keep it in UTC to avoid timezone conversion
+      // Parse the datetime string - if it has timezone info, it will be handled correctly
       const date = new Date(timeString);
-      // Use UTC methods to avoid local timezone conversion
-      const hours = date.getUTCHours();
-      const minutes = date.getUTCMinutes();
+      if (isNaN(date.getTime())) {
+        return timeString;
+      }
 
-      // Convert to 12-hour format
-      const period = hours >= 12 ? 'PM' : 'AM';
-      const displayHours = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
-      const displayMinutes = minutes.toString().padStart(2, '0');
-
-      return `${displayHours}:${displayMinutes} ${period}`;
+      // Use toLocaleTimeString to display in user's timezone
+      return date.toLocaleTimeString([], {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+      });
     } catch (error) {
       return timeString;
     }
   };
 
-  const calculateShiftDuration = (startTime, endTime) => {
+  // Helper function to get the correct time field (local time preferred)
+  const getDisplayTime = (shift, field) => {
+    if (field === 'start') {
+      return shift.start_time_local || shift.start_time;
+    } else if (field === 'end') {
+      return shift.end_time_local || shift.end_time;
+    }
+    return null;
+  };
+
+  const calculateShiftDuration = (shift) => {
+    // Use duration_hours from backend if available (most accurate)
+    if (shift.duration_hours !== undefined && shift.duration_hours !== null) {
+      return shift.duration_hours.toFixed(1);
+    }
+
+    // Fallback to manual calculation using local times if available
+    const startTime = shift.start_time_local || shift.start_time;
+    const endTime = shift.end_time_local || shift.end_time;
+
+    if (!startTime || !endTime) return '0.0';
+
     const start = new Date(startTime);
-    const end = new Date(endTime);
+    let end = new Date(endTime);
+
+    // Handle overnight shifts - if end time is earlier than start time,
+    // it means the shift crosses midnight and end time is the next day
+    if (end <= start) {
+      end = new Date(end.getTime() + 24 * 60 * 60 * 1000); // Add 24 hours
+    }
+
     const diffMs = end - start;
     const diffHours = diffMs / (1000 * 60 * 60);
     return diffHours.toFixed(1);
@@ -144,7 +173,7 @@ const Schedule = () => {
                 <p className="text-xs md:text-sm font-medium glass-text-secondary">Total Hours</p>
                 <p className="text-lg md:text-xl font-semibold glass-text-primary">
                   {shifts.reduce((total, shift) => {
-                    return total + parseFloat(calculateShiftDuration(shift.start_time, shift.end_time));
+                    return total + parseFloat(calculateShiftDuration(shift));
                   }, 0).toFixed(1)}h
                 </p>
               </div>
@@ -192,10 +221,10 @@ const Schedule = () => {
                           className="bg-indigo-100 text-indigo-800 px-1.5 md:px-2 py-1 rounded text-xs"
                         >
                           <div className="font-medium text-xs">
-                            {formatTime(shift.start_time)} - {formatTime(shift.end_time)}
+                            {formatTime(getDisplayTime(shift, 'start'))} - {formatTime(getDisplayTime(shift, 'end'))}
                           </div>
                           <div className="text-indigo-600 text-xs">
-                            {calculateShiftDuration(shift.start_time, shift.end_time)}h
+                            {calculateShiftDuration(shift)}h
                           </div>
                           {shift.location && (
                             <div className="text-indigo-600 mt-1 truncate text-xs">
@@ -238,14 +267,14 @@ const Schedule = () => {
                 <div key={shift.id} className="glass-card p-3 border border-gray-200">
                   <div className="flex justify-between items-start mb-2">
                     <div className="font-medium glass-text-primary text-sm">
-                      {format(new Date(shift.start_time), 'EEE, MMM d')}
+                      {format(new Date(getDisplayTime(shift, 'start')), 'EEE, MMM d')}
                     </div>
                     <div className="text-xs glass-text-secondary">
-                      {calculateShiftDuration(shift.start_time, shift.end_time)}h
+                      {calculateShiftDuration(shift)}h
                     </div>
                   </div>
                   <div className="text-sm glass-text-secondary mb-1">
-                    {formatTime(shift.start_time)} - {formatTime(shift.end_time)}
+                    {formatTime(getDisplayTime(shift, 'start'))} - {formatTime(getDisplayTime(shift, 'end'))}
                   </div>
                   {shift.location && (
                     <div className="text-xs glass-text-secondary mb-1">
@@ -290,16 +319,16 @@ const Schedule = () => {
                   {shifts.map((shift) => (
                     <tr key={shift.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        {format(new Date(shift.start_time), 'EEE, MMM d')}
+                        {format(new Date(getDisplayTime(shift, 'start')), 'EEE, MMM d')}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {formatTime(shift.start_time)}
+                        {formatTime(getDisplayTime(shift, 'start'))}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {formatTime(shift.end_time)}
+                        {formatTime(getDisplayTime(shift, 'end'))}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {calculateShiftDuration(shift.start_time, shift.end_time)}h
+                        {calculateShiftDuration(shift)}h
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         {shift.location || '-'}

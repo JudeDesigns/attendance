@@ -9,6 +9,8 @@ import {
   ExclamationTriangleIcon,
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
+import { notificationAPI } from '../services/api';
+import PushSubscriptionManager from '../components/PushSubscriptionManager';
 
 const NotificationSettings = () => {
   const [emailSettings, setEmailSettings] = useState({
@@ -29,21 +31,90 @@ const NotificationSettings = () => {
   const [testEmail, setTestEmail] = useState('');
   const [testPhone, setTestPhone] = useState('');
   const [activeTab, setActiveTab] = useState('email');
+  const [configId, setConfigId] = useState(null);
+
+  // Fetch active email configuration
+  const { isLoading: isLoadingConfig } = useQuery(
+    'emailConfig',
+    async () => {
+      try {
+        const response = await notificationAPI.getEmailConfig();
+        return response.data;
+      } catch (error) {
+        // If 404, it just means no config exists yet, which is fine
+        if (error.response?.status === 404) return null;
+        throw error;
+      }
+    },
+    {
+      onSuccess: (data) => {
+        if (data) {
+          setConfigId(data.id);
+          setEmailSettings({
+            host: data.email_host,
+            port: data.email_port,
+            use_tls: data.email_use_tls,
+            username: data.email_host_user,
+            // Password is write-only, so we leave it blank or set a placeholder if needed
+            // But for security, better to leave blank and only update if changed
+            password: '',
+            from_email: data.default_from_email,
+          });
+        }
+      },
+      retry: false,
+    }
+  );
+
+  // Save email settings
+  const saveEmailMutation = useMutation(
+    async (data) => {
+      const payload = {
+        email_backend: 'django.core.mail.backends.smtp.EmailBackend',
+        email_host: data.host,
+        email_port: data.port,
+        email_use_tls: data.use_tls,
+        email_host_user: data.username,
+        default_from_email: data.from_email,
+        is_active: true
+      };
+
+      // Only include password if provided (it's optional on update)
+      if (data.password) {
+        payload.email_host_password = data.password;
+      }
+
+      if (configId) {
+        return notificationAPI.updateEmailConfig(configId, payload);
+      } else {
+        return notificationAPI.createEmailConfig(payload);
+      }
+    },
+    {
+      onSuccess: (response) => {
+        setConfigId(response.data.id);
+        toast.success('Email settings saved successfully!');
+      },
+      onError: (error) => {
+        toast.error(error.response?.data?.detail || 'Failed to save email settings');
+      }
+    }
+  );
 
   // Test email configuration
   const testEmailMutation = useMutation(
     async (email) => {
-      // This would be an API call to test email configuration
-      return new Promise((resolve) => {
-        setTimeout(() => resolve({ success: true }), 2000);
-      });
+      if (!configId) {
+        throw new Error('Please save settings before testing');
+      }
+      return notificationAPI.testEmailConfig(configId, { recipient: email });
     },
     {
       onSuccess: () => {
         toast.success('Test email sent successfully!');
       },
-      onError: () => {
-        toast.error('Failed to send test email');
+      onError: (error) => {
+        toast.error(error.response?.data?.error || error.message || 'Failed to send test email');
       },
     }
   );
@@ -97,8 +168,7 @@ const NotificationSettings = () => {
   };
 
   const saveEmailSettings = () => {
-    // This would save email settings via API
-    toast.success('Email settings saved successfully!');
+    saveEmailMutation.mutate(emailSettings);
   };
 
   const saveSmsSettings = () => {
@@ -155,25 +225,33 @@ const NotificationSettings = () => {
           <nav className="-mb-px flex">
             <button
               onClick={() => setActiveTab('email')}
-              className={`py-4 px-6 text-sm font-medium border-b-2 ${
-                activeTab === 'email'
-                  ? 'border-indigo-500 text-indigo-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
+              className={`py-4 px-6 text-sm font-medium border-b-2 ${activeTab === 'email'
+                ? 'border-indigo-500 text-indigo-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
             >
               <EnvelopeIcon className="h-5 w-5 inline mr-2" />
               Email Configuration
             </button>
             <button
               onClick={() => setActiveTab('sms')}
-              className={`py-4 px-6 text-sm font-medium border-b-2 ${
-                activeTab === 'sms'
-                  ? 'border-indigo-500 text-indigo-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
+              className={`py-4 px-6 text-sm font-medium border-b-2 ${activeTab === 'sms'
+                ? 'border-indigo-500 text-indigo-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
             >
               <DevicePhoneMobileIcon className="h-5 w-5 inline mr-2" />
               SMS Configuration
+            </button>
+            <button
+              onClick={() => setActiveTab('push')}
+              className={`py-4 px-6 text-sm font-medium border-b-2 ${activeTab === 'push'
+                ? 'border-indigo-500 text-indigo-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+            >
+              <DevicePhoneMobileIcon className="h-5 w-5 inline mr-2" />
+              Push Notifications
             </button>
           </nav>
         </div>
@@ -286,7 +364,7 @@ const NotificationSettings = () => {
                   onClick={saveEmailSettings}
                   className="bg-green-600 text-white px-6 py-2 rounded-md hover:bg-green-700"
                 >
-                  Save Email Settings
+                  {saveEmailMutation.isLoading ? 'Saving...' : 'Save Email Settings'}
                 </button>
               </div>
             </div>
@@ -303,7 +381,7 @@ const NotificationSettings = () => {
                     </h3>
                     <div className="mt-2 text-sm text-blue-700">
                       <p>
-                        To send SMS notifications, you need a Twilio account. 
+                        To send SMS notifications, you need a Twilio account.
                         <a href="https://www.twilio.com/try-twilio" target="_blank" rel="noopener noreferrer" className="underline ml-1">
                           Sign up here
                         </a>
@@ -382,6 +460,10 @@ const NotificationSettings = () => {
                 </button>
               </div>
             </div>
+          )}
+
+          {activeTab === 'push' && (
+            <PushSubscriptionManager />
           )}
         </div>
       </div>

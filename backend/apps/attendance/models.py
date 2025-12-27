@@ -70,14 +70,22 @@ class TimeLog(models.Model):
         """Calculate duration in minutes"""
         if self.clock_out_time:
             delta = self.clock_out_time - self.clock_in_time
-            return int(delta.total_seconds() / 60)
-        return None
+        else:
+            # For active time logs, calculate from clock_in_time to now
+            from django.utils import timezone
+            delta = timezone.now() - self.clock_in_time
+        return int(delta.total_seconds() / 60)
     
     @property
     def duration_hours(self):
         """Calculate duration in hours"""
         minutes = self.duration_minutes
         return round(minutes / 60, 2) if minutes else None
+
+    @property
+    def hours_worked(self):
+        """Calculate hours worked (alias for duration_hours for break compliance)"""
+        return self.duration_hours
 
     def calculate_distance(self, lat1, lon1, lat2, lon2):
         """Calculate distance between two GPS coordinates using Haversine formula"""

@@ -64,6 +64,7 @@ class RateLimitMiddleware(MiddlewareMixin):
         super().__init__(get_response)
     
     def process_request(self, request):
+        return None
         # Skip rate limiting for certain paths
         skip_paths = ['/admin/', '/static/', '/media/']
         if any(request.path.startswith(path) for path in skip_paths):

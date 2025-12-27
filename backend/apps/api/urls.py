@@ -10,6 +10,8 @@ urlpatterns = [
     # Clock-in/out endpoints for external integration
     path('attendance/clock-in/', views.clock_in, name='clock_in'),
     path('attendance/clock-out/', views.clock_out, name='clock_out'),
+    path('attendance/start-break/', views.start_break, name='start_break'),
+    path('attendance/end-break/', views.end_break, name='end_break'),
     
     # Employee status
     path('employees/<str:employee_id>/status/', views.employee_status, name='employee_status'),

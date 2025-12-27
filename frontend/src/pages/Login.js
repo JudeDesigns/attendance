@@ -55,7 +55,7 @@ const Login = () => {
         <div className="glass-modal glass-fade-in p-8">
           <div className="text-center mb-8">
             <h2 className="text-3xl font-extrabold glass-text-primary">
-              Sign in to WorkSync
+              Sign in to Attendance
             </h2>
             <p className="mt-2 text-sm glass-text-secondary">
               Employee Time Tracking & Attendance Management
@@ -110,12 +110,7 @@ const Login = () => {
               </button>
             </div>
 
-            <div className="glass-card p-4 text-center">
-              <div className="text-sm glass-text-secondary">
-                <p className="mb-2 font-medium">Demo Credentials:</p>
-                <p className="glass-text-primary"><strong>Admin:</strong> admin / WorkSync2024!</p>
-              </div>
-            </div>
+
           </form>
         </div>
       </div>

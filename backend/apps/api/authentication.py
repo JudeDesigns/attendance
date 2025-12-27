@@ -15,6 +15,9 @@ class APIKeyAuthentication(BaseAuthentication):
     def authenticate(self, request):
         api_key = request.META.get('HTTP_X_API_KEY')
         
+        # Debug logging
+        # print(f"Auth Check: Header X-API-KEY: {api_key}")
+        
         if not api_key:
             return None
         
@@ -23,8 +26,6 @@ class APIKeyAuthentication(BaseAuthentication):
         
         for app_name, valid_key in valid_keys.items():
             if api_key == valid_key:
-                # Return a tuple of (user, auth) where user can be None for API key auth
-                # We'll create a custom user object to represent the external app
                 return (APIKeyUser(app_name), api_key)
         
         raise AuthenticationFailed('Invalid API key')
@@ -44,6 +45,10 @@ class APIKeyUser:
     @property
     def is_active(self):
         return True
+    
+    @property
+    def username(self):
+        return self.app_name
     
     def __str__(self):
         return f"API User: {self.app_name}"

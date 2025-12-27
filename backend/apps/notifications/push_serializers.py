@@ -68,6 +68,11 @@ class PushSubscriptionCreateSerializer(PushSubscriptionSerializer):
     
     class Meta(PushSubscriptionSerializer.Meta):
         fields = PushSubscriptionSerializer.Meta.fields + ['subscription']
+        extra_kwargs = {
+            'endpoint': {'required': False},
+            'p256dh_key': {'required': False},
+            'auth_key': {'required': False},
+        }
     
     def validate_subscription(self, value):
         """Validate subscription object from frontend"""

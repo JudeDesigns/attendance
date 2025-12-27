@@ -12,15 +12,16 @@ import {
   LineElement,
 } from 'chart.js';
 import { Bar, Doughnut, Line } from 'react-chartjs-2';
-import { 
-  UsersIcon, 
-  ClockIcon, 
+import {
+  UsersIcon,
+  ClockIcon,
   ArrowTrendingUpIcon as TrendingUpIcon,
   CalendarIcon,
   ArrowPathIcon as RefreshIcon
 } from '@heroicons/react/24/outline';
 import { attendanceAPI, employeeAPI } from '../services/api';
 import { useQuery } from 'react-query';
+import { formatDurationCompact } from '../utils/helpers';
 
 // Register ChartJS components
 ChartJS.register(
@@ -111,17 +112,17 @@ const DashboardStats = () => {
     ],
   };
 
-  // Monthly trend - use only real data, no dummy data
+  // Monthly trend - use real data from monthly_breakdown
   const monthlyTrendData = {
-    labels: ['This Week'],
+    labels: attendanceStats?.monthly_breakdown?.map(week => week.label) || [],
     datasets: [
       {
         label: 'Weekly Hours',
-        data: [attendanceStats?.this_week?.total_hours || 0], // Only show current week real data
-        fill: false,
+        data: attendanceStats?.monthly_breakdown?.map(week => week.hours) || [],
+        fill: true,
         borderColor: 'rgba(139, 92, 246, 1)',
         backgroundColor: 'rgba(139, 92, 246, 0.1)',
-        tension: 0.1,
+        tension: 0.3,
       },
     ],
   };
@@ -308,7 +309,7 @@ const DashboardStats = () => {
                     Week Total Hours
                   </dt>
                   <dd className="text-lg font-medium text-gray-900">
-                    {stats.week_total_hours}h
+                    {formatDurationCompact(stats.week_total_hours)}
                   </dd>
                 </dl>
               </div>

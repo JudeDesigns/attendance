@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { employeeAPI, attendanceAPI, locationAPI, schedulingAPI } from '../services/api';
 import { useQuery } from 'react-query';
 import { format } from 'date-fns';
+import { formatDurationCompact } from '../utils/helpers';
 import DashboardStats from '../components/DashboardStats';
 import RecentActivity from '../components/RecentActivity';
 import QuickActions from '../components/QuickActions';
@@ -267,7 +268,7 @@ const AdminDashboard = () => {
                       </td>
                       <td className="glass-table-cell whitespace-nowrap text-sm glass-text-primary">
                         {log.duration_hours
-                          ? `${log.duration_hours.toFixed(1)}h`
+                          ? formatDurationCompact(log.duration_hours)
                           : '-'
                         }
                       </td>

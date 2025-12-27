@@ -61,6 +61,7 @@ urlpatterns = [
     path('api/redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
 
     # API endpoints
+    path('api/v1/', include('apps.api.urls')),  # External integration endpoints (must be first)
     path('api/v1/auth/', include('apps.authentication.urls')),
     path('api/v1/', include('apps.employees.urls')),
     path('api/v1/attendance/', include('apps.attendance.urls')),
@@ -68,5 +69,6 @@ urlpatterns = [
     path('api/v1/notifications/', include('apps.notifications.urls')),
     path('api/v1/reports/', include('apps.reports.urls')),
     path('api/v1/webhooks/', include('apps.webhooks.urls')),
+    path('api/v1/core/', include('apps.core.urls')),
 
 ]

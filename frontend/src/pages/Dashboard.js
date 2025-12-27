@@ -27,13 +27,31 @@ const Dashboard = () => {
     }
   }, [isAdmin, navigate]);
 
-  // Get employee status
-  const { data: statusData, refetch: refetchStatus } = useQuery(
-    ['employeeStatus', user?.employee_profile?.id],
-    () => employeeAPI.status(user?.employee_profile?.id),
+  // Get employee status using the robust shift_status endpoint (which is confirmed working)
+  const {
+    data: statusData,
+    refetch: refetchStatus,
+    isLoading: isStatusLoading,
+    error: statusError
+  } = useQuery(
+    'shiftStatus',
+    () => attendanceAPI.shiftStatus(),
+    {
+      refetchInterval: 30000, // Refetch every 30 seconds
+      retry: 3,
+      onError: (err) => {
+        console.error('Error fetching status:', err);
+      }
+    }
+  );
+
+  // Get QR enforcement status
+  const { data: qrEnforcementData } = useQuery(
+    'qrEnforcementStatus',
+    () => attendanceAPI.qrEnforcementStatus(),
     {
       enabled: !!user?.employee_profile?.id,
-      refetchInterval: 30000, // Refetch every 30 seconds
+      refetchInterval: 30000,
     }
   );
 
@@ -52,11 +70,33 @@ const Dashboard = () => {
 
   useEffect(() => {
     if (statusData?.data) {
-      setCurrentStatus(statusData.data);
+      // Normalize data structure to match what the UI expects
+      // The shift_status endpoint now returns { is_clocked_in: boolean, ... }
+      // The UI expects { current_status: 'CLOCKED_IN' | 'CLOCKED_OUT' }
+      const status = statusData.data.is_clocked_in ? 'CLOCKED_IN' : 'CLOCKED_OUT';
+      setCurrentStatus({
+        current_status: status,
+        ...statusData.data
+      });
     }
   }, [statusData]);
 
+  const shiftStatus = statusData?.data || {};
+  const qrEnforcement = qrEnforcementData?.data || {};
+
   const quickClockIn = async () => {
+    // Check if shift exists and clock-in is allowed
+    if (!shiftStatus?.can_clock_in) {
+      toast.error('No scheduled shift found. You can only clock in during scheduled shifts or within 15 minutes before shift start.');
+      return;
+    }
+
+    // Check QR enforcement
+    if (qrEnforcement?.requires_qr_for_clock_in) {
+      toast.error('QR code required for clock-in. Please use the Clock In/Out page.');
+      return;
+    }
+
     try {
       await attendanceAPI.clockIn({
         method: 'PORTAL',
@@ -70,6 +110,18 @@ const Dashboard = () => {
   };
 
   const quickClockOut = async () => {
+    // Check if clock-out is allowed
+    if (!shiftStatus?.can_clock_out) {
+      toast.error('No active scheduled shift found. You can only clock out during an active scheduled shift.');
+      return;
+    }
+
+    // Check QR enforcement
+    if (qrEnforcement?.requires_qr_for_clock_out) {
+      toast.error('QR code required for clock-out. Please use the Clock In/Out page.');
+      return;
+    }
+
     try {
       await attendanceAPI.clockOut({
         method: 'PORTAL',
@@ -90,6 +142,22 @@ const Dashboard = () => {
   const totalHoursToday = todaysLogs.reduce((total, log) => {
     return total + (log.duration_hours || 0);
   }, 0);
+
+  // Helper function to format duration
+  const formatDuration = (hours) => {
+    if (!hours || hours === 0) return '0h 0m';
+
+    const h = Math.floor(hours);
+    const m = Math.round((hours - h) * 60);
+
+    if (h === 0) {
+      return `${m}m`;
+    } else if (m === 0) {
+      return `${h}h`;
+    } else {
+      return `${h}h ${m}m`;
+    }
+  };
 
   const isCurrentlyClockedIn = currentStatus?.current_status === 'CLOCKED_IN';
 
@@ -131,7 +199,10 @@ const Dashboard = () => {
           )}
 
           {/* Break Button */}
-          <BreakButton className="flex-1 sm:flex-initial" />
+          <BreakButton
+            className="flex-1 sm:flex-initial"
+            currentStatus={currentStatus}
+          />
 
           <button
             onClick={() => navigate('/schedule')}
@@ -158,20 +229,25 @@ const Dashboard = () => {
                     Current Status
                   </dt>
                   <dd className="text-lg font-medium text-gray-900">
-                    {currentStatus?.current_status?.replace('_', ' ') || 'Loading...'}
+                    {isStatusLoading ? 'Loading...' :
+                      statusError ? 'Status Unavailable' :
+                        currentStatus?.current_status?.replace('_', ' ') || 'Not Clocked In'}
                   </dd>
                 </dl>
               </div>
             </div>
           </div>
-          <div className={`px-5 py-3 ${
+          <div className={`px-5 py-3 ${isStatusLoading || statusError ? 'bg-red-50' :
             isCurrentlyClockedIn ? 'bg-green-50' : 'bg-gray-50'
-          }`}>
+            }`}>
             <div className="text-sm">
-              <span className={`font-medium ${
-                isCurrentlyClockedIn ? 'text-green-700' : 'text-gray-700'
-              }`}>
-                {isCurrentlyClockedIn ? 'Currently Working' : 'Not Clocked In'}
+              <span className={`font-medium ${isStatusLoading ? 'text-gray-500' :
+                statusError ? 'text-red-700' :
+                  isCurrentlyClockedIn ? 'text-green-700' : 'text-gray-700'
+                }`}>
+                {isStatusLoading ? 'Checking status...' :
+                  statusError ? `Error: ${statusError.response?.data?.detail || statusError.message || 'Connection Failed'}` :
+                    isCurrentlyClockedIn ? 'Currently Working' : 'Not Clocked In'}
               </span>
             </div>
           </div>
@@ -190,19 +266,17 @@ const Dashboard = () => {
                     Hours Today
                   </dt>
                   <dd className="text-lg font-medium text-gray-900">
-                    {totalHoursToday.toFixed(1)}h
+                    {formatDuration(totalHoursToday)}
                   </dd>
                 </dl>
               </div>
             </div>
           </div>
-          <div className={`px-5 py-3 ${
-            totalHoursToday > 8 ? 'bg-yellow-50' : 'bg-gray-50'
-          }`}>
+          <div className={`px-5 py-3 ${totalHoursToday > 8 ? 'bg-yellow-50' : 'bg-gray-50'
+            }`}>
             <div className="text-sm">
-              <span className={`font-medium ${
-                totalHoursToday > 8 ? 'text-yellow-700' : 'text-gray-700'
-              }`}>
+              <span className={`font-medium ${totalHoursToday > 8 ? 'text-yellow-700' : 'text-gray-700'
+                }`}>
                 {totalHoursToday > 8 ? 'Overtime' : 'Regular Hours'}
               </span>
             </div>
@@ -255,7 +329,7 @@ const Dashboard = () => {
             <div className="bg-yellow-50 px-5 py-3">
               <div className="text-sm">
                 <span className="font-medium text-yellow-700">
-                  You've worked {totalHoursToday.toFixed(1)} hours today
+                  You've worked {formatDuration(totalHoursToday)} today
                 </span>
               </div>
             </div>
@@ -271,7 +345,7 @@ const Dashboard = () => {
           <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
             Today's Activity
           </h3>
-          
+
           {todaysLogs.length === 0 ? (
             <p className="text-gray-500">No activity recorded today.</p>
           ) : (
@@ -284,8 +358,13 @@ const Dashboard = () => {
                     </p>
                     {log.clock_out_time && (
                       <p className="text-sm text-gray-500">
-                        Clock Out: {format(new Date(log.clock_out_time), 'h:mm a')} 
-                        ({log.duration_hours?.toFixed(1)}h)
+                        Clock Out: {format(new Date(log.clock_out_time), 'h:mm a')}
+                        ({formatDuration(log.duration_hours)})
+                      </p>
+                    )}
+                    {!log.clock_out_time && log.duration_hours && (
+                      <p className="text-sm text-green-600">
+                        Currently working: {formatDuration(log.duration_hours)}
                       </p>
                     )}
                     {log.notes && (
@@ -293,11 +372,10 @@ const Dashboard = () => {
                     )}
                   </div>
                   <div className="text-right">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                      log.clock_out_time 
-                        ? 'bg-green-100 text-green-800' 
-                        : 'bg-blue-100 text-blue-800'
-                    }`}>
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${log.clock_out_time
+                      ? 'bg-green-100 text-green-800'
+                      : 'bg-blue-100 text-blue-800'
+                      }`}>
                       {log.clock_out_time ? 'Completed' : 'In Progress'}
                     </span>
                   </div>

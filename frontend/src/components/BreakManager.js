@@ -70,9 +70,9 @@ const BreakManager = () => {
     }
   );
 
-  // End break mutation
+  // End break mutation (FIXED: Changed POST to PATCH to match backend)
   const endBreakMutation = useMutation(
-    (breakId) => attendanceAPI.post(`/breaks/${breakId}/end_break/`),
+    (breakId) => attendanceAPI.patch(`/breaks/${breakId}/end_break/`),
     {
       onSuccess: () => {
         queryClient.invalidateQueries('activeBreak');

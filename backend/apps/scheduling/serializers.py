@@ -9,6 +9,7 @@ from .models import Shift, ShiftTemplate
 from .leave_models import LeaveType, LeaveBalance, LeaveRequest, LeaveApprovalWorkflow
 from apps.employees.models import Employee, Location
 from apps.employees.serializers import EmployeeSerializer, LocationSerializer
+from apps.core.timezone_utils import convert_to_user_timezone, convert_from_user_timezone, parse_user_datetime
 
 
 class ShiftSerializer(serializers.ModelSerializer):
@@ -22,6 +23,11 @@ class ShiftSerializer(serializers.ModelSerializer):
     is_future = serializers.BooleanField(read_only=True)
     created_by_name = serializers.CharField(source='created_by.get_full_name', read_only=True, allow_null=True)
 
+    # Timezone-aware fields for display
+    start_time_local = serializers.SerializerMethodField()
+    end_time_local = serializers.SerializerMethodField()
+    employee_timezone = serializers.CharField(source='employee.timezone', read_only=True)
+
     def get_employee_name(self, obj):
         """Get employee name with fallback to employee_id if name is empty"""
         full_name = obj.employee.user.get_full_name().strip()
@@ -30,11 +36,27 @@ class ShiftSerializer(serializers.ModelSerializer):
         # Fallback to employee_id if name is empty
         return obj.employee.employee_id
 
+    def get_start_time_local(self, obj):
+        """Get start time in employee's local timezone"""
+        if obj.start_time and obj.employee:
+            # Convert to employee's timezone for consistent display
+            local_time = convert_to_user_timezone(obj.start_time, obj.employee.user)
+            return local_time.isoformat()
+        return None
+
+    def get_end_time_local(self, obj):
+        """Get end time in employee's local timezone"""
+        if obj.end_time and obj.employee:
+            # Convert to employee's timezone for consistent display
+            local_time = convert_to_user_timezone(obj.end_time, obj.employee.user)
+            return local_time.isoformat()
+        return None
+
     class Meta:
         model = Shift
         fields = [
-            'id', 'employee', 'employee_name', 'employee_id',
-            'location', 'start_time', 'end_time',
+            'id', 'employee', 'employee_name', 'employee_id', 'employee_timezone',
+            'location', 'start_time', 'end_time', 'start_time_local', 'end_time_local',
             'duration_minutes', 'duration_hours', 'notes', 'is_published',
             'is_past', 'is_current', 'is_future',
             'created_by', 'created_by_name', 'created_at', 'updated_at'
@@ -57,14 +79,16 @@ class ShiftCreateSerializer(serializers.ModelSerializer):
         start_time = data.get('start_time')
         end_time = data.get('end_time')
         employee = data.get('employee')
-        
+
         if start_time and end_time:
-            # Validate end time is after start time
-            if end_time <= start_time:
-                raise serializers.ValidationError('End time must be after start time')
-            
-            # Validate shift duration (not more than 24 hours)
+            # Handle overnight shifts - if end_time is "earlier" than start_time,
+            # it means the shift crosses midnight and end_time is the next day
             duration = end_time - start_time
+            if end_time <= start_time:
+                # This is an overnight shift - add 24 hours to calculate duration
+                duration = (end_time + timedelta(days=1)) - start_time
+
+            # Validate shift duration (not more than 24 hours)
             if duration.total_seconds() > 24 * 3600:
                 raise serializers.ValidationError('Shift duration cannot exceed 24 hours')
             
@@ -89,7 +113,60 @@ class ShiftCreateSerializer(serializers.ModelSerializer):
                     )
         
         return data
-    
+
+    def to_internal_value(self, data):
+        """
+        Override to parse datetimes in user's timezone.
+        This ensures naive strings from frontend are interpreted correctly.
+        """
+        # Get request from context to access user
+        request = self.context.get('request')
+        user = request.user if request else None
+        
+        if user:
+            # Helper to parse field if present
+            def parse_field(field_name):
+                if field_name in data and isinstance(data[field_name], str):
+                    try:
+                        # If it looks like a datetime string
+                        if 'T' in data[field_name]:
+                            date_str, time_str = data[field_name].split('T')
+                            # Parse using user's timezone
+                            dt = parse_user_datetime(date_str, time_str, user)
+                            data[field_name] = dt
+                    except (ValueError, TypeError):
+                        # Let standard validation handle errors
+                        pass
+
+            parse_field('start_time')
+            parse_field('end_time')
+
+        return super().to_internal_value(data)
+
+    def create(self, validated_data):
+        """Create shift with proper overnight shift handling"""
+        start_time = validated_data.get('start_time')
+        end_time = validated_data.get('end_time')
+
+        # Fix overnight shifts by adjusting end_time to next day
+        if start_time and end_time and end_time <= start_time:
+            # This is an overnight shift - move end_time to next day
+            validated_data['end_time'] = end_time + timedelta(days=1)
+
+        return super().create(validated_data)
+
+    def update(self, instance, validated_data):
+        """Update shift with proper overnight shift handling"""
+        start_time = validated_data.get('start_time', instance.start_time)
+        end_time = validated_data.get('end_time', instance.end_time)
+
+        # Fix overnight shifts by adjusting end_time to next day
+        if start_time and end_time and end_time <= start_time:
+            # This is an overnight shift - move end_time to next day
+            validated_data['end_time'] = end_time + timedelta(days=1)
+
+        return super().update(instance, validated_data)
+
     def validate_employee(self, value):
         """Validate employee exists and is active"""
         if value.employment_status != 'ACTIVE':

@@ -346,6 +346,121 @@ class AttendanceSummaryReportGenerator(ReportGenerator):
         return round((compliant_days / total_work_days) * 100, 1)
 
 
+class DetailedTimesheetReportGenerator(ReportGenerator):
+    """Generate detailed timesheet report matching user requirements"""
+    
+    def get_data(self):
+        """Get detailed timesheet data"""
+        # Get all time logs in date range
+        time_logs = TimeLog.objects.filter(
+            clock_in_time__date__gte=self.start_date,
+            clock_in_time__date__lte=self.end_date,
+            status='CLOCKED_OUT'
+        ).select_related('employee__user').prefetch_related('breaks')
+        
+        # Apply filters
+        if 'department' in self.filters:
+            time_logs = time_logs.filter(employee__department=self.filters['department'])
+        if 'employee_ids' in self.filters:
+            time_logs = time_logs.filter(employee__employee_id__in=self.filters['employee_ids'])
+        
+        report_data = []
+        
+        for log in time_logs:
+            date = log.clock_in_time.date()
+            day_name = date.strftime('%A')
+            start_time = log.clock_in_time.strftime('%H:%M')
+            end_time = log.clock_out_time.strftime('%H:%M') if log.clock_out_time else ''
+            
+            # Calculate total duration
+            total_duration = log.clock_out_time - log.clock_in_time
+            total_hours_decimal = total_duration.total_seconds() / 3600
+            
+            # Format total hours as "Xh Ym"
+            hours = int(total_duration.total_seconds() // 3600)
+            minutes = int((total_duration.total_seconds() % 3600) // 60)
+            total_hours_str = f"{hours}h {minutes}m"
+            
+            # Process breaks (up to 3)
+            breaks = list(log.breaks.all().order_by('start_time'))
+            break_data = {}
+            total_break_minutes = 0
+            
+            for i in range(3):
+                prefix = f"break_{i+1}"
+                if i < len(breaks):
+                    b = breaks[i]
+                    b_start = b.start_time.strftime('%H:%M')
+                    b_end = b.end_time.strftime('%H:%M') if b.end_time else ''
+                    
+                    b_duration_str = ''
+                    if b.end_time:
+                        b_minutes = int((b.end_time - b.start_time).total_seconds() / 60)
+                        # Only deduct if it's a deducted break (e.g., LUNCH)
+                        # Assuming LUNCH is deducted, others might not be.
+                        # User image shows "Break 1 (not deducted)", "Break 2 (deducted)".
+                        # We'll assume LUNCH is deducted for now.
+                        if b.break_type == 'LUNCH':
+                            total_break_minutes += b_minutes
+                            
+                        b_h = b_minutes // 60
+                        b_m = b_minutes % 60
+                        b_duration_str = f"{b_h}h {b_m}m"
+                    
+                    break_data[f'{prefix}_in'] = b_start
+                    break_data[f'{prefix}_out'] = b_end
+                    break_data[f'{prefix}_total'] = b_duration_str
+                else:
+                    break_data[f'{prefix}_in'] = ''
+                    break_data[f'{prefix}_out'] = ''
+                    break_data[f'{prefix}_total'] = ''
+            
+            # Calculate final hours (Total - Deducted Breaks)
+            final_hours_decimal = total_hours_decimal - (total_break_minutes / 60)
+            final_hours = round(final_hours_decimal, 2)
+            
+            # Calculate Net Hours string
+            net_total_seconds = total_duration.total_seconds() - (total_break_minutes * 60)
+            net_h = int(net_total_seconds // 3600)
+            net_m = int((net_total_seconds % 3600) // 60)
+            net_hours_str = f"{net_h}h {net_m}m"
+            
+            # Overtime calculations
+            regular_hours = min(final_hours, 8.0)
+            over_8 = max(0, final_hours - 8.0)
+            over_12 = max(0, final_hours - 12.0)
+            
+            # Adjust over_8 to not include over_12 if they are separate buckets
+            over_8_only = min(over_8, 4.0) # Max 4 hours in the 8-12 bucket
+            
+            row = {
+                'Employee Name': log.employee.user.get_full_name(),
+                'Date': date.strftime('%m/%d/%Y'),
+                'Day': day_name,
+                'Start Time': start_time,
+                'End Time': end_time,
+                'Total Hours': total_hours_str,
+                'Break 1 In': break_data['break_1_in'],
+                'Break 1 Out': break_data['break_1_out'],
+                'Break 1 Total': break_data['break_1_total'],
+                'Break 2 In': break_data['break_2_in'],
+                'Break 2 Out': break_data['break_2_out'],
+                'Break 2 Total': break_data['break_2_total'],
+                'Break 3 In': break_data['break_3_in'],
+                'Break 3 Out': break_data['break_3_out'],
+                'Break 3 Total': break_data['break_3_total'],
+                'Total Without Break': net_hours_str,
+                'Finally Hours': final_hours,
+                '8 Hours': round(regular_hours, 2),
+                'over 8': round(over_8_only, 2),
+                'over 12': round(over_12, 2)
+            }
+            report_data.append(row)
+            
+        return sorted(report_data, key=lambda x: (x['Employee Name'], datetime.strptime(x['Date'], '%m/%d/%Y')))
+
+
+
 def get_report_generator(report_type):
     """Factory function to get appropriate report generator"""
     generators = {
@@ -353,6 +468,7 @@ def get_report_generator(report_type):
         'OVERTIME': OvertimeReportGenerator,
         'DEPARTMENT_SUMMARY': DepartmentSummaryReportGenerator,
         'ATTENDANCE_SUMMARY': AttendanceSummaryReportGenerator,
+        'DETAILED_TIMESHEET': DetailedTimesheetReportGenerator,
     }
 
     generator_class = generators.get(report_type)

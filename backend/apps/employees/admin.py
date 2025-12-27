@@ -1,7 +1,9 @@
 from django.contrib import admin
 from django.contrib.auth.models import User
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
+from django import forms
 from .models import Role, Employee, Location
+from apps.core.timezone_utils import TIMEZONE_CHOICES
 
 
 @admin.register(Role)
@@ -47,7 +49,7 @@ class EmployeeInline(admin.StackedInline):
         'phone_number', 'address', 'date_of_birth',
         'emergency_contact_name', 'emergency_contact_phone',
         'department', 'job_title', 'hourly_rate',
-        'requires_location_qr', 'qr_enforcement_type'
+        'timezone', 'requires_location_qr', 'qr_enforcement_type'
     ]
 
 
@@ -55,8 +57,22 @@ class UserAdmin(BaseUserAdmin):
     inlines = (EmployeeInline,)
 
 
+class EmployeeAdminForm(forms.ModelForm):
+    """Custom form for Employee admin with timezone choices"""
+    timezone = forms.ChoiceField(
+        choices=TIMEZONE_CHOICES,
+        initial='UTC',
+        help_text="Employee's timezone for shift scheduling and time display"
+    )
+
+    class Meta:
+        model = Employee
+        fields = '__all__'
+
+
 @admin.register(Employee)
 class EmployeeAdmin(admin.ModelAdmin):
+    form = EmployeeAdminForm
     list_display = [
         'employee_id', 'get_full_name', 'get_email', 'role', 
         'employment_status', 'requires_location_qr', 'qr_enforcement_type', 'hire_date'

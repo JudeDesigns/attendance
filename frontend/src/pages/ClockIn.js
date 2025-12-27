@@ -53,10 +53,13 @@ const ClockIn = () => {
   const { data: locationsData } = useQuery('locations', locationAPI.list);
 
   const currentStatus = statusData?.data;
-  const isCurrentlyClockedIn = currentStatus?.is_clocked_in || false;
+  const shiftStatus = shiftStatusData?.data || {};
   const locations = locationsData?.data?.results || locationsData?.results || [];
   const qrEnforcement = qrEnforcementData?.data || {};
-  const shiftStatus = shiftStatusData?.data || {};
+
+  // Use shiftStatus as the primary source of truth since it's confirmed working
+  // Fallback to currentStatus if shiftStatus is not yet loaded
+  const isCurrentlyClockedIn = shiftStatus.is_clocked_in ?? (currentStatus?.is_clocked_in || false);
 
   // Get current location
   useEffect(() => {
@@ -87,9 +90,15 @@ const ClockIn = () => {
         clockInData.location_id = locationId;
       }
 
+      if (location) {
+        clockInData.latitude = location.latitude;
+        clockInData.longitude = location.longitude;
+      }
+
       await attendanceAPI.clockIn(clockInData);
       toast.success('Clocked in successfully!');
       setNotes('');
+      setActiveMethod('portal'); // Close camera if open
       refetchStatus();
     } catch (error) {
       const errorData = error.response?.data;
@@ -114,10 +123,16 @@ const ClockIn = () => {
         notes: notes || `Clock-out via ${activeMethod}`,
       };
 
+      if (location) {
+        clockOutData.latitude = location.latitude;
+        clockOutData.longitude = location.longitude;
+      }
+
       const response = await attendanceAPI.clockOut(clockOutData);
       const duration = response.data.duration_hours || 0;
       toast.success(`Clocked out successfully! Worked ${duration.toFixed(1)} hours.`);
       setNotes('');
+      setActiveMethod('portal'); // Close camera if open
       refetchStatus();
     } catch (error) {
       const errorData = error.response?.data;
@@ -138,7 +153,7 @@ const ClockIn = () => {
     const location = locations.find(loc => loc.qr_code_payload === qrData);
     if (location) {
       toast.success(`Scanned: ${location.name}`);
-      handleClockIn(location.qr_code_payload);
+      handleClockIn(location.id);
     } else {
       toast.error('Invalid QR code');
     }
@@ -156,9 +171,8 @@ const ClockIn = () => {
         <h1 className="text-2xl font-bold text-gray-900">Time Tracking</h1>
         <p className="text-gray-600 mt-2">
           Current Status:
-          <span className={`ml-2 font-medium ${
-            isCurrentlyClockedIn ? 'text-green-600' : 'text-gray-600'
-          }`}>
+          <span className={`ml-2 font-medium ${isCurrentlyClockedIn ? 'text-green-600' : 'text-gray-600'
+            }`}>
             {isCurrentlyClockedIn ? 'CLOCKED IN' : 'CLOCKED OUT'}
           </span>
         </p>
@@ -290,11 +304,10 @@ const ClockIn = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <button
             onClick={() => setActiveMethod('portal')}
-            className={`p-4 border-2 rounded-lg text-left transition-all duration-300 ${
-              activeMethod === 'portal'
-                ? 'border-blue-400 glass-gradient-primary'
-                : 'glass-button border-transparent hover:border-blue-300'
-            }`}
+            className={`p-4 border-2 rounded-lg text-left transition-all duration-300 ${activeMethod === 'portal'
+              ? 'border-blue-400 glass-gradient-primary'
+              : 'glass-button border-transparent hover:border-blue-300'
+              }`}
           >
             <ClockIcon className="h-6 w-6 text-blue-600 mb-2" />
             <h3 className="font-medium glass-text-primary">Portal Clock-In</h3>
@@ -303,11 +316,10 @@ const ClockIn = () => {
 
           <button
             onClick={() => setActiveMethod('qr')}
-            className={`p-4 border-2 rounded-lg text-left transition-all duration-300 ${
-              activeMethod === 'qr'
-                ? 'border-blue-400 glass-gradient-primary'
-                : 'glass-button border-transparent hover:border-blue-300'
-            }`}
+            className={`p-4 border-2 rounded-lg text-left transition-all duration-300 ${activeMethod === 'qr'
+              ? 'border-blue-400 glass-gradient-primary'
+              : 'glass-button border-transparent hover:border-blue-300'
+              }`}
           >
             <QrcodeIcon className="h-6 w-6 text-blue-600 mb-2" />
             <h3 className="font-medium glass-text-primary">QR Code Scan</h3>
@@ -352,11 +364,10 @@ const ClockIn = () => {
                 <button
                   onClick={handleClockOut}
                   disabled={loading || qrEnforcement.requires_qr_for_clock_out || !shiftStatus.can_clock_out}
-                  className={`w-full sm:w-auto inline-flex items-center justify-center px-8 py-4 border border-transparent text-lg font-medium rounded-md text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed ${
-                    qrEnforcement.requires_qr_for_clock_out || !shiftStatus.can_clock_out
-                      ? 'bg-gray-400 cursor-not-allowed'
-                      : 'bg-red-600 hover:bg-red-700'
-                  }`}
+                  className={`w-full sm:w-auto inline-flex items-center justify-center px-8 py-4 border border-transparent text-lg font-medium rounded-md text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed ${qrEnforcement.requires_qr_for_clock_out || !shiftStatus.can_clock_out
+                    ? 'bg-gray-400 cursor-not-allowed'
+                    : 'bg-red-600 hover:bg-red-700'
+                    }`}
                 >
                   {loading ? (
                     <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
@@ -381,11 +392,10 @@ const ClockIn = () => {
                 <button
                   onClick={() => handleClockIn()}
                   disabled={loading || qrEnforcement.requires_qr_for_clock_in || !shiftStatus.can_clock_in}
-                  className={`w-full sm:w-auto inline-flex items-center justify-center px-8 py-4 border border-transparent text-lg font-medium rounded-md text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed ${
-                    qrEnforcement.requires_qr_for_clock_in || !shiftStatus.can_clock_in
-                      ? 'bg-gray-400 cursor-not-allowed'
-                      : 'bg-green-600 hover:bg-green-700'
-                  }`}
+                  className={`w-full sm:w-auto inline-flex items-center justify-center px-8 py-4 border border-transparent text-lg font-medium rounded-md text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed ${qrEnforcement.requires_qr_for_clock_in || !shiftStatus.can_clock_in
+                    ? 'bg-gray-400 cursor-not-allowed'
+                    : 'bg-green-600 hover:bg-green-700'
+                    }`}
                 >
                   {loading ? (
                     <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>

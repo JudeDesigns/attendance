@@ -2,7 +2,104 @@ from django.contrib import admin
 from django.utils.html import format_html
 from django.urls import reverse
 from django.utils.safestring import mark_safe
+from .models import Shift, ShiftTemplate
 from .leave_models import LeaveType, LeaveBalance, LeaveRequest, LeaveApprovalWorkflow
+
+
+@admin.register(Shift)
+class ShiftAdmin(admin.ModelAdmin):
+    list_display = ['employee_name', 'employee_id', 'start_time', 'end_time', 'duration_hours', 'location', 'is_published', 'created_at']
+    list_filter = ['is_published', 'location', 'start_time', 'created_at']
+    search_fields = ['employee__user__first_name', 'employee__user__last_name', 'employee__employee_id', 'location', 'notes']
+    readonly_fields = ['id', 'duration_minutes', 'duration_hours', 'is_current', 'is_past', 'is_future', 'created_at', 'updated_at']
+    date_hierarchy = 'start_time'
+    list_per_page = 50
+
+    fieldsets = (
+        ('Shift Details', {
+            'fields': ('employee', 'start_time', 'end_time', 'location', 'is_published')
+        }),
+        ('Additional Information', {
+            'fields': ('notes', 'created_by'),
+            'classes': ('collapse',)
+        }),
+        ('Calculated Fields', {
+            'fields': ('duration_minutes', 'duration_hours', 'is_current', 'is_past', 'is_future'),
+            'classes': ('collapse',),
+            'description': 'Read-only calculated fields'
+        }),
+        ('System Information', {
+            'fields': ('id', 'created_at', 'updated_at'),
+            'classes': ('collapse',)
+        })
+    )
+
+    def employee_name(self, obj):
+        return f"{obj.employee.user.first_name} {obj.employee.user.last_name}".strip() or obj.employee.user.username
+    employee_name.short_description = 'Employee Name'
+    employee_name.admin_order_field = 'employee__user__first_name'
+
+    def employee_id(self, obj):
+        return obj.employee.employee_id
+    employee_id.short_description = 'Employee ID'
+    employee_id.admin_order_field = 'employee__employee_id'
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related('employee__user', 'created_by')
+
+    def save_model(self, request, obj, form, change):
+        """Override save to set created_by for new shifts"""
+        if not change:  # New shift
+            obj.created_by = request.user
+        super().save_model(request, obj, form, change)
+
+
+@admin.register(ShiftTemplate)
+class ShiftTemplateAdmin(admin.ModelAdmin):
+    list_display = ['name', 'employee_name', 'employee_id', 'start_time', 'end_time', 'recurrence_type', 'is_active', 'effective_from']
+    list_filter = ['is_active', 'recurrence_type', 'effective_from', 'created_at']
+    search_fields = ['name', 'employee__user__first_name', 'employee__user__last_name', 'employee__employee_id', 'notes']
+    readonly_fields = ['id', 'created_at', 'updated_at']
+    date_hierarchy = 'effective_from'
+
+    fieldsets = (
+        ('Template Details', {
+            'fields': ('name', 'employee', 'location', 'is_active')
+        }),
+        ('Time Settings', {
+            'fields': ('start_time', 'end_time')
+        }),
+        ('Recurrence Settings', {
+            'fields': ('recurrence_type', 'weekdays', 'effective_from', 'effective_until')
+        }),
+        ('Additional Information', {
+            'fields': ('notes', 'created_by'),
+            'classes': ('collapse',)
+        }),
+        ('System Information', {
+            'fields': ('id', 'created_at', 'updated_at'),
+            'classes': ('collapse',)
+        })
+    )
+
+    def employee_name(self, obj):
+        return f"{obj.employee.user.first_name} {obj.employee.user.last_name}".strip() or obj.employee.user.username
+    employee_name.short_description = 'Employee Name'
+    employee_name.admin_order_field = 'employee__user__first_name'
+
+    def employee_id(self, obj):
+        return obj.employee.employee_id
+    employee_id.short_description = 'Employee ID'
+    employee_id.admin_order_field = 'employee__employee_id'
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related('employee__user', 'created_by')
+
+    def save_model(self, request, obj, form, change):
+        """Override save to set created_by for new templates"""
+        if not change:  # New template
+            obj.created_by = request.user
+        super().save_model(request, obj, form, change)
 
 
 @admin.register(LeaveType)

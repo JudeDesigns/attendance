@@ -73,7 +73,11 @@ class Employee(models.Model):
     hourly_rate = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     
     # Settings
-    timezone = models.CharField(max_length=50, default='UTC')
+    timezone = models.CharField(
+        max_length=50,
+        default='America/Los_Angeles',
+        help_text="Employee's timezone for shift scheduling and time display"
+    )
     notification_preferences = models.JSONField(default=dict)
 
     # QR Code for employee identification
@@ -127,6 +131,32 @@ class Employee(models.Model):
     @property
     def is_active_employee(self):
         return self.employment_status == 'ACTIVE'
+
+    @property
+    def current_status(self):
+        """Get current employee status based on active time logs"""
+        from apps.attendance.models import TimeLog
+        active_log = TimeLog.objects.filter(
+            employee=self,
+            status='CLOCKED_IN'
+        ).first()
+
+        if active_log:
+            return 'CLOCKED_IN'
+        return 'CLOCKED_OUT'
+
+    @property
+    def is_clocked_in(self):
+        """Check if employee is currently clocked in"""
+        return self.current_status == 'CLOCKED_IN'
+
+    def get_active_time_log(self):
+        """Get the current active time log if any"""
+        from apps.attendance.models import TimeLog
+        return TimeLog.objects.filter(
+            employee=self,
+            status='CLOCKED_IN'
+        ).first()
 
     def has_permission(self, permission):
         """Check if employee has a specific permission"""

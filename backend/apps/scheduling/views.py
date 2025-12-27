@@ -71,7 +71,11 @@ class ShiftViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         """Filter queryset based on user permissions"""
         queryset = super().get_queryset()
-        
+
+        # Handle anonymous users
+        if not self.request.user.is_authenticated:
+            return queryset.none()
+
         # Non-admin users can only see their own shifts
         if not self.request.user.is_staff:
             try:
@@ -83,17 +87,30 @@ class ShiftViewSet(viewsets.ModelViewSet):
         # Filter by date range if provided
         start_date = self.request.query_params.get('start_date')
         end_date = self.request.query_params.get('end_date')
-        
+
         if start_date:
             try:
+                # Parse start_date and set to beginning of day
                 start = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
+                if start.time() == datetime.min.time():  # If no time specified, it's start of day
+                    # Keep as start of day (00:00:00)
+                    pass
                 queryset = queryset.filter(start_time__gte=start)
             except ValueError:
                 pass
-        
+
         if end_date:
             try:
+                # Parse end_date and handle end-of-day logic
                 end = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
+                if end.time() == datetime.min.time():  # If no time specified (just date)
+                    # Convert to end of day (23:59:59.999999) to include shifts starting later in the day
+                    from datetime import time
+                    end = datetime.combine(end.date(), time.max)
+                    # Make timezone-aware if needed
+                    if hasattr(end, 'tzinfo') and end.tzinfo is None:
+                        from django.utils import timezone
+                        end = timezone.make_aware(end)
                 queryset = queryset.filter(start_time__lte=end)
             except ValueError:
                 pass
@@ -152,12 +169,16 @@ class ShiftViewSet(viewsets.ModelViewSet):
             # Check if current day is in the selected weekdays
             if current_date.weekday() in weekdays:
                 # Create datetime objects for the shift
-                shift_start = timezone.make_aware(
-                    datetime.combine(current_date, start_time)
-                )
-                shift_end = timezone.make_aware(
-                    datetime.combine(current_date, end_time)
-                )
+                # Use user's timezone to interpret the time
+                from apps.core.timezone_utils import convert_naive_to_user_timezone
+                
+                # Combine date and time (naive)
+                naive_start = datetime.combine(current_date, start_time)
+                naive_end = datetime.combine(current_date, end_time)
+                
+                # Convert to aware datetime in UTC, interpreting naive as user's local time
+                shift_start = convert_naive_to_user_timezone(naive_start, request.user)
+                shift_end = convert_naive_to_user_timezone(naive_end, request.user)
                 
                 # Handle overnight shifts
                 if end_time <= start_time:

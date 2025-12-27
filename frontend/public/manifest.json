@@ -1,7 +1,7 @@
 {
-  "short_name": "WorkSync",
-  "name": "WorkSync - Employee Time Tracking",
-  "description": "Modern employee time tracking and management system",
+  "short_name": "Attendance",
+  "name": "Attendance - Employee Time Tracking",
+  "description": "Modern employee time tracking and attendance management system",
   "icons": [
     {
       "src": "favicon.ico",

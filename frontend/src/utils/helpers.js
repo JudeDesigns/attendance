@@ -70,13 +70,28 @@ export const formatDateTime = (datetime, formatString = DATE_FORMATS.DISPLAY_DAT
  */
 export const formatDuration = (hours) => {
   if (!hours || hours === 0) return '0h 0m';
-  
+
   const h = Math.floor(hours);
   const m = Math.round((hours - h) * 60);
-  
+
   if (h === 0) return `${m}m`;
   if (m === 0) return `${h}h`;
-  
+
+  return `${h}h ${m}m`;
+};
+
+/**
+ * Format duration in hours and minutes (compact version for single values)
+ */
+export const formatDurationCompact = (hours) => {
+  if (!hours || hours === 0) return '0h';
+
+  const h = Math.floor(hours);
+  const m = Math.round((hours - h) * 60);
+
+  if (h === 0) return `${m}m`;
+  if (m === 0) return `${h}h`;
+
   return `${h}h ${m}m`;
 };
 
@@ -85,12 +100,18 @@ export const formatDuration = (hours) => {
  */
 export const calculateDuration = (startTime, endTime) => {
   if (!startTime || !endTime) return 0;
-  
+
   const start = typeof startTime === 'string' ? parseISO(startTime) : startTime;
-  const end = typeof endTime === 'string' ? parseISO(endTime) : endTime;
-  
+  let end = typeof endTime === 'string' ? parseISO(endTime) : endTime;
+
   if (!isValid(start) || !isValid(end)) return 0;
-  
+
+  // Handle overnight shifts - if end time is earlier than start time,
+  // it means the shift crosses midnight and end time is the next day
+  if (end <= start) {
+    end = new Date(end.getTime() + 24 * 60 * 60 * 1000); // Add 24 hours
+  }
+
   const diffMs = end - start;
   return diffMs / (1000 * 60 * 60); // Convert to hours
 };

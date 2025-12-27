@@ -29,9 +29,12 @@ class Shift(models.Model):
         """Calculate shift duration in minutes"""
         if self.start_time and self.end_time:
             delta = self.end_time - self.start_time
+            # Handle overnight shifts
+            if self.end_time <= self.start_time:
+                delta = (self.end_time + timedelta(days=1)) - self.start_time
             return int(delta.total_seconds() / 60)
         return None
-    
+
     @property
     def duration_hours(self):
         """Calculate shift duration in hours"""
@@ -47,7 +50,14 @@ class Shift(models.Model):
     def is_current(self):
         """Check if shift is currently active"""
         now = timezone.now()
-        return self.start_time <= now <= self.end_time
+
+        # Handle overnight shifts
+        if self.end_time <= self.start_time:
+            # Overnight shift - check if current time is after start OR before end (next day)
+            return now >= self.start_time or now <= self.end_time
+        else:
+            # Regular shift - normal time range check
+            return self.start_time <= now <= self.end_time
     
     @property
     def is_future(self):
@@ -59,24 +69,45 @@ class Shift(models.Model):
         """Check if current time allows clock-in (within 15 minutes before shift start)"""
         now = timezone.now()
         clock_in_window_start = self.start_time - timedelta(minutes=15)
-        return clock_in_window_start <= now <= self.end_time
+
+        # Handle overnight shifts
+        if self.end_time <= self.start_time:
+            # Overnight shift - allow clock-in if within window before start OR during shift
+            return (now >= clock_in_window_start) or (now <= self.end_time)
+        else:
+            # Regular shift - normal time range check
+            return clock_in_window_start <= now <= self.end_time
 
     @property
     def allows_clock_out(self):
         """Check if current time allows clock-out (after shift start)"""
         now = timezone.now()
-        return self.start_time <= now
+
+        # Handle overnight shifts
+        if self.end_time <= self.start_time:
+            # Overnight shift - allow clock-out if after start OR before end (next day)
+            return now >= self.start_time or now <= self.end_time
+        else:
+            # Regular shift - allow clock-out after shift start
+            return self.start_time <= now
 
     @classmethod
     def get_current_shift(cls, employee):
         """Get the current active shift for an employee"""
         now = timezone.now()
-        return cls.objects.filter(
+
+        # Get all published shifts for the employee
+        shifts = cls.objects.filter(
             employee=employee,
-            start_time__lte=now,
-            end_time__gte=now,
             is_published=True
-        ).first()
+        )
+
+        # Check each shift to see if it's currently active
+        for shift in shifts:
+            if shift.is_current:
+                return shift
+
+        return None
 
     @classmethod
     def get_upcoming_shift(cls, employee, within_minutes=15):
@@ -111,29 +142,89 @@ class Shift(models.Model):
     def clean(self):
         """Validate shift data"""
         if self.start_time and self.end_time:
-            # Validate end time is after start time
+            # Handle overnight shifts - if end_time is "earlier" than start_time,
+            # it means the shift crosses midnight and end_time is the next day
+            duration = self.end_time - self.start_time
             if self.end_time <= self.start_time:
-                raise ValidationError('End time must be after start time')
-            
+                # This is an overnight shift - add 24 hours to calculate duration
+                duration = (self.end_time + timedelta(days=1)) - self.start_time
+
             # Validate shift duration (not more than 24 hours)
-            duration_hours = self.duration_hours
-            if duration_hours and duration_hours > 24:
+            duration_hours = duration.total_seconds() / 3600
+            if duration_hours > 24:
                 raise ValidationError('Shift duration cannot exceed 24 hours')
             
             # Check for overlapping shifts for the same employee
-            overlapping_shifts = Shift.objects.filter(
-                employee=self.employee,
-                start_time__lt=self.end_time,
-                end_time__gt=self.start_time
+            # We need custom logic to handle overnight shifts properly
+            existing_shifts = Shift.objects.filter(
+                employee=self.employee
             ).exclude(id=self.id)
             
-            if overlapping_shifts.exists():
-                overlapping_shift = overlapping_shifts.first()
-                raise ValidationError(
-                    f'Shift overlaps with existing shift from '
-                    f'{overlapping_shift.start_time.strftime("%Y-%m-%d %H:%M")} to '
-                    f'{overlapping_shift.end_time.strftime("%Y-%m-%d %H:%M")}'
-                )
+            for existing_shift in existing_shifts:
+                # Check if the new shift overlaps with this existing shift
+                # We need to handle 4 cases:
+                # 1. Both shifts are regular (same day or end_time > start_time normally)
+                # 2. New shift is overnight, existing is regular
+                # 3. New shift is regular, existing is overnight
+                # 4. Both shifts are overnight
+                
+                # An overnight shift crosses midnight: end_time is next day AND time is earlier
+                new_is_overnight = (self.end_time.date() > self.start_time.date() and 
+                                   self.end_time.time() < self.start_time.time())
+                existing_is_overnight = (existing_shift.end_time.date() > existing_shift.start_time.date() and
+                                        existing_shift.end_time.time() < existing_shift.start_time.time())
+                
+                overlaps = False
+                
+                if not new_is_overnight and not existing_is_overnight:
+                    # Case 1: Both regular shifts - standard overlap check
+                    overlaps = (self.start_time < existing_shift.end_time and 
+                               self.end_time > existing_shift.start_time)
+                
+                elif new_is_overnight and not existing_is_overnight:
+                    # Case 2: New shift is overnight, existing is regular
+                    # New shift spans two days: [start_time on day1] to [end_time on day2]
+                    # Existing shift is on one day
+                    # They overlap if:
+                    # - Existing shift is on day1 and overlaps with first part (after new start), OR
+                    # - Existing shift is on day2 and overlaps with second part (before new end)
+                    existing_on_day1 = existing_shift.start_time.date() == self.start_time.date()
+                    existing_on_day2 = existing_shift.end_time.date() == self.end_time.date()
+                    
+                    if existing_on_day1:
+                        overlaps = existing_shift.end_time > self.start_time
+                    elif existing_on_day2:
+                        overlaps = existing_shift.start_time < self.end_time
+                
+                elif not new_is_overnight and existing_is_overnight:
+                    # Case 3: New shift is regular, existing is overnight
+                    # Existing shift spans two days: [start_time on day1] to [end_time on day2]
+                    # New shift is on one day
+                    # They overlap if:
+                    # - New shift is on day1 and overlaps with first part (after existing start), OR
+                    # - New shift is on day2 and overlaps with second part (before existing end)
+                    new_on_day1 = self.start_time.date() == existing_shift.start_time.date()
+                    new_on_day2 = self.end_time.date() == existing_shift.end_time.date()
+                    
+                    if new_on_day1:
+                        overlaps = self.end_time > existing_shift.start_time
+                    elif new_on_day2:
+                        overlaps = self.start_time < existing_shift.end_time
+                
+                else:
+                    # Case 4: Both shifts are overnight
+                    # Two overnight shifts will always overlap since they both span midnight
+                    # Unless they're on completely different days
+                    # Check if they're on the same day or consecutive days
+                    overlaps = (self.start_time.date() == existing_shift.start_time.date() or
+                               self.end_time.date() == existing_shift.end_time.date())
+                
+                if overlaps:
+                    raise ValidationError(
+                        f'Shift overlaps with existing shift from '
+                        f'{existing_shift.start_time.strftime("%Y-%m-%d %H:%M")} to '
+                        f'{existing_shift.end_time.strftime("%Y-%m-%d %H:%M")}'
+                    )
     
     def save(self, *args, **kwargs):
         """Override save to run validation"""

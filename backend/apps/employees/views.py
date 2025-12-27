@@ -304,7 +304,7 @@ class EmployeeViewSet(viewsets.ModelViewSet):
     # Individual employee QR code endpoints removed - no longer supported
     # Only location QR codes are used for clock-in/out verification
 
-    @action(detail=False, methods=['get'], permission_classes=[IsAdminUser])
+    @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated])
     def statistics(self, request):
         """Get employee statistics"""
         total = Employee.objects.count()

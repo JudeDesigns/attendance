@@ -4,30 +4,31 @@ import { ClockIcon, ExclamationTriangleIcon, CheckCircleIcon } from '@heroicons/
 import toast from 'react-hot-toast';
 import { attendanceAPI } from '../services/api';
 
-const BreakButton = ({ className = "" }) => {
+const BreakButton = ({ className = "", currentStatus }) => {
   const [showWaiverModal, setShowWaiverModal] = useState(false);
   const [waiverReason, setWaiverReason] = useState('');
   const [breakTimeReached, setBreakTimeReached] = useState(false);
   const [followUpSent, setFollowUpSent] = useState(false);
-  
+
   const queryClient = useQueryClient();
 
-  // Get current clock-in status
-  const { data: currentStatus } = useQuery(
-    'currentStatus',
-    () => attendanceAPI.getCurrentStatus(),
-    {
-      refetchInterval: 30000, // Refetch every 30 seconds
-    }
-  );
+  // Internal status query removed - using prop from Dashboard instead
 
   // Get break requirements
-  const { data: breakRequirements, refetch: refetchBreakRequirements } = useQuery(
+  const {
+    data: breakRequirements,
+    refetch: refetchBreakRequirements,
+    isError: isBreakError,
+    error: breakError
+  } = useQuery(
     'breakRequirements',
     () => attendanceAPI.get('/breaks/break_requirements/'),
     {
-      enabled: currentStatus?.current_status === 'CLOCKED_IN',
+      enabled: !!currentStatus?.is_clocked_in,
       refetchInterval: 60000, // Check every minute
+      onError: (err) => {
+        console.error('Break requirements fetch failed:', err);
+      }
     }
   );
 
@@ -36,7 +37,7 @@ const BreakButton = ({ className = "" }) => {
     'activeBreak',
     () => attendanceAPI.get('/breaks/active_break/'),
     {
-      enabled: currentStatus?.current_status === 'CLOCKED_IN',
+      enabled: !!currentStatus?.is_clocked_in,
       refetchInterval: 30000,
     }
   );
@@ -82,7 +83,7 @@ const BreakButton = ({ className = "" }) => {
   useEffect(() => {
     if (breakRequirements?.data?.requires_break && !breakTimeReached && !activeBreakData?.data?.has_active_break) {
       setBreakTimeReached(true);
-      
+
       // Send immediate notification
       toast.custom(
         (t) => (
@@ -165,7 +166,7 @@ const BreakButton = ({ className = "" }) => {
   }, [breakRequirements, breakTimeReached, activeBreakData, followUpSent]);
 
   const handleStartBreak = (breakType) => {
-    startBreakMutation.mutate({ 
+    startBreakMutation.mutate({
       break_type: breakType || 'LUNCH',
       notes: 'Break started via Break Button'
     });
@@ -178,10 +179,11 @@ const BreakButton = ({ className = "" }) => {
   };
 
   // Determine button state
-  const isCurrentlyClockedIn = currentStatus?.current_status === 'CLOCKED_IN';
+  const isCurrentlyClockedIn = currentStatus?.is_clocked_in;
   const requiresBreak = breakRequirements?.data?.requires_break;
   const hasActiveBreak = activeBreakData?.data?.has_active_break;
   const isOverdue = breakRequirements?.data?.is_overdue;
+  const canTakeManualBreak = breakRequirements?.data?.can_take_manual_break;
 
   // Button styling based on state
   let buttonClass = "flex items-center justify-center px-6 py-3 rounded-lg font-medium transition-all duration-200 ";
@@ -211,10 +213,15 @@ const BreakButton = ({ className = "" }) => {
       buttonClass += "bg-blue-600 text-white shadow-lg hover:bg-blue-700 hover:scale-105";
       buttonText = "Take Break Now";
     }
+  } else if (canTakeManualBreak) {
+    // Manual break available - enabled but different styling
+    buttonClass += "bg-gray-500 text-white shadow-md hover:bg-gray-600 hover:scale-105";
+    buttonText = "Take Break";
+    isDisabled = false;
   } else {
     // Break time not reached yet - blurred/disabled
     buttonClass += "bg-gray-300 text-gray-500 cursor-not-allowed opacity-50 blur-sm";
-    buttonText = "Break Not Due";
+    buttonText = "Break Not Available";
     isDisabled = true;
   }
 
@@ -224,17 +231,19 @@ const BreakButton = ({ className = "" }) => {
     <>
       <div className={`${className}`}>
         <button
-          onClick={() => requiresBreak && !hasActiveBreak ? handleStartBreak(breakRequirements.data.break_type) : null}
+          onClick={() => (requiresBreak || canTakeManualBreak) && !hasActiveBreak ? handleStartBreak(breakRequirements?.data?.break_type || 'SHORT') : null}
           disabled={isDisabled}
           className={buttonClass}
           title={
-            !isCurrentlyClockedIn 
+            !isCurrentlyClockedIn
               ? "You must be clocked in to take breaks"
-              : hasActiveBreak 
+              : hasActiveBreak
                 ? "You are currently on break"
-                : requiresBreak 
+                : requiresBreak
                   ? `Take your ${breakRequirements.data.break_type.toLowerCase()} break`
-                  : "Break time has not arrived yet"
+                  : canTakeManualBreak
+                    ? "Take a voluntary break"
+                    : "Break not available yet (work at least 1 hour)"
           }
         >
           <IconComponent className="h-5 w-5 mr-2" />
@@ -244,13 +253,21 @@ const BreakButton = ({ className = "" }) => {
         {/* Break info display */}
         {isCurrentlyClockedIn && !hasActiveBreak && (
           <div className="mt-2 text-sm text-gray-600">
-            {requiresBreak ? (
+            {isBreakError ? (
+              <span className="text-red-500">
+                Error: {breakError?.message || 'Unable to load status'}
+              </span>
+            ) : requiresBreak ? (
               <span className={isOverdue ? "text-red-600 font-medium" : "text-blue-600"}>
-                {breakRequirements.data.hours_worked}h worked - {breakRequirements.data.reason}
+                {breakRequirements?.data?.hours_worked}h worked - {breakRequirements?.data?.reason}
+              </span>
+            ) : canTakeManualBreak ? (
+              <span className="text-gray-600">
+                {breakRequirements?.data?.hours_worked || 0}h worked - Manual break available
               </span>
             ) : (
               <span>
-                {breakRequirements?.data?.hours_worked || 0}h worked - Break at 6h
+                {breakRequirements?.data?.hours_worked || 0}h worked - Break at 2h
               </span>
             )}
           </div>

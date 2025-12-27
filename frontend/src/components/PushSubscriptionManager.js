@@ -3,7 +3,7 @@ import toast from 'react-hot-toast';
 import { useAuth } from '../contexts/AuthContext';
 
 // VAPID public key (same as in service worker)
-const VAPID_PUBLIC_KEY = 'BISfW7LrLBoaojug558AegNVDCNQ4mbMoECw7W2uqxZUx5MSMb1Eff1KOpGF5_O0WrgIfVqJYbwyczxPtZKKFSw';
+const VAPID_PUBLIC_KEY = 'BIFRY7ks2fBSSUocrKsSYStvdQllFIsyBU73EMloPUJMFqxoqhBbtxirFcymNs-yJ0eLNJUxP3W2N_9sQ4HoiTw';
 
 const PushSubscriptionManager = ({ onSubscriptionChange }) => {
   const { user } = useAuth();
@@ -26,11 +26,11 @@ const PushSubscriptionManager = ({ onSubscriptionChange }) => {
   }, [serviceWorkerReady, isSupported]);
 
   const checkPushSupport = () => {
-    const supported = 'serviceWorker' in navigator && 
-                     'PushManager' in window && 
-                     'Notification' in window;
+    const supported = 'serviceWorker' in navigator &&
+      'PushManager' in window &&
+      'Notification' in window;
     setIsSupported(supported);
-    
+
     if (supported) {
       setPermission(Notification.permission);
     }
@@ -39,11 +39,15 @@ const PushSubscriptionManager = ({ onSubscriptionChange }) => {
   const checkServiceWorker = async () => {
     if ('serviceWorker' in navigator) {
       try {
+        console.log('Checking Service Worker readiness...');
         const registration = await navigator.serviceWorker.ready;
+        console.log('Service Worker is ready:', registration);
         setServiceWorkerReady(!!registration);
       } catch (error) {
         console.error('Service worker not ready:', error);
       }
+    } else {
+      console.warn('Service Worker not supported in this browser');
     }
   };
 
@@ -51,7 +55,7 @@ const PushSubscriptionManager = ({ onSubscriptionChange }) => {
     try {
       const registration = await navigator.serviceWorker.ready;
       const existingSubscription = await registration.pushManager.getSubscription();
-      
+
       if (existingSubscription) {
         setSubscription(existingSubscription);
         setIsSubscribed(true);
@@ -73,7 +77,7 @@ const PushSubscriptionManager = ({ onSubscriptionChange }) => {
     try {
       const permission = await Notification.requestPermission();
       setPermission(permission);
-      
+
       if (permission === 'granted') {
         toast.success('Notification permission granted!');
         return true;
@@ -98,7 +102,7 @@ const PushSubscriptionManager = ({ onSubscriptionChange }) => {
     }
 
     setIsLoading(true);
-    
+
     try {
       // Request permission if not granted
       if (permission !== 'granted') {
@@ -111,7 +115,7 @@ const PushSubscriptionManager = ({ onSubscriptionChange }) => {
 
       // Get service worker registration
       const registration = await navigator.serviceWorker.ready;
-      
+
       // Subscribe to push notifications
       const pushSubscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
@@ -125,7 +129,7 @@ const PushSubscriptionManager = ({ onSubscriptionChange }) => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
         },
         body: JSON.stringify({
           subscription: pushSubscription.toJSON()
@@ -137,7 +141,7 @@ const PushSubscriptionManager = ({ onSubscriptionChange }) => {
         setSubscription(pushSubscription);
         setIsSubscribed(true);
         toast.success('Push notifications enabled successfully!');
-        
+
         if (onSubscriptionChange) {
           onSubscriptionChange(true, pushSubscription);
         }
@@ -145,7 +149,7 @@ const PushSubscriptionManager = ({ onSubscriptionChange }) => {
         const errorData = await response.json();
         console.error('Failed to save subscription:', errorData);
         toast.error('Failed to save push subscription');
-        
+
         // Unsubscribe from push manager if backend save failed
         await pushSubscription.unsubscribe();
       }
@@ -159,18 +163,18 @@ const PushSubscriptionManager = ({ onSubscriptionChange }) => {
 
   const unsubscribeFromPush = async () => {
     setIsLoading(true);
-    
+
     try {
       if (subscription) {
         // Unsubscribe from push manager
         await subscription.unsubscribe();
-        
+
         // Remove subscription from backend
         const response = await fetch('/api/v1/notifications/push/subscriptions/unsubscribe_all/', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
           }
         });
 
@@ -178,7 +182,7 @@ const PushSubscriptionManager = ({ onSubscriptionChange }) => {
           setSubscription(null);
           setIsSubscribed(false);
           toast.success('Push notifications disabled successfully!');
-          
+
           if (onSubscriptionChange) {
             onSubscriptionChange(false, null);
           }
@@ -205,7 +209,7 @@ const PushSubscriptionManager = ({ onSubscriptionChange }) => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
       });
 
@@ -255,24 +259,22 @@ const PushSubscriptionManager = ({ onSubscriptionChange }) => {
       <h3 className="text-lg font-semibold text-gray-800 mb-4">
         Push Notifications
       </h3>
-      
+
       <div className="space-y-4">
         {/* Status */}
         <div className="flex items-center justify-between">
           <span className="text-sm text-gray-600">Status:</span>
-          <span className={`text-sm font-medium ${
-            isSubscribed ? 'text-green-600' : 'text-gray-500'
-          }`}>
+          <span className={`text-sm font-medium ${isSubscribed ? 'text-green-600' : 'text-gray-500'
+            }`}>
             {isSubscribed ? 'Enabled' : 'Disabled'}
           </span>
         </div>
 
         <div className="flex items-center justify-between">
           <span className="text-sm text-gray-600">Permission:</span>
-          <span className={`text-sm font-medium ${
-            permission === 'granted' ? 'text-green-600' : 
+          <span className={`text-sm font-medium ${permission === 'granted' ? 'text-green-600' :
             permission === 'denied' ? 'text-red-600' : 'text-yellow-600'
-          }`}>
+            }`}>
             {permission.charAt(0).toUpperCase() + permission.slice(1)}
           </span>
         </div>
@@ -282,7 +284,7 @@ const PushSubscriptionManager = ({ onSubscriptionChange }) => {
           {!isSubscribed ? (
             <button
               onClick={subscribeToPush}
-              disabled={isLoading || !serviceWorkerReady}
+              disabled={isLoading}
               className="glass-button bg-green-500 bg-opacity-20 text-green-600 hover:bg-opacity-30 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isLoading ? 'Enabling...' : 'Enable Push Notifications'}
@@ -296,7 +298,7 @@ const PushSubscriptionManager = ({ onSubscriptionChange }) => {
               >
                 {isLoading ? 'Disabling...' : 'Disable Push Notifications'}
               </button>
-              
+
               <button
                 onClick={testPushNotification}
                 disabled={isLoading}

@@ -14,7 +14,7 @@ import { reportsAPI } from '../services/api';
 
 const Reports = () => {
   const queryClient = useQueryClient();
-  
+
   // State management
   const [selectedReportType, setSelectedReportType] = useState('LATE_ARRIVAL');
   const [startDate, setStartDate] = useState(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]); // 30 days ago
@@ -45,7 +45,7 @@ const Reports = () => {
     },
     {
       key: 'OVERTIME',
-      name: 'Overtime Report', 
+      name: 'Overtime Report',
       description: 'Employees who worked overtime hours',
       icon: ExclamationTriangleIcon,
       color: 'text-orange-600'
@@ -63,6 +63,13 @@ const Reports = () => {
       description: 'Detailed attendance summary',
       icon: ChartBarIcon,
       color: 'text-green-600'
+    },
+    {
+      key: 'DETAILED_TIMESHEET',
+      name: 'Detailed Timesheet',
+      description: 'Detailed timesheet with break breakdowns',
+      icon: DocumentReportIcon,
+      color: 'text-purple-600'
     }
   ];
 
@@ -88,7 +95,7 @@ const Reports = () => {
     }
 
     // Find template for selected report type
-    const template = templatesData?.results?.find(t => t.report_type === selectedReportType);
+    const template = templatesData?.data?.results?.find(t => t.report_type === selectedReportType);
     if (!template) {
       alert('Report template not found');
       return;
@@ -154,7 +161,7 @@ const Reports = () => {
         {/* Report Generation Panel */}
         <div className="lg:col-span-2 glass-card glass-slide-up p-6">
           <h2 className="text-lg font-medium text-gray-900 mb-4">Generate Report</h2>
-          
+
           {/* Report Type Selection */}
           <div className="mb-6">
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -166,11 +173,10 @@ const Reports = () => {
                 return (
                   <div
                     key={type.key}
-                    className={`relative rounded-lg border p-4 cursor-pointer hover:bg-gray-50 ${
-                      selectedReportType === type.key
-                        ? 'border-blue-500 bg-blue-50'
-                        : 'border-gray-300'
-                    }`}
+                    className={`relative rounded-lg border p-4 cursor-pointer hover:bg-gray-50 ${selectedReportType === type.key
+                      ? 'border-blue-500 bg-blue-50'
+                      : 'border-gray-300'
+                      }`}
                     onClick={() => setSelectedReportType(type.key)}
                   >
                     <div className="flex items-start">
@@ -269,10 +275,10 @@ const Reports = () => {
         {/* Recent Reports */}
         <div className="bg-white shadow rounded-lg p-6">
           <h2 className="text-lg font-medium text-gray-900 mb-4">Recent Reports</h2>
-          
-          {executionsData?.results?.length > 0 ? (
+
+          {executionsData?.data?.results?.length > 0 ? (
             <div className="space-y-3">
-              {executionsData.results.slice(0, 5).map((execution) => (
+              {executionsData.data.results.slice(0, 5).map((execution) => (
                 <div
                   key={execution.id}
                   className="border border-gray-200 rounded-lg p-3 hover:bg-gray-50"
@@ -286,13 +292,12 @@ const Reports = () => {
                         {execution.start_date} to {execution.end_date}
                       </p>
                       <div className="flex items-center mt-1">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                          execution.status === 'COMPLETED' 
-                            ? 'bg-green-100 text-green-800'
-                            : execution.status === 'FAILED'
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${execution.status === 'COMPLETED'
+                          ? 'bg-green-100 text-green-800'
+                          : execution.status === 'FAILED'
                             ? 'bg-red-100 text-red-800'
                             : 'bg-yellow-100 text-yellow-800'
-                        }`}>
+                          }`}>
                           {execution.status}
                         </span>
                       </div>

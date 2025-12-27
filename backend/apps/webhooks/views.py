@@ -28,7 +28,7 @@ class WebhookEndpointViewSet(viewsets.ModelViewSet):
     serializer_class = WebhookEndpointSerializer
     permission_classes = [IsAuthenticated, IsAdminUser]
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = ['is_active', 'status', 'event_types']
+    filterset_fields = ['is_active', 'status']
     search_fields = ['name', 'url', 'description']
     ordering_fields = ['name', 'created_at', 'last_triggered', 'success_rate']
     ordering = ['-created_at']
@@ -39,7 +39,8 @@ class WebhookEndpointViewSet(viewsets.ModelViewSet):
         # Filter by event type
         event_type = self.request.query_params.get('event_type')
         if event_type:
-            queryset = queryset.filter(event_types__contains=[event_type])
+            # Use icontains for SQLite compatibility (treats JSON as string)
+            queryset = queryset.filter(event_types__icontains=event_type)
         
         # Filter by success rate
         min_success_rate = self.request.query_params.get('min_success_rate')

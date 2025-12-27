@@ -101,7 +101,16 @@ class NotificationTemplate(models.Model):
     
     def __str__(self):
         return f"{self.name} ({self.get_notification_type_display()})"
-    
+
+    def render_message(self, context):
+        """Render message template with context variables"""
+        try:
+            return self.message_template.format(**context)
+        except KeyError as e:
+            return f"Template error: Missing variable {e}"
+        except Exception as e:
+            return f"Template error: {str(e)}"
+
     class Meta:
         db_table = 'notification_templates'
 
@@ -142,3 +151,39 @@ class NotificationLog(models.Model):
     class Meta:
         db_table = 'notification_logs'
         ordering = ['-created_at']
+
+
+class EmailConfiguration(models.Model):
+    """
+    Dynamic email configuration settings
+    """
+    EMAIL_BACKEND_CHOICES = [
+        ('django.core.mail.backends.smtp.EmailBackend', 'SMTP'),
+        ('django.core.mail.backends.console.EmailBackend', 'Console (Development)'),
+    ]
+
+    email_backend = models.CharField(max_length=255, choices=EMAIL_BACKEND_CHOICES, default='django.core.mail.backends.smtp.EmailBackend')
+    email_host = models.CharField(max_length=255, help_text="SMTP Host (e.g., smtp.gmail.com)")
+    email_port = models.IntegerField(default=587, help_text="SMTP Port (e.g., 587)")
+    email_use_tls = models.BooleanField(default=True, help_text="Use TLS")
+    email_host_user = models.CharField(max_length=255, help_text="SMTP Username/Email")
+    email_host_password = models.CharField(max_length=255, help_text="SMTP Password")
+    default_from_email = models.CharField(max_length=255, help_text="Default From Email")
+    
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def save(self, *args, **kwargs):
+        # Ensure only one active configuration exists
+        if self.is_active:
+            EmailConfiguration.objects.filter(is_active=True).exclude(id=self.id).update(is_active=False)
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"Email Configuration ({self.email_host})"
+
+    class Meta:
+        db_table = 'email_configurations'
+        verbose_name = 'Email Configuration'
+        verbose_name_plural = 'Email Configurations'

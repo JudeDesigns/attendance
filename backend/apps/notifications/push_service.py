@@ -1,10 +1,13 @@
 import json
 import logging
+import tempfile
+import os
 from typing import List, Dict, Optional, Union
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.utils import timezone
 from pywebpush import webpush, WebPushException
+from py_vapid import Vapid02 as Vapid
 from .push_models import PushSubscription, PushNotificationLog, PushNotificationSettings
 
 logger = logging.getLogger(__name__)
@@ -17,9 +20,21 @@ class PushNotificationService:
         self.vapid_private_key = getattr(settings, 'VAPID_PRIVATE_KEY', None)
         self.vapid_public_key = getattr(settings, 'VAPID_PUBLIC_KEY', None)
         self.vapid_claims = getattr(settings, 'VAPID_CLAIMS', {})
+        self.vapid_key_file = None
         
         if not self.vapid_private_key or not self.vapid_public_key:
             logger.warning("VAPID keys not configured. Push notifications will not work.")
+            self.vapid = None
+        else:
+            try:
+                # Write key to temporary file (pywebpush works better with file paths)
+                fd, self.vapid_key_file = tempfile.mkstemp(suffix='.pem', text=True)
+                with os.fdopen(fd, 'w') as f:
+                    f.write(self.vapid_private_key.strip())
+                logger.info(f"VAPID key written to temp file: {self.vapid_key_file}")
+            except Exception as e:
+                logger.error(f"Failed to write VAPID key to file: {e}")
+                self.vapid_key_file = None
     
     def send_to_user(
         self, 
@@ -40,8 +55,8 @@ class PushNotificationService:
         Returns:
             Dict with counts: {'sent': 0, 'failed': 0, 'skipped': 0}
         """
-        if not self.vapid_private_key or not self.vapid_public_key:
-            logger.error("VAPID keys not configured")
+        if not self.vapid_key_file:
+            logger.error("VAPID key file not available")
             return {'sent': 0, 'failed': 0, 'skipped': 0}
         
         # Check user's notification preferences
@@ -172,11 +187,11 @@ class PushNotificationService:
                 ]
             }
             
-            # Send push notification
+            # Send push notification using pywebpush with file path
             response = webpush(
                 subscription_info=subscription.subscription_info,
                 data=json.dumps(notification_data),
-                vapid_private_key=self.vapid_private_key,
+                vapid_private_key=self.vapid_key_file,  # Use file path
                 vapid_claims=self.vapid_claims
             )
             
@@ -190,7 +205,7 @@ class PushNotificationService:
             
         except WebPushException as e:
             error_message = str(e)
-            http_status = getattr(e, 'response', {}).get('status_code', None)
+            http_status = getattr(e, 'response', {}).get('status_code', None) if hasattr(e, 'response') else None
             
             logger.error(f"WebPush error for {subscription.user.username}: {error_message}")
             

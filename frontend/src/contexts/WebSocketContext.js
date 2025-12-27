@@ -21,7 +21,7 @@ export const WebSocketProvider = ({ children }) => {
   const isManualClose = useRef(false);
   const messageListeners = useRef(new Set());
   const pingIntervalRef = useRef(null);
-  
+
   const maxReconnectAttempts = 5;
   const reconnectInterval = 3000;
 
@@ -54,21 +54,27 @@ export const WebSocketProvider = ({ children }) => {
 
     try {
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const backendHost = process.env.REACT_APP_API_URL 
-        ? process.env.REACT_APP_API_URL.replace(/^https?:\/\//, '').replace(/\/api\/v1\/?$/, '')
-        : 'localhost:8000';
+
+      let backendHost = 'localhost:8000';
+      if (process.env.REACT_APP_API_URL) {
+        // Remove protocol
+        backendHost = process.env.REACT_APP_API_URL.replace(/^https?:\/\//, '');
+        // Remove trailing slash and API path if present
+        backendHost = backendHost.replace(/\/api\/v1\/?$/, '').replace(/\/$/, '');
+      }
+
       const wsUrl = `${protocol}//${backendHost}/ws/notifications/?token=${token}`;
 
       console.log('WebSocketContext: Attempting connection to:', wsUrl);
       const ws = new WebSocket(wsUrl);
-      
+
       ws.onopen = () => {
         console.log('WebSocketContext: Connected');
         setConnectionStatus('Connected');
         setSocket(ws);
         reconnectAttempts.current = 0;
         isManualClose.current = false;
-        
+
         // Start ping interval to keep connection alive
         pingIntervalRef.current = setInterval(() => {
           if (ws.readyState === WebSocket.OPEN) {
@@ -79,7 +85,7 @@ export const WebSocketProvider = ({ children }) => {
           }
         }, 30000); // Ping every 30 seconds
       };
-      
+
       ws.onmessage = (event) => {
         try {
           const message = JSON.parse(event.data);
@@ -89,12 +95,12 @@ export const WebSocketProvider = ({ children }) => {
           console.error('WebSocketContext: Error parsing message:', error);
         }
       };
-      
+
       ws.onclose = (event) => {
         console.log('WebSocketContext: Disconnected:', event.code, event.reason);
         setConnectionStatus('Disconnected');
         setSocket(null);
-        
+
         // Clear ping interval
         if (pingIntervalRef.current) {
           clearInterval(pingIntervalRef.current);
@@ -102,16 +108,16 @@ export const WebSocketProvider = ({ children }) => {
         }
 
         // Only reconnect for unexpected closures
-        const shouldReconnect = ![1000, 1001].includes(event.code) && 
-                               reconnectAttempts.current < maxReconnectAttempts &&
-                               !isManualClose.current;
+        const shouldReconnect = ![1000, 1001].includes(event.code) &&
+          reconnectAttempts.current < maxReconnectAttempts &&
+          !isManualClose.current;
 
         if (shouldReconnect) {
           reconnectAttempts.current += 1;
           console.log(`WebSocketContext: Attempting to reconnect... (${reconnectAttempts.current}/${maxReconnectAttempts})`);
-          
+
           const backoffDelay = Math.min(reconnectInterval * Math.pow(2, reconnectAttempts.current - 1), 30000);
-          
+
           reconnectTimeoutRef.current = setTimeout(() => {
             setConnectionStatus('Reconnecting');
             connect();
@@ -121,12 +127,12 @@ export const WebSocketProvider = ({ children }) => {
           setConnectionStatus('Failed');
         }
       };
-      
+
       ws.onerror = (error) => {
         console.error('WebSocketContext: Error:', error);
         setConnectionStatus('Error');
       };
-      
+
     } catch (error) {
       console.error('WebSocketContext: Error creating connection:', error);
       setConnectionStatus('Error');
@@ -137,7 +143,7 @@ export const WebSocketProvider = ({ children }) => {
     if (reconnectTimeoutRef.current) {
       clearTimeout(reconnectTimeoutRef.current);
     }
-    
+
     if (pingIntervalRef.current) {
       clearInterval(pingIntervalRef.current);
       pingIntervalRef.current = null;

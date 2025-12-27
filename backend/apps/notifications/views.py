@@ -657,14 +657,30 @@ class EmailConfigurationViewSet(viewsets.ModelViewSet):
             # Use management command approach (bypasses web framework issues)
             from django.core.management import call_command
             from io import StringIO
+            import logging
+
+            logger = logging.getLogger(__name__)
+            logger.error(f"=== CALLING MANAGEMENT COMMAND ===")
+            logger.error(f"Recipient: {recipient}")
 
             # Capture the command output
             out = StringIO()
-            call_command('send_test_email', recipient, stdout=out)
-            result = out.getvalue().strip()
+            err = StringIO()
 
-            if "ERROR:" in result:
-                raise Exception(result.replace("ERROR: ", ""))
+            try:
+                call_command('send_test_email', recipient, stdout=out, stderr=err)
+                result = out.getvalue().strip()
+                error_output = err.getvalue().strip()
+
+                logger.error(f"Command stdout: {result}")
+                logger.error(f"Command stderr: {error_output}")
+
+                if "ERROR:" in result or error_output:
+                    raise Exception(f"Command failed: {result} {error_output}")
+
+            except Exception as cmd_error:
+                logger.error(f"Management command exception: {str(cmd_error)}")
+                raise Exception(f"Management command failed: {str(cmd_error)}")
             
             return Response({'message': 'Test email sent successfully'})
         except Exception as e:

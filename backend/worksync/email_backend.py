@@ -10,34 +10,33 @@ class FIPSCompatibleEmailBackend(EmailBackend):
     """
     Custom SMTP email backend that bypasses FIPS SSL restrictions
     """
-    
+
+    def __init__(self, host=None, port=None, username=None, password=None,
+                 use_tls=None, fail_silently=False, use_ssl=None, timeout=None,
+                 ssl_keyfile=None, ssl_certfile=None, **kwargs):
+        super().__init__(host, port, username, password, use_tls, fail_silently,
+                         use_ssl, timeout, ssl_keyfile, ssl_certfile, **kwargs)
+
     def open(self):
         """
-        Ensure an open connection to the email server. Return whether or not a
-        new connection was required (True or False).
+        Override to use custom SSL context
         """
         if self.connection:
-            # Nothing to do if the connection is already open.
             return False
 
-        # If local_hostname is not specified, socket.getfqdn() gets used.
-        # For performance, we use the cached FQDN for local_hostname.
-        connection_params = {'local_hostname': self.local_hostname}
+        connection_params = {}
         if self.timeout is not None:
             connection_params['timeout'] = self.timeout
         if self.use_ssl:
             connection_params['context'] = self._create_custom_ssl_context()
-            
+
         try:
             self.connection = smtplib.SMTP(self.host, self.port, **connection_params)
-            
-            # TLS/STARTTLS are mutually exclusive, so only attempt TLS over
-            # non-secure connections.
+
             if not self.use_ssl and self.use_tls:
-                # Create custom SSL context for STARTTLS
                 context = self._create_custom_ssl_context()
                 self.connection.starttls(context=context)
-                
+
             if self.username and self.password:
                 self.connection.login(self.username, self.password)
             return True

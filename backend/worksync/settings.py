@@ -374,8 +374,15 @@ LOGGING = {
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = config('MAIL_HOST', default='smtp.gmail.com')
 EMAIL_PORT = config('EMAIL_PORT', default=587, cast=int)
-EMAIL_USE_TLS = True  # Port 587 requires TLS
+EMAIL_USE_TLS = config('EMAIL_USE_TLS', default=True, cast=bool)
+EMAIL_USE_SSL = config('EMAIL_USE_SSL', default=False, cast=bool)
 EMAIL_HOST_USER = config('EMAIL_USER', default='infobrfood@gmail.com')
 EMAIL_HOST_PASSWORD = config('EMAIL_PASS', default='ykthrhugoqeuetgp')
 DEFAULT_FROM_EMAIL = config('EMAIL_FROM', default='infobrfood@gmail.com')
 SERVER_EMAIL = config('OFFICE_EMAIL', default='infobrfood@gmail.com')
+
+# SSL Configuration for email
+import ssl
+EMAIL_SSL_CERTFILE = None
+EMAIL_SSL_KEYFILE = None
+EMAIL_TIMEOUT = 60

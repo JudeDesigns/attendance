@@ -1,0 +1,48 @@
+# Django Core - Python 3.6 Compatible
+Django==3.2.25
+djangorestframework==3.14.0
+django-cors-headers==3.13.0
+
+# Database
+psycopg2-binary==2.8.6
+dj-database-url==1.0.0
+
+# Authentication & Security
+djangorestframework-simplejwt==4.8.0
+django-ratelimit==3.0.1
+cryptography==3.4.8
+
+# API Documentation
+drf-spectacular==0.21.2
+
+# Environment Variables
+python-decouple==3.6
+
+# Date/Time Handling
+pytz==2021.3
+
+# Image Processing (for QR codes)
+Pillow==8.4.0
+qrcode==7.3.1
+
+# Notifications
+twilio==7.16.4
+
+# Cache & Redis
+django-redis==5.2.0
+redis==4.5.5
+
+# Background Tasks
+celery==5.2.7
+
+# Utilities
+requests==2.27.1
+python-dateutil==2.8.2
+
+# Production
+gunicorn==20.1.0
+whitenoise==6.2.0
+
+# Basic packages only - remove complex dependencies
+# No channels, no celery-beat, no oauth-toolkit
+# No sentry, no debug toolbar for production

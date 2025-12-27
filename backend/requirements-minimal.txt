@@ -1,0 +1,34 @@
+# Minimal requirements for AlmaLinux deployment
+# Use this if the full requirements.txt fails
+
+# Django Core
+Django>=3.2,<4.0
+djangorestframework>=3.12,<3.15
+django-cors-headers>=3.13,<4.0
+
+# Database
+dj-database-url>=1.0,<3.0
+
+# Authentication
+djangorestframework-simplejwt>=5.0,<6.0
+
+# Environment Variables
+python-decouple>=3.6
+
+# Date/Time
+pytz>=2021.1
+
+# Production Server
+gunicorn>=20.0,<22.0
+whitenoise>=6.0,<7.0
+
+# Basic utilities
+requests>=2.25,<3.0
+python-dateutil>=2.8,<3.0
+
+# Image processing (optional)
+Pillow>=8.0,<11.0
+
+# Cache (optional)
+redis>=4.0,<6.0
+django-redis>=5.0,<6.0

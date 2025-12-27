@@ -636,7 +636,9 @@ class EmailConfigurationViewSet(viewsets.ModelViewSet):
             
         try:
             from django.core.mail import get_connection, EmailMessage
-            
+            import ssl
+            import smtplib
+
             # Create connection using config
             connection = get_connection(
                 backend=config.email_backend,
@@ -644,18 +646,37 @@ class EmailConfigurationViewSet(viewsets.ModelViewSet):
                 port=config.email_port,
                 username=config.email_host_user,
                 password=config.email_host_password,
-                use_tls=config.email_use_tls
+                use_tls=config.email_use_tls,
+                ssl_certfile=None,
+                ssl_keyfile=None,
+                timeout=60
             )
-            
-            # Send test email
-            email = EmailMessage(
-                subject='WorkSync Email Test',
-                body='This is a test email from WorkSync to verify your configuration.',
-                from_email=config.default_from_email,
-                to=[recipient],
-                connection=connection
-            )
-            email.send()
+
+            # Patch SMTP to handle SSL context properly
+            original_starttls = smtplib.SMTP.starttls
+
+            def patched_starttls(self, keyfile=None, certfile=None, context=None):
+                if context is None:
+                    context = ssl.create_default_context()
+                    context.check_hostname = False
+                    context.verify_mode = ssl.CERT_NONE
+                return original_starttls(self, keyfile, certfile, context)
+
+            smtplib.SMTP.starttls = patched_starttls
+
+            try:
+                # Send test email
+                email = EmailMessage(
+                    subject='Attendance Email Test',
+                    body='This is a test email from Attendance to verify your configuration.',
+                    from_email=config.default_from_email,
+                    to=[recipient],
+                    connection=connection
+                )
+                email.send()
+            finally:
+                # Restore original method
+                smtplib.SMTP.starttls = original_starttls
             
             return Response({'message': 'Test email sent successfully'})
         except Exception as e:

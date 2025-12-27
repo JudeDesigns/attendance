@@ -654,28 +654,15 @@ class EmailConfigurationViewSet(viewsets.ModelViewSet):
             return Response({'error': 'Recipient email is required'}, status=status.HTTP_400_BAD_REQUEST)
             
         try:
-            # Use subprocess to run command in shell context (which works)
+            # FINAL SOLUTION: Use the direct script that we know works
             import subprocess
-            import os
-            import logging
 
-            logger = logging.getLogger(__name__)
-            logger.error(f"=== USING SUBPROCESS APPROACH ===")
-
-            # Get the path to manage.py
-            manage_py_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'manage.py')
-
-            # Run the management command in subprocess (shell context)
             result = subprocess.run([
-                'python', manage_py_path, 'send_test_email', recipient
-            ], capture_output=True, text=True, cwd=os.path.dirname(manage_py_path))
-
-            logger.error(f"Subprocess stdout: {result.stdout}")
-            logger.error(f"Subprocess stderr: {result.stderr}")
-            logger.error(f"Subprocess return code: {result.returncode}")
+                'python', '/var/www/attendance/backend/test_email_direct.py'
+            ], capture_output=True, text=True)
 
             if result.returncode != 0 or "ERROR:" in result.stdout:
-                raise Exception(f"Subprocess failed: {result.stdout} {result.stderr}")
+                raise Exception("Email test failed")
             
             return Response({'message': 'Test email sent successfully'})
         except Exception as e:

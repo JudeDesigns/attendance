@@ -3,8 +3,10 @@ import { useMutation, useQuery, useQueryClient } from 'react-query';
 import { ClockIcon, ExclamationTriangleIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 import { attendanceAPI } from '../services/api';
+import { useAuth } from '../contexts/AuthContext';
 
 const BreakButton = ({ className = "", currentStatus }) => {
+  const { user } = useAuth();
   const [showWaiverModal, setShowWaiverModal] = useState(false);
   const [waiverReason, setWaiverReason] = useState('');
   const [breakTimeReached, setBreakTimeReached] = useState(false);
@@ -14,17 +16,17 @@ const BreakButton = ({ className = "", currentStatus }) => {
 
   // Internal status query removed - using prop from Dashboard instead
 
-  // Get break requirements
+  // Get break requirements - USER-SPECIFIC CACHE KEY
   const {
     data: breakRequirements,
     refetch: refetchBreakRequirements,
     isError: isBreakError,
     error: breakError
   } = useQuery(
-    'breakRequirements',
+    ['breakRequirements', user?.employee_profile?.id],
     () => attendanceAPI.get('/breaks/break_requirements/'),
     {
-      enabled: !!currentStatus?.is_clocked_in,
+      enabled: !!currentStatus?.is_clocked_in && !!user?.employee_profile?.id,
       refetchInterval: 60000, // Check every minute
       onError: (err) => {
         console.error('Break requirements fetch failed:', err);
@@ -32,12 +34,12 @@ const BreakButton = ({ className = "", currentStatus }) => {
     }
   );
 
-  // Get active break status
+  // Get active break status - USER-SPECIFIC CACHE KEY
   const { data: activeBreakData } = useQuery(
-    'activeBreak',
+    ['activeBreak', user?.employee_profile?.id],
     () => attendanceAPI.get('/breaks/active_break/'),
     {
-      enabled: !!currentStatus?.is_clocked_in,
+      enabled: !!currentStatus?.is_clocked_in && !!user?.employee_profile?.id,
       refetchInterval: 30000,
     }
   );
@@ -52,8 +54,8 @@ const BreakButton = ({ className = "", currentStatus }) => {
         setWaiverReason('');
         setBreakTimeReached(false);
         setFollowUpSent(false);
-        queryClient.invalidateQueries('breakRequirements');
-        queryClient.invalidateQueries('activeBreak');
+        queryClient.invalidateQueries(['breakRequirements', user?.employee_profile?.id]);
+        queryClient.invalidateQueries(['activeBreak', user?.employee_profile?.id]);
       },
       onError: (error) => {
         toast.error(error.response?.data?.detail || 'Failed to waive break');
@@ -69,9 +71,10 @@ const BreakButton = ({ className = "", currentStatus }) => {
         toast.success('Break started successfully');
         setBreakTimeReached(false);
         setFollowUpSent(false);
-        queryClient.invalidateQueries('activeBreak');
-        queryClient.invalidateQueries('breakRequirements');
-        queryClient.invalidateQueries('currentStatus');
+        queryClient.invalidateQueries(['activeBreak', user?.employee_profile?.id]);
+        queryClient.invalidateQueries(['breakRequirements', user?.employee_profile?.id]);
+        queryClient.invalidateQueries(['currentAttendanceStatus', user?.employee_profile?.id]);
+        queryClient.invalidateQueries(['shiftStatus', user?.employee_profile?.id]);
       },
       onError: (error) => {
         toast.error(error.response?.data?.detail || 'Failed to start break');

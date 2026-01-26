@@ -22,6 +22,7 @@ import {
 import { attendanceAPI, employeeAPI } from '../services/api';
 import { useQuery } from 'react-query';
 import { formatDurationCompact } from '../utils/helpers';
+import { useAuth } from '../contexts/AuthContext';
 
 // Register ChartJS components
 ChartJS.register(
@@ -37,13 +38,15 @@ ChartJS.register(
 );
 
 const DashboardStats = () => {
+  const { user } = useAuth();
   const [lastUpdated, setLastUpdated] = useState(new Date());
 
-  // Fetch attendance statistics with automatic polling
+  // Fetch attendance statistics with automatic polling - USER-SPECIFIC CACHE KEY
   const { data: attendanceStats, refetch: refetchStats, isLoading, error } = useQuery(
-    'attendanceStats',
+    ['attendanceStats', user?.id],
     () => attendanceAPI.statistics(),
     {
+      enabled: !!user?.id,
       refetchInterval: 30000, // Refetch every 30 seconds for near real-time updates
       onSuccess: () => {
         setLastUpdated(new Date());
@@ -51,11 +54,12 @@ const DashboardStats = () => {
     }
   );
 
-  // Fetch employee statistics for total employee count
+  // Fetch employee statistics for total employee count - USER-SPECIFIC CACHE KEY
   const { data: employeeStats, refetch: refetchEmployeeStats } = useQuery(
-    'employeeStats',
+    ['employeeStats', user?.id],
     () => employeeAPI.statistics(),
     {
+      enabled: !!user?.id,
       refetchInterval: 300000, // Refetch every 5 minutes
     }
   );
@@ -67,20 +71,29 @@ const DashboardStats = () => {
   };
 
   // Combine data from different sources
+  // NOTE: API responses are wrapped in axios response object, so data is in response.data
   const stats = {
-    active_employees: employeeStats?.active || 0,
-    today_attendance: attendanceStats?.today?.total || 0,
-    currently_clocked_in: attendanceStats?.today?.clocked_in || 0,
-    week_total_hours: attendanceStats?.this_week?.total_hours || 0
+    active_employees: employeeStats?.data?.active || 0,
+    today_attendance: attendanceStats?.data?.today?.total || 0,
+    currently_clocked_in: attendanceStats?.data?.today?.clocked_in || 0,
+    week_total_hours: attendanceStats?.data?.this_week?.total_hours || 0
   };
 
+  // Debug logging
+  console.log('DashboardStats - attendanceStats RAW:', attendanceStats);
+  console.log('DashboardStats - attendanceStats.data:', attendanceStats?.data);
+  console.log('DashboardStats - employeeStats RAW:', employeeStats);
+  console.log('DashboardStats - employeeStats.data:', employeeStats?.data);
+  console.log('DashboardStats - stats:', stats);
+
   // Prepare chart data using real API data only (no dummy data)
+  // NOTE: Access data from response.data
   const weeklyHoursData = {
-    labels: attendanceStats?.weekly_breakdown?.map(day => day.day_name) || ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+    labels: attendanceStats?.data?.weekly_breakdown?.map(day => day.day_name) || ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
     datasets: [
       {
         label: 'Hours Worked',
-        data: attendanceStats?.weekly_breakdown?.map(day => day.hours) || [0, 0, 0, 0, 0, 0, 0],
+        data: attendanceStats?.data?.weekly_breakdown?.map(day => day.hours) || [0, 0, 0, 0, 0, 0, 0],
         backgroundColor: 'rgba(59, 130, 246, 0.5)',
         borderColor: 'rgba(59, 130, 246, 1)',
         borderWidth: 1,
@@ -114,11 +127,11 @@ const DashboardStats = () => {
 
   // Monthly trend - use real data from monthly_breakdown
   const monthlyTrendData = {
-    labels: attendanceStats?.monthly_breakdown?.map(week => week.label) || [],
+    labels: attendanceStats?.data?.monthly_breakdown?.map(week => week.label) || [],
     datasets: [
       {
         label: 'Weekly Hours',
-        data: attendanceStats?.monthly_breakdown?.map(week => week.hours) || [],
+        data: attendanceStats?.data?.monthly_breakdown?.map(week => week.hours) || [],
         fill: true,
         borderColor: 'rgba(139, 92, 246, 1)',
         backgroundColor: 'rgba(139, 92, 246, 0.1)',

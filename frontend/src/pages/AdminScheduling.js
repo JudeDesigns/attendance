@@ -150,13 +150,20 @@ const AdminScheduling = () => {
   });
 
   const bulkCreateMutation = useMutation(schedulingAPI.bulkCreateShifts, {
-    onSuccess: () => {
+    onSuccess: (response) => {
       queryClient.invalidateQueries(['admin-shifts']);
-      toast.success('Shifts created successfully');
+      const message = response.data?.message || 'Shifts created successfully';
+      toast.success(message);
       setShowBulkForm(false);
     },
     onError: (error) => {
-      toast.error(error.response?.data?.message || 'Failed to create shifts');
+      console.error('Bulk create error:', error);
+      const errorMessage = error.response?.data?.message ||
+                          error.response?.data?.detail ||
+                          (error.response?.data && typeof error.response.data === 'object'
+                            ? Object.values(error.response.data).flat().join(', ')
+                            : 'Failed to create shifts');
+      toast.error(errorMessage);
     },
   });
 
@@ -209,7 +216,15 @@ const AdminScheduling = () => {
   };
 
   const handleBulkCreate = (bulkData) => {
-    bulkCreateMutation.mutate(bulkData);
+    // Rename days_of_week to weekdays for backend
+    const { days_of_week, ...restData } = bulkData;
+
+    const payload = {
+      ...restData,
+      weekdays: days_of_week,
+    };
+
+    bulkCreateMutation.mutate(payload);
   };
 
   // Handle spreadsheet import
@@ -854,7 +869,7 @@ const BulkShiftForm = ({ employees, templates, onSubmit, onClose, isLoading }) =
     start_time: '09:00',
     end_time: '17:00',
     shift_type: 'REGULAR',
-    days_of_week: [1, 2, 3, 4, 5], // Monday to Friday
+    days_of_week: [0, 1, 2, 3, 4], // Monday to Friday (0=Mon, 6=Sun)
     is_published: true, // Default to published for bulk shifts
   });
 
@@ -974,8 +989,8 @@ const BulkShiftForm = ({ employees, templates, onSubmit, onClose, isLoading }) =
                 <label key={day} className="flex items-center space-x-1">
                   <input
                     type="checkbox"
-                    checked={formData.days_of_week.includes(index + 1)}
-                    onChange={() => handleDayChange(index + 1)}
+                    checked={formData.days_of_week.includes(index)}
+                    onChange={() => handleDayChange(index)}
                     className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                   />
                   <span className="text-sm">{day}</span>

@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import axios from 'axios';
+import { useQueryClient } from 'react-query';
 
 // Import the main API instance to share authentication
 import { api } from '../services/api';
@@ -21,6 +22,7 @@ export const useAuth = () => {
 };
 
 export const AuthProvider = ({ children }) => {
+  const queryClient = useQueryClient();
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [token, setToken] = useState(localStorage.getItem('token'));
@@ -86,6 +88,9 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = () => {
+    // Clear React Query cache to prevent data leakage between users
+    queryClient.clear();
+
     setUser(null);
     setToken(null);
     localStorage.removeItem('token');

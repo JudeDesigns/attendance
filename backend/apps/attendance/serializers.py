@@ -7,6 +7,7 @@ from datetime import timedelta
 from .models import TimeLog, Break
 from apps.employees.models import Employee, Location
 from apps.employees.serializers import EmployeeSerializer, LocationSerializer
+from apps.core.timezone_utils import convert_to_naive_la_time
 
 
 class TimeLogSerializer(serializers.ModelSerializer):
@@ -50,7 +51,32 @@ class TimeLogSerializer(serializers.ModelSerializer):
     def get_is_shift_compliant(self, obj):
         """Check if this time log is compliant with scheduled shift"""
         return obj.is_shift_compliant
-    
+
+    def to_representation(self, instance):
+        """
+        Convert timezone-aware datetimes to naive LA time before sending to frontend.
+        This prevents the browser from doing additional timezone conversions.
+        """
+        representation = super().to_representation(instance)
+
+        # Convert clock_in_time to naive LA time
+        if representation.get('clock_in_time'):
+            representation['clock_in_time'] = convert_to_naive_la_time(instance.clock_in_time)
+
+        # Convert clock_out_time to naive LA time
+        if representation.get('clock_out_time'):
+            representation['clock_out_time'] = convert_to_naive_la_time(instance.clock_out_time)
+
+        # Convert created_at to naive LA time
+        if representation.get('created_at'):
+            representation['created_at'] = convert_to_naive_la_time(instance.created_at)
+
+        # Convert updated_at to naive LA time
+        if representation.get('updated_at'):
+            representation['updated_at'] = convert_to_naive_la_time(instance.updated_at)
+
+        return representation
+
     class Meta:
         model = TimeLog
         fields = [

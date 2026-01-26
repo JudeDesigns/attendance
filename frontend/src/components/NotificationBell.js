@@ -5,8 +5,10 @@ import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { notificationAPI } from '../services/api';
 import useWebSocket from '../hooks/useWebSocket';
 import PushSubscriptionManager from './PushSubscriptionManager';
+import { useAuth } from '../contexts/AuthContext';
 
 const NotificationBell = () => {
+  const { user } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -22,8 +24,8 @@ const NotificationBell = () => {
       } else if (message.type === 'notification') {
         // New notification received
         setUnreadCount(prev => prev + 1);
-        queryClient.invalidateQueries('notifications');
-        
+        queryClient.invalidateQueries(['notifications', user?.id]);
+
         // Show browser notification if permission granted
         if (Notification.permission === 'granted') {
           new Notification('WorkSync Notification', {
@@ -35,11 +37,12 @@ const NotificationBell = () => {
     }
   });
 
-  // Fetch notifications
+  // Fetch notifications - USER-SPECIFIC CACHE KEY
   const { data: notificationsData, isLoading, error } = useQuery(
-    'notifications',
+    ['notifications', user?.id],
     () => notificationAPI.getMyNotifications({ limit: 10 }),
     {
+      enabled: !!user?.id,
       refetchInterval: 30000, // Refetch every 30 seconds as fallback
       onError: (error) => {
         console.error('NotificationBell - API Error:', error);
@@ -70,7 +73,7 @@ const NotificationBell = () => {
     (notificationId) => notificationAPI.markAsRead({ notification_ids: [notificationId] }),
     {
       onSuccess: () => {
-        queryClient.invalidateQueries('notifications');
+        queryClient.invalidateQueries(['notifications', user?.id]);
         setUnreadCount(prev => Math.max(0, prev - 1));
       }
     }
@@ -81,7 +84,7 @@ const NotificationBell = () => {
     () => notificationAPI.markAllAsRead(),
     {
       onSuccess: () => {
-        queryClient.invalidateQueries('notifications');
+        queryClient.invalidateQueries(['notifications', user?.id]);
         setUnreadCount(0);
       }
     }

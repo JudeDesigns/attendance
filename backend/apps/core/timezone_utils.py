@@ -171,6 +171,34 @@ def get_timezone_display_name(tz_string: str) -> str:
     for tz_code, display_name in TIMEZONE_CHOICES:
         if tz_code == tz_string:
             return display_name
-    
+
     # Fallback to the timezone string itself
     return tz_string
+
+
+def convert_to_naive_la_time(dt: Optional[datetime]) -> Optional[datetime]:
+    """
+    Convert a timezone-aware datetime to naive Los Angeles time.
+    This is used to send datetime strings to the frontend without timezone info,
+    preventing the browser from doing additional timezone conversions.
+
+    Args:
+        dt: A timezone-aware datetime object (or None)
+
+    Returns:
+        A naive datetime in Los Angeles time (or None if input is None)
+    """
+    if dt is None:
+        return None
+
+    la_tz = pytz.timezone('America/Los_Angeles')
+
+    # If datetime is naive, assume it's already in LA time
+    if timezone.is_naive(dt):
+        return dt
+
+    # Convert to LA timezone
+    la_time = dt.astimezone(la_tz)
+
+    # Return naive datetime (strip timezone info)
+    return la_time.replace(tzinfo=None)

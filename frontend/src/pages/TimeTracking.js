@@ -129,19 +129,19 @@ const TimeTracking = () => {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="glass-card glass-fade-in p-6">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-          <h1 className="text-2xl font-bold glass-text-primary">Time Tracking</h1>
+    <div className="space-y-4 md:space-y-6">
+      {/* Header - Mobile Responsive */}
+      <div className="glass-card glass-fade-in p-4 md:p-6">
+        <div className="flex flex-col space-y-3 md:space-y-0 md:flex-row md:items-center md:justify-between">
+          <h1 className="text-xl md:text-2xl font-bold glass-text-primary">Time Tracking</h1>
 
-          {/* Date Range Selector */}
-          <div className="mt-4 sm:mt-0 flex flex-col sm:flex-row items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-4">
-            <div className="flex items-center space-x-4">
+          {/* Date Range Selector - Mobile Responsive */}
+          <div className="flex flex-col space-y-2 md:space-y-0 md:flex-row md:items-center md:space-x-3">
+            <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
               <select
                 value={dateRange}
                 onChange={(e) => setDateRange(e.target.value)}
-                className="glass-input"
+                className="glass-input text-sm md:text-base"
               >
                 <option value="day">Today</option>
                 <option value="week">This Week</option>
@@ -152,7 +152,7 @@ const TimeTracking = () => {
                 type="date"
                 value={format(selectedDate, 'yyyy-MM-dd')}
                 onChange={(e) => setSelectedDate(new Date(e.target.value))}
-                className="glass-input"
+                className="glass-input text-sm md:text-base"
               />
             </div>
 
@@ -161,7 +161,7 @@ const TimeTracking = () => {
               <select
                 value={selectedEmployee}
                 onChange={(e) => setSelectedEmployee(e.target.value)}
-                className="glass-input"
+                className="glass-input text-sm md:text-base w-full md:w-auto"
               >
                 <option value="me">My Time Logs</option>
                 <option value="all">All Employees</option>
@@ -176,20 +176,20 @@ const TimeTracking = () => {
         </div>
       </div>
 
-      {/* Statistics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      {/* Statistics Cards - Mobile Responsive */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">
         <div className="glass-card glass-slide-up">
-          <div className="p-5">
+          <div className="p-3 md:p-5">
             <div className="flex items-center">
               <div className="flex-shrink-0">
-                <ClockIcon className="h-6 w-6 text-blue-600" />
+                <ClockIcon className="h-5 w-5 md:h-6 md:w-6 text-blue-600" />
               </div>
-              <div className="ml-5 w-0 flex-1">
+              <div className="ml-2 md:ml-5 w-0 flex-1">
                 <dl>
-                  <dt className="text-sm font-medium glass-text-secondary truncate">
+                  <dt className="text-xs md:text-sm font-medium glass-text-secondary truncate">
                     Total Hours
                   </dt>
-                  <dd className="text-lg font-medium glass-text-primary">
+                  <dd className="text-sm md:text-lg font-medium glass-text-primary">
                     {formatDuration(totalHours)}
                   </dd>
                 </dl>
@@ -199,17 +199,17 @@ const TimeTracking = () => {
         </div>
 
         <div className="glass-card glass-slide-up">
-          <div className="p-5">
+          <div className="p-3 md:p-5">
             <div className="flex items-center">
               <div className="flex-shrink-0">
-                <CalendarIcon className="h-6 w-6 text-green-600" />
+                <CalendarIcon className="h-5 w-5 md:h-6 md:w-6 text-green-600" />
               </div>
-              <div className="ml-5 w-0 flex-1">
+              <div className="ml-2 md:ml-5 w-0 flex-1">
                 <dl>
-                  <dt className="text-sm font-medium glass-text-secondary truncate">
+                  <dt className="text-xs md:text-sm font-medium glass-text-secondary truncate">
                     Days Worked
                   </dt>
-                  <dd className="text-lg font-medium glass-text-primary">
+                  <dd className="text-sm md:text-lg font-medium glass-text-primary">
                     {totalDays}
                   </dd>
                 </dl>
@@ -219,17 +219,17 @@ const TimeTracking = () => {
         </div>
 
         <div className="glass-card glass-slide-up">
-          <div className="p-5">
+          <div className="p-3 md:p-5">
             <div className="flex items-center">
               <div className="flex-shrink-0">
-                <ChartBarIcon className="h-6 w-6 text-purple-600" />
+                <ChartBarIcon className="h-5 w-5 md:h-6 md:w-6 text-purple-600" />
               </div>
-              <div className="ml-5 w-0 flex-1">
+              <div className="ml-2 md:ml-5 w-0 flex-1">
                 <dl>
-                  <dt className="text-sm font-medium glass-text-secondary truncate">
-                    Average Hours/Day
+                  <dt className="text-xs md:text-sm font-medium glass-text-secondary truncate">
+                    Avg Hours/Day
                   </dt>
-                  <dd className="text-lg font-medium glass-text-primary">
+                  <dd className="text-sm md:text-lg font-medium glass-text-primary">
                     {formatDuration(averageHours)}
                   </dd>
                 </dl>
@@ -239,19 +239,19 @@ const TimeTracking = () => {
         </div>
 
         <div className="glass-card glass-slide-up">
-          <div className="p-5">
+          <div className="p-3 md:p-5">
             <div className="flex items-center">
               <div className="flex-shrink-0">
-                <ExclamationIcon className={`h-6 w-6 ${
+                <ExclamationIcon className={`h-5 w-5 md:h-6 md:w-6 ${
                   overtimeHours > 0 ? 'text-orange-500' : 'text-gray-400'
                 }`} />
               </div>
-              <div className="ml-5 w-0 flex-1">
+              <div className="ml-2 md:ml-5 w-0 flex-1">
                 <dl>
-                  <dt className="text-sm font-medium glass-text-secondary truncate">
-                    Overtime Hours
+                  <dt className="text-xs md:text-sm font-medium glass-text-secondary truncate">
+                    Overtime
                   </dt>
-                  <dd className={`text-lg font-medium ${
+                  <dd className={`text-sm md:text-lg font-medium ${
                     overtimeHours > 0 ? 'text-orange-600' : 'glass-text-primary'
                   }`}>
                     {formatDuration(overtimeHours)}
@@ -263,90 +263,134 @@ const TimeTracking = () => {
         </div>
       </div>
 
-      {/* Time Logs Table */}
+      {/* Time Logs Table - Mobile Responsive */}
       <div className="glass-card glass-slide-up">
-        <div className="px-4 py-5 sm:p-6">
-          <h3 className="text-lg leading-6 font-medium glass-text-primary mb-4">
+        <div className="px-3 py-4 sm:px-4 sm:py-5 md:p-6">
+          <h3 className="text-base md:text-lg leading-6 font-medium glass-text-primary mb-3 md:mb-4">
             Time Logs ({format(new Date(start), 'MMM d')} - {format(new Date(end), 'MMM d, yyyy')})
           </h3>
 
           {timeLogs.length === 0 ? (
-            <div className="glass-empty-state">
-              <ClockIcon className="mx-auto h-12 w-12 text-blue-500" />
-              <h3 className="mt-2 text-sm font-medium glass-text-primary">No time logs</h3>
-              <p className="mt-1 text-sm glass-text-secondary">
+            <div className="glass-empty-state py-8">
+              <ClockIcon className="mx-auto h-10 w-10 md:h-12 md:w-12 text-blue-500" />
+              <h3 className="mt-2 text-sm md:text-base font-medium glass-text-primary">No time logs</h3>
+              <p className="mt-1 text-xs md:text-sm glass-text-secondary">
                 No time entries found for the selected period.
               </p>
             </div>
           ) : (
-            <div className="glass-table overflow-x-auto">
-              <table className="min-w-full">
-                <thead className="glass-table-header">
-                  <tr>
-                    <th className="glass-table-cell text-left text-xs font-medium glass-text-secondary uppercase tracking-wider">
-                      Date
-                    </th>
-                    <th className="glass-table-cell text-left text-xs font-medium glass-text-secondary uppercase tracking-wider">
-                      Clock In
-                    </th>
-                    <th className="glass-table-cell text-left text-xs font-medium glass-text-secondary uppercase tracking-wider">
-                      Clock Out
-                    </th>
-                    <th className="glass-table-cell text-left text-xs font-medium glass-text-secondary uppercase tracking-wider">
-                      Duration
-                    </th>
-                    <th className="glass-table-cell text-left text-xs font-medium glass-text-secondary uppercase tracking-wider">
-                      Status
-                    </th>
-                    <th className="glass-table-cell text-left text-xs font-medium glass-text-secondary uppercase tracking-wider">
-                      Notes
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {paginatedTimeLogs.map((log) => (
-                    <tr key={log.id} className="glass-table-row">
-                      <td className="glass-table-cell whitespace-nowrap text-sm font-medium glass-text-primary">
-                        {log.clock_in_time ? format(new Date(log.clock_in_time), 'MMM d, yyyy') : '-'}
-                      </td>
-                      <td className="glass-table-cell whitespace-nowrap text-sm glass-text-primary">
-                        {log.clock_in_time ? format(new Date(log.clock_in_time), 'h:mm a') : '-'}
-                      </td>
-                      <td className="glass-table-cell whitespace-nowrap text-sm glass-text-primary">
-                        {log.clock_out_time
-                          ? format(new Date(log.clock_out_time), 'h:mm a')
-                          : '-'
+            <>
+              {/* Mobile Card View */}
+              <div className="block md:hidden space-y-3">
+                {paginatedTimeLogs.map((log) => (
+                  <div key={log.id} className="glass-card p-3 space-y-2">
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1">
+                        <p className="text-sm font-medium glass-text-primary">
+                          {log.clock_in_time ? format(new Date(log.clock_in_time), 'MMM d, yyyy') : '-'}
+                        </p>
+                        <p className="text-xs glass-text-secondary">
+                          {log.clock_in_time ? format(new Date(log.clock_in_time), 'h:mm a') : '-'} - {log.clock_out_time ? format(new Date(log.clock_out_time), 'h:mm a') : 'In Progress'}
+                        </p>
+                      </div>
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                        log.attendance_status === 'IN_PROGRESS' ? 'glass-status-info' :
+                        log.attendance_status === 'COMPLETED' ? 'glass-status-success' :
+                        log.attendance_status === 'OVERTIME' ? 'glass-status-warning' :
+                        log.attendance_status === 'EARLY_DEPARTURE' ? 'glass-status-error' :
+                        log.attendance_status === 'UNSCHEDULED' ? 'glass-status-warning' :
+                        'glass-status-secondary'
+                      }`}>
+                        {log.attendance_status === 'IN_PROGRESS' ? 'In Progress' :
+                         log.attendance_status === 'COMPLETED' ? 'Completed' :
+                         log.attendance_status === 'OVERTIME' ? 'Overtime' :
+                         log.attendance_status === 'EARLY_DEPARTURE' ? 'Early' :
+                         log.attendance_status === 'UNSCHEDULED' ? 'Unscheduled' :
+                         log.attendance_status || 'Unknown'
                         }
-                      </td>
-                      <td className="glass-table-cell whitespace-nowrap text-sm glass-text-primary">
-                        {log.duration_hours ? formatDuration(log.duration_hours) : '-'}
-                      </td>
-                      <td className="glass-table-cell whitespace-nowrap">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                          log.attendance_status === 'IN_PROGRESS' ? 'glass-status-info' :
-                          log.attendance_status === 'COMPLETED' ? 'glass-status-success' :
-                          log.attendance_status === 'OVERTIME' ? 'glass-status-warning' :
-                          log.attendance_status === 'EARLY_DEPARTURE' ? 'glass-status-error' :
-                          log.attendance_status === 'UNSCHEDULED' ? 'glass-status-warning' :
-                          'glass-status-secondary'
-                        }`}>
-                          {log.attendance_status === 'IN_PROGRESS' ? 'In Progress' :
-                           log.attendance_status === 'COMPLETED' ? 'Completed' :
-                           log.attendance_status === 'OVERTIME' ? 'Overtime' :
-                           log.attendance_status === 'EARLY_DEPARTURE' ? 'Early Departure' :
-                           log.attendance_status === 'UNSCHEDULED' ? 'Unscheduled' :
-                           log.attendance_status || 'Unknown'
-                          }
-                        </span>
-                      </td>
-                      <td className="glass-table-cell text-sm glass-text-secondary max-w-xs truncate">
-                        {log.notes || '-'}
-                      </td>
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="glass-text-secondary">Duration:</span>
+                      <span className="font-medium glass-text-primary">{log.duration_hours ? formatDuration(log.duration_hours) : '-'}</span>
+                    </div>
+                    {log.notes && (
+                      <p className="text-xs glass-text-secondary line-clamp-2">{log.notes}</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {/* Desktop Table View */}
+              <div className="hidden md:block glass-table overflow-x-auto">
+                <table className="min-w-full">
+                  <thead className="glass-table-header">
+                    <tr>
+                      <th className="glass-table-cell text-left text-xs font-medium glass-text-secondary uppercase tracking-wider">
+                        Date
+                      </th>
+                      <th className="glass-table-cell text-left text-xs font-medium glass-text-secondary uppercase tracking-wider">
+                        Clock In
+                      </th>
+                      <th className="glass-table-cell text-left text-xs font-medium glass-text-secondary uppercase tracking-wider">
+                        Clock Out
+                      </th>
+                      <th className="glass-table-cell text-left text-xs font-medium glass-text-secondary uppercase tracking-wider">
+                        Duration
+                      </th>
+                      <th className="glass-table-cell text-left text-xs font-medium glass-text-secondary uppercase tracking-wider">
+                        Status
+                      </th>
+                      <th className="glass-table-cell text-left text-xs font-medium glass-text-secondary uppercase tracking-wider">
+                        Notes
+                      </th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {paginatedTimeLogs.map((log) => (
+                      <tr key={log.id} className="glass-table-row">
+                        <td className="glass-table-cell whitespace-nowrap text-sm font-medium glass-text-primary">
+                          {log.clock_in_time ? format(new Date(log.clock_in_time), 'MMM d, yyyy') : '-'}
+                        </td>
+                        <td className="glass-table-cell whitespace-nowrap text-sm glass-text-primary">
+                          {log.clock_in_time ? format(new Date(log.clock_in_time), 'h:mm a') : '-'}
+                        </td>
+                        <td className="glass-table-cell whitespace-nowrap text-sm glass-text-primary">
+                          {log.clock_out_time
+                            ? format(new Date(log.clock_out_time), 'h:mm a')
+                            : '-'
+                          }
+                        </td>
+                        <td className="glass-table-cell whitespace-nowrap text-sm glass-text-primary">
+                          {log.duration_hours ? formatDuration(log.duration_hours) : '-'}
+                        </td>
+                        <td className="glass-table-cell whitespace-nowrap">
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                            log.attendance_status === 'IN_PROGRESS' ? 'glass-status-info' :
+                            log.attendance_status === 'COMPLETED' ? 'glass-status-success' :
+                            log.attendance_status === 'OVERTIME' ? 'glass-status-warning' :
+                            log.attendance_status === 'EARLY_DEPARTURE' ? 'glass-status-error' :
+                            log.attendance_status === 'UNSCHEDULED' ? 'glass-status-warning' :
+                            'glass-status-secondary'
+                          }`}>
+                            {log.attendance_status === 'IN_PROGRESS' ? 'In Progress' :
+                             log.attendance_status === 'COMPLETED' ? 'Completed' :
+                             log.attendance_status === 'OVERTIME' ? 'Overtime' :
+                             log.attendance_status === 'EARLY_DEPARTURE' ? 'Early Departure' :
+                             log.attendance_status === 'UNSCHEDULED' ? 'Unscheduled' :
+                             log.attendance_status || 'Unknown'
+                            }
+                          </span>
+                        </td>
+                        <td className="glass-table-cell text-sm glass-text-secondary max-w-xs truncate">
+                          {log.notes || '-'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
 
           {/* Pagination for time logs */}

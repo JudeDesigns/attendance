@@ -1,36 +1,39 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
-import { 
-  ClockIcon, 
+import {
+  ClockIcon,
   ExclamationTriangleIcon,
   CheckCircleIcon,
   XCircleIcon
 } from '@heroicons/react/24/outline';
 import { attendanceAPI } from '../services/api';
+import { useAuth } from '../contexts/AuthContext';
 
 const BreakManager = () => {
+  const { user } = useAuth();
   const [showWaiverModal, setShowWaiverModal] = useState(false);
   const [showDeclineModal, setShowDeclineModal] = useState(false);
   const [waiverReason, setWaiverReason] = useState('');
   const [declineReason, setDeclineReason] = useState('');
   const queryClient = useQueryClient();
 
-  // Get break requirements
+  // Get break requirements - USER-SPECIFIC CACHE KEY
   const { data: breakRequirements, refetch: refetchRequirements } = useQuery(
-    'breakRequirements',
+    ['breakRequirements', user?.employee_profile?.id],
     () => attendanceAPI.get('/breaks/break_requirements/'),
     {
       refetchInterval: 300000, // Check every 5 minutes
-      enabled: true
+      enabled: !!user?.employee_profile?.id
     }
   );
 
-  // Get active break
+  // Get active break - USER-SPECIFIC CACHE KEY
   const { data: activeBreakData } = useQuery(
-    'activeBreak',
+    ['activeBreak', user?.employee_profile?.id],
     () => attendanceAPI.get('/breaks/active_break/'),
     {
       refetchInterval: 60000, // Check every minute
+      enabled: !!user?.employee_profile?.id
     }
   );
 
@@ -39,8 +42,8 @@ const BreakManager = () => {
     (reason) => attendanceAPI.post('/breaks/waive_break/', { reason }),
     {
       onSuccess: () => {
-        queryClient.invalidateQueries('breakRequirements');
-        queryClient.invalidateQueries('activeBreak');
+        queryClient.invalidateQueries(['breakRequirements', user?.employee_profile?.id]);
+        queryClient.invalidateQueries(['activeBreak', user?.employee_profile?.id]);
         setShowWaiverModal(false);
         setWaiverReason('');
       }
@@ -52,7 +55,7 @@ const BreakManager = () => {
     (reason) => attendanceAPI.post('/breaks/decline_break_reminder/', { reason }),
     {
       onSuccess: () => {
-        queryClient.invalidateQueries('breakRequirements');
+        queryClient.invalidateQueries(['breakRequirements', user?.employee_profile?.id]);
         setShowDeclineModal(false);
         setDeclineReason('');
       }
@@ -64,8 +67,8 @@ const BreakManager = () => {
     (breakData) => attendanceAPI.post('/breaks/start_break/', breakData),
     {
       onSuccess: () => {
-        queryClient.invalidateQueries('activeBreak');
-        queryClient.invalidateQueries('breakRequirements');
+        queryClient.invalidateQueries(['activeBreak', user?.employee_profile?.id]);
+        queryClient.invalidateQueries(['breakRequirements', user?.employee_profile?.id]);
       }
     }
   );
@@ -75,8 +78,8 @@ const BreakManager = () => {
     (breakId) => attendanceAPI.patch(`/breaks/${breakId}/end_break/`),
     {
       onSuccess: () => {
-        queryClient.invalidateQueries('activeBreak');
-        queryClient.invalidateQueries('breakRequirements');
+        queryClient.invalidateQueries(['activeBreak', user?.employee_profile?.id]);
+        queryClient.invalidateQueries(['breakRequirements', user?.employee_profile?.id]);
       }
     }
   );

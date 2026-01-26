@@ -227,8 +227,11 @@ class ShiftUpdateSerializer(ShiftCreateSerializer):
 
 class ShiftBulkCreateSerializer(serializers.Serializer):
     """Serializer for bulk creating shifts"""
-    employee = serializers.PrimaryKeyRelatedField(queryset=Employee.objects.filter(employment_status='ACTIVE'))
-    location = serializers.CharField(max_length=200, required=False, allow_blank=True)
+    employees = serializers.ListField(
+        child=serializers.PrimaryKeyRelatedField(queryset=Employee.objects.filter(employment_status='ACTIVE')),
+        help_text="List of employee IDs to create shifts for"
+    )
+    location = serializers.CharField(max_length=200, required=False, allow_blank=True, default='')
     start_date = serializers.DateField()
     end_date = serializers.DateField()
     start_time = serializers.TimeField()

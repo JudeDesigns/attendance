@@ -192,6 +192,14 @@ class TimeLogViewSet(viewsets.ModelViewSet):
         
         serializer = ClockInSerializer(data=request.data, context={'employee': employee})
         serializer.is_valid(raise_exception=True)
+
+        # SECURITY FIX: Prevent direct use of QR_CODE method on generic endpoint
+        # Users must use the dedicated qr_scan endpoint which validates the payload
+        if serializer.validated_data.get('method') == 'QR_CODE':
+            return Response(
+                {'detail': 'Direct QR code clock-in is not allowed. Please use the scanning feature.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
         
         # Get location if provided
         location = None
@@ -392,6 +400,8 @@ class TimeLogViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated])
     def current_status(self, request):
         """Get current clock-in status"""
+        from apps.core.timezone_utils import convert_to_naive_la_time
+
         try:
             employee = Employee.objects.get(user=request.user)
         except Employee.DoesNotExist:
@@ -399,20 +409,20 @@ class TimeLogViewSet(viewsets.ModelViewSet):
                 {'detail': 'Employee profile not found'},
                 status=status.HTTP_404_NOT_FOUND
             )
-        
+
         active_log = TimeLog.objects.filter(
             employee=employee,
             status='CLOCKED_IN'
         ).first()
-        
+
         if active_log:
             duration = timezone.now() - active_log.clock_in_time
             duration_minutes = int(duration.total_seconds() / 60)
             duration_hours = round(duration_minutes / 60, 2)
-            
+
             data = {
                 'is_clocked_in': True,
-                'clock_in_time': active_log.clock_in_time,
+                'clock_in_time': convert_to_naive_la_time(active_log.clock_in_time),
                 'clock_in_location': active_log.clock_in_location.name if active_log.clock_in_location else None,
                 'duration_minutes': duration_minutes,
                 'duration_hours': duration_hours
@@ -425,7 +435,7 @@ class TimeLogViewSet(viewsets.ModelViewSet):
                 'duration_minutes': None,
                 'duration_hours': None
             }
-        
+
         serializer = CurrentStatusSerializer(data)
         return Response(serializer.data)
 

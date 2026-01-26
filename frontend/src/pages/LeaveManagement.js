@@ -36,9 +36,9 @@ const LeaveManagement = () => {
   );
   const leaveTypes = leaveTypesData?.data?.results || [];
 
-  // Fetch leave balances
+  // Fetch leave balances - USER-SPECIFIC CACHE KEY
   const { data: leaveBalancesData } = useQuery(
-    'leaveBalances',
+    ['leaveBalances', user?.employee_profile?.id],
     () => schedulingAPI.getMyLeaveBalances(),
     {
       enabled: !!user?.employee_profile?.id,
@@ -49,9 +49,9 @@ const LeaveManagement = () => {
   // The my_balances endpoint returns data directly as an array, not wrapped in data.results
   const leaveBalances = leaveBalancesData?.data || leaveBalancesData || [];
 
-  // Fetch leave requests
+  // Fetch leave requests - USER-SPECIFIC CACHE KEY
   const { data: leaveRequestsData, isLoading: requestsLoading } = useQuery(
-    ['leaveRequests', activeTab, filterStatus],
+    ['leaveRequests', user?.employee_profile?.id, activeTab, filterStatus],
     () => {
       if (activeTab === 'my-requests') {
         return schedulingAPI.getMyLeaveRequests(filterStatus !== 'all' ? { status: filterStatus } : {});
@@ -74,10 +74,8 @@ const LeaveManagement = () => {
     {
       onSuccess: (response) => {
         // Invalidate all related queries to ensure UI updates
-        queryClient.invalidateQueries(['leaveRequests', activeTab, filterStatus]);
-        queryClient.invalidateQueries('leaveRequests');
-        queryClient.invalidateQueries('leaveBalances');
-        queryClient.invalidateQueries('leaveBalancesData');
+        queryClient.invalidateQueries(['leaveRequests', user?.employee_profile?.id]);
+        queryClient.invalidateQueries(['leaveBalances', user?.employee_profile?.id]);
 
         setShowRequestForm(false);
 
@@ -103,7 +101,7 @@ const LeaveManagement = () => {
     (id) => schedulingAPI.approveLeaveRequest(id),
     {
       onSuccess: () => {
-        queryClient.invalidateQueries('leaveRequests');
+        queryClient.invalidateQueries(['leaveRequests', user?.employee_profile?.id]);
         toast.success('Leave request approved');
       },
       onError: (error) => {
@@ -117,7 +115,7 @@ const LeaveManagement = () => {
     ({ id, reason }) => schedulingAPI.rejectLeaveRequest(id, reason),
     {
       onSuccess: () => {
-        queryClient.invalidateQueries('leaveRequests');
+        queryClient.invalidateQueries(['leaveRequests', user?.employee_profile?.id]);
         toast.success('Leave request rejected');
       },
       onError: (error) => {
@@ -131,8 +129,8 @@ const LeaveManagement = () => {
     (id) => schedulingAPI.cancelLeaveRequest(id),
     {
       onSuccess: () => {
-        queryClient.invalidateQueries('leaveRequests');
-        queryClient.invalidateQueries('leaveBalances');
+        queryClient.invalidateQueries(['leaveRequests', user?.employee_profile?.id]);
+        queryClient.invalidateQueries(['leaveBalances', user?.employee_profile?.id]);
         toast.success('Leave request cancelled');
       },
       onError: (error) => {
@@ -324,19 +322,19 @@ const LeaveManagement = () => {
   ];
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="glass-card glass-fade-in p-6">
+    <div className="space-y-4 md:space-y-6">
+      {/* Header - Mobile Responsive */}
+      <div className="glass-card glass-fade-in p-4 md:p-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-2xl font-bold glass-text-primary">Leave Management</h1>
-            <p className="mt-1 text-sm glass-text-secondary">
+            <h1 className="text-xl md:text-2xl font-bold glass-text-primary">Leave Management</h1>
+            <p className="mt-1 text-xs md:text-sm glass-text-secondary">
               Manage your leave requests and view balances
             </p>
           </div>
 
           {activeTab === 'my-requests' && (
-            <div className="mt-4 sm:mt-0">
+            <div className="mt-3 sm:mt-0">
               <PrimaryButton
                 onClick={() => {
                   if (!Array.isArray(leaveBalances) || leaveBalances.length === 0) {
@@ -358,20 +356,20 @@ const LeaveManagement = () => {
         </div>
       </div>
 
-      {/* Tabs */}
+      {/* Tabs - Mobile Responsive */}
       <div className="border-b border-gray-200">
-        <nav className="-mb-px flex space-x-8 overflow-x-auto">
+        <nav className="-mb-px flex space-x-4 md:space-x-8 overflow-x-auto">
           {tabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm ${
+              className={`flex items-center whitespace-nowrap py-2 px-1 border-b-2 font-medium text-xs md:text-sm ${
                 activeTab === tab.id
                   ? 'border-blue-500 text-blue-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
               }`}
             >
-              <tab.icon className="w-5 h-5 mr-2" />
+              <tab.icon className="w-4 h-4 md:w-5 md:h-5 mr-1 md:mr-2" />
               {tab.name}
             </button>
           ))}
@@ -399,41 +397,41 @@ const LeaveManagement = () => {
 
       {/* Content */}
       {activeTab === 'balances' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
           {Array.isArray(leaveBalances) && leaveBalances.map((balance) => (
-            <div key={balance.id} className="bg-white rounded-lg shadow p-6">
+            <div key={balance.id} className="bg-white rounded-lg shadow p-4 md:p-6">
               <div className="flex items-center justify-between">
-                <h3 className="text-lg font-medium text-gray-900">
+                <h3 className="text-base md:text-lg font-medium text-gray-900">
                   {balance.leave_type_name}
                 </h3>
-                <CalendarIcon className="w-6 h-6 text-gray-400" />
+                <CalendarIcon className="w-5 h-5 md:w-6 md:h-6 text-gray-400 flex-shrink-0" />
               </div>
-              
-              <div className="mt-4 space-y-2">
-                <div className="flex justify-between text-sm">
+
+              <div className="mt-3 md:mt-4 space-y-2">
+                <div className="flex justify-between text-xs md:text-sm">
                   <span className="text-gray-500">Available:</span>
                   <span className="font-medium text-green-600">
                     {balance.available_days} days
                   </span>
                 </div>
-                <div className="flex justify-between text-sm">
+                <div className="flex justify-between text-xs md:text-sm">
                   <span className="text-gray-500">Used:</span>
                   <span className="font-medium">{balance.used_days} days</span>
                 </div>
-                <div className="flex justify-between text-sm">
+                <div className="flex justify-between text-xs md:text-sm">
                   <span className="text-gray-500">Pending:</span>
                   <span className="font-medium text-yellow-600">
                     {balance.pending_days} days
                   </span>
                 </div>
-                <div className="flex justify-between text-sm">
+                <div className="flex justify-between text-xs md:text-sm">
                   <span className="text-gray-500">Total Allocated:</span>
                   <span className="font-medium">{balance.total_allocated} days</span>
                 </div>
               </div>
-              
+
               {/* Progress bar */}
-              <div className="mt-4">
+              <div className="mt-3 md:mt-4">
                 <div className="flex justify-between text-xs text-gray-500 mb-1">
                   <span>Usage</span>
                   <span>
@@ -469,14 +467,14 @@ const LeaveManagement = () => {
 
       {(activeTab === 'my-requests' || activeTab === 'pending-approvals') && (
         <div className="space-y-4">
-          {/* Filters */}
+          {/* Filters - Mobile Responsive */}
           {activeTab === 'my-requests' && (
             <div className="flex flex-wrap gap-2">
               {statusFilters.map((filter) => (
                 <button
                   key={filter.value}
                   onClick={() => setFilterStatus(filter.value)}
-                  className={`px-3 py-1 rounded-full text-sm font-medium ${
+                  className={`px-2.5 md:px-3 py-1 rounded-full text-xs md:text-sm font-medium ${
                     filterStatus === filter.value
                       ? 'bg-blue-100 text-blue-800'
                       : 'bg-gray-100 text-gray-700 hover:bg-gray-200'

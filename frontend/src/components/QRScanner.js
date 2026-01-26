@@ -5,7 +5,7 @@ const QRScanner = ({ onScan, onError, isActive = false }) => {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const [stream, setStream] = useState(null);
-  const [scanning, setScanning] = useState(false);
+  const scanningRef = useRef(false); // Use ref instead of state to avoid race conditions
   const [isInitializing, setIsInitializing] = useState(false);
 
   useEffect(() => {
@@ -55,18 +55,20 @@ const QRScanner = ({ onScan, onError, isActive = false }) => {
             video.removeEventListener('canplay', handleCanPlay);
 
             await video.play();
-            setScanning(true);
-            scanQRCode();
+            console.log('📹 Video playing, starting QR scan loop...');
+            scanningRef.current = true;
+            requestAnimationFrame(scanQRCode);
           } catch (playError) {
             console.error('Error playing video:', playError);
             // If play fails due to user interaction requirement, still try to scan
             if (playError.name === 'NotAllowedError') {
               console.log('User interaction required for video play');
-              setScanning(true);
-              scanQRCode();
+              scanningRef.current = true;
+              requestAnimationFrame(scanQRCode);
             } else if (playError.name !== 'AbortError') {
-              setScanning(true);
-              scanQRCode();
+              console.log('Starting scan despite play error');
+              scanningRef.current = true;
+              requestAnimationFrame(scanQRCode);
             }
           }
         };
@@ -88,7 +90,7 @@ const QRScanner = ({ onScan, onError, isActive = false }) => {
   };
 
   const stopScanning = () => {
-    setScanning(false);
+    scanningRef.current = false;
     setIsInitializing(false);
 
     if (stream) {
@@ -111,7 +113,9 @@ const QRScanner = ({ onScan, onError, isActive = false }) => {
   };
 
   const scanQRCode = () => {
-    if (!scanning || !videoRef.current || !canvasRef.current) {
+    // Check if we should continue scanning
+    if (!scanningRef.current || !videoRef.current || !canvasRef.current) {
+      console.log('Scan stopped - scanningRef:', scanningRef.current, 'video:', !!videoRef.current, 'canvas:', !!canvasRef.current);
       return;
     }
 
@@ -123,18 +127,22 @@ const QRScanner = ({ onScan, onError, isActive = false }) => {
       canvas.height = video.videoHeight;
       canvas.width = video.videoWidth;
       context.drawImage(video, 0, 0, canvas.width, canvas.height);
-      
+
       const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
       const code = jsQR(imageData.data, imageData.width, imageData.height);
-      
+
       if (code) {
+        console.log('✅ QR Code detected:', code.data);
+        scanningRef.current = false; // Stop scanning
         onScan?.(code.data);
         return;
       }
+    } else {
+      console.log('Video not ready, readyState:', video.readyState, 'HAVE_ENOUGH_DATA:', video.HAVE_ENOUGH_DATA);
     }
 
-    // Continue scanning
-    if (scanning) {
+    // Continue scanning if still active
+    if (scanningRef.current) {
       requestAnimationFrame(scanQRCode);
     }
   };

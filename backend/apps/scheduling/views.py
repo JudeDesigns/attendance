@@ -147,13 +147,13 @@ class ShiftViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['post'], permission_classes=[IsAdminUser])
     @transaction.atomic
     def bulk_create(self, request):
-        """Bulk create shifts for recurring schedules"""
+        """Bulk create shifts for recurring schedules - supports multiple employees"""
         serializer = ShiftBulkCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        
+
         data = serializer.validated_data
-        employee = data['employee']
-        location = data.get('location')
+        employees = data['employees']
+        location = data.get('location', '')  # Default to empty string, not None
         start_date = data['start_date']
         end_date = data['end_date']
         start_time = data['start_time']
@@ -161,60 +161,76 @@ class ShiftViewSet(viewsets.ModelViewSet):
         weekdays = data['weekdays']
         notes = data.get('notes', '')
         is_published = data.get('is_published', False)
-        
+
         created_shifts = []
-        current_date = start_date
-        
-        while current_date <= end_date:
-            # Check if current day is in the selected weekdays
-            if current_date.weekday() in weekdays:
-                # Create datetime objects for the shift
-                # FORCE LOS ANGELES TIME - no conversions
-                import pytz
-                la_tz = pytz.timezone('America/Los_Angeles')
+        skipped_conflicts = 0
 
-                # Combine date and time and localize to Los Angeles time
-                naive_start = datetime.combine(current_date, start_time)
-                naive_end = datetime.combine(current_date, end_time)
+        # Import timezone utilities
+        import pytz
+        la_tz = pytz.timezone('America/Los_Angeles')
 
-                # Localize to Los Angeles time
-                shift_start = la_tz.localize(naive_start)
-                shift_end = la_tz.localize(naive_end)
-                
-                # Handle overnight shifts
-                if end_time <= start_time:
-                    shift_end += timedelta(days=1)
-                
-                # Check for conflicts
-                conflicting_shifts = Shift.objects.filter(
-                    employee=employee,
-                    start_time__lt=shift_end,
-                    end_time__gt=shift_start
-                )
-                
-                if not conflicting_shifts.exists():
-                    shift = Shift.objects.create(
+        # Loop through each employee
+        for employee in employees:
+            current_date = start_date
+
+            while current_date <= end_date:
+                # Check if current day is in the selected weekdays
+                if current_date.weekday() in weekdays:
+                    # Create datetime objects for the shift
+                    # FORCE LOS ANGELES TIME - no conversions
+
+                    # Combine date and time and localize to Los Angeles time
+                    naive_start = datetime.combine(current_date, start_time)
+                    naive_end = datetime.combine(current_date, end_time)
+
+                    # Localize to Los Angeles time
+                    shift_start = la_tz.localize(naive_start)
+                    shift_end = la_tz.localize(naive_end)
+
+                    # Handle overnight shifts
+                    if end_time <= start_time:
+                        shift_end += timedelta(days=1)
+
+                    # Check for conflicts
+                    conflicting_shifts = Shift.objects.filter(
                         employee=employee,
-                        location=location,
-                        start_time=shift_start,
-                        end_time=shift_end,
-                        notes=notes,
-                        is_published=is_published,
-                        created_by=request.user
+                        start_time__lt=shift_end,
+                        end_time__gt=shift_start
                     )
-                    created_shifts.append(shift)
-            
-            current_date += timedelta(days=1)
-        
+
+                    if not conflicting_shifts.exists():
+                        shift = Shift.objects.create(
+                            employee=employee,
+                            location=location,
+                            start_time=shift_start,
+                            end_time=shift_end,
+                            notes=notes,
+                            is_published=is_published,
+                            created_by=request.user
+                        )
+                        created_shifts.append(shift)
+                    else:
+                        skipped_conflicts += 1
+
+                current_date += timedelta(days=1)
+
+        employee_ids = ', '.join([emp.employee_id for emp in employees])
         logger.info(
-            f"Bulk shifts created: {len(created_shifts)} shifts for {employee.employee_id} "
-            f"by user {request.user.username}"
+            f"Bulk shifts created: {len(created_shifts)} shifts for {len(employees)} employees "
+            f"({employee_ids}) by user {request.user.username}. "
+            f"Skipped {skipped_conflicts} conflicting shifts."
         )
-        
+
         response_serializer = ShiftSerializer(created_shifts, many=True)
+        message = f'Successfully created {len(created_shifts)} shifts for {len(employees)} employee(s)'
+        if skipped_conflicts > 0:
+            message += f'. Skipped {skipped_conflicts} conflicting shifts.'
+
         return Response({
-            'message': f'Successfully created {len(created_shifts)} shifts',
-            'shifts': response_serializer.data
+            'message': message,
+            'shifts': response_serializer.data,
+            'created_count': len(created_shifts),
+            'skipped_conflicts': skipped_conflicts
         }, status=status.HTTP_201_CREATED)
 
     @action(detail=False, methods=['post'], permission_classes=[IsAdminUser])

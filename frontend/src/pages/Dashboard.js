@@ -28,15 +28,17 @@ const Dashboard = () => {
   }, [isAdmin, navigate]);
 
   // Get employee status using the robust shift_status endpoint (which is confirmed working)
+  // USER-SPECIFIC CACHE KEY to prevent data leakage between users
   const {
     data: statusData,
     refetch: refetchStatus,
     isLoading: isStatusLoading,
     error: statusError
   } = useQuery(
-    'shiftStatus',
+    ['shiftStatus', user?.employee_profile?.id],
     () => attendanceAPI.shiftStatus(),
     {
+      enabled: !!user?.employee_profile?.id,
       refetchInterval: 30000, // Refetch every 30 seconds
       retry: 3,
       onError: (err) => {
@@ -45,9 +47,9 @@ const Dashboard = () => {
     }
   );
 
-  // Get QR enforcement status
+  // Get QR enforcement status - USER-SPECIFIC CACHE KEY
   const { data: qrEnforcementData } = useQuery(
-    'qrEnforcementStatus',
+    ['qrEnforcementStatus', user?.employee_profile?.id],
     () => attendanceAPI.qrEnforcementStatus(),
     {
       enabled: !!user?.employee_profile?.id,
@@ -162,13 +164,13 @@ const Dashboard = () => {
   const isCurrentlyClockedIn = currentStatus?.current_status === 'CLOCKED_IN';
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
+    <div className="space-y-4 md:space-y-6">
+      {/* Header - Mobile Responsive */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">
+        <h1 className="text-xl md:text-2xl font-bold text-gray-900">
           Welcome back, {user?.first_name}!
         </h1>
-        <p className="text-gray-600">
+        <p className="text-sm md:text-base text-gray-600">
           {format(new Date(), 'EEEE, MMMM do, yyyy')}
         </p>
       </div>
@@ -176,59 +178,59 @@ const Dashboard = () => {
       {/* Break Manager */}
       <BreakManager />
 
-      {/* Quick Actions */}
-      <div className="glass-card glass-fade-in p-6">
-        <h2 className="text-lg font-medium glass-text-primary mb-4">Quick Actions</h2>
-        <div className="flex flex-col sm:flex-row gap-4">
+      {/* Quick Actions - Mobile Responsive */}
+      <div className="glass-card glass-fade-in p-4 md:p-6">
+        <h2 className="text-base md:text-lg font-medium glass-text-primary mb-3 md:mb-4">Quick Actions</h2>
+        <div className="flex flex-col sm:flex-row gap-3 md:gap-4">
           {isCurrentlyClockedIn ? (
             <button
               onClick={quickClockOut}
-              className="glass-button flex items-center justify-center text-red-600 hover:text-red-700 font-semibold"
+              className="glass-button flex items-center justify-center text-red-600 hover:text-red-700 font-semibold py-3 md:py-2 text-sm md:text-base"
             >
-              <ClockIcon className="h-4 w-4 mr-2" />
+              <ClockIcon className="h-5 w-5 md:h-4 md:w-4 mr-2" />
               Clock Out
             </button>
           ) : (
             <button
               onClick={quickClockIn}
-              className="glass-button flex items-center justify-center text-green-600 hover:text-green-700 font-semibold"
+              className="glass-button flex items-center justify-center text-green-600 hover:text-green-700 font-semibold py-3 md:py-2 text-sm md:text-base"
             >
-              <ClockIcon className="h-4 w-4 mr-2" />
+              <ClockIcon className="h-5 w-5 md:h-4 md:w-4 mr-2" />
               Clock In
             </button>
           )}
 
           {/* Break Button */}
           <BreakButton
-            className="flex-1 sm:flex-initial"
+            className="flex-1 sm:flex-initial py-3 md:py-2"
             currentStatus={currentStatus}
           />
 
           <button
             onClick={() => navigate('/schedule')}
-            className="glass-button flex items-center justify-center glass-text-secondary hover:glass-text-primary"
+            className="glass-button flex items-center justify-center glass-text-secondary hover:glass-text-primary py-3 md:py-2 text-sm md:text-base"
           >
-            <CalendarIcon className="h-4 w-4 mr-2" />
+            <CalendarIcon className="h-5 w-5 md:h-4 md:w-4 mr-2" />
             View Schedule
           </button>
         </div>
       </div>
 
-      {/* Status Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      {/* Status Cards - Mobile Responsive */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
         {/* Current Status */}
         <div className="glass-card glass-fade-in overflow-hidden">
-          <div className="p-5">
+          <div className="p-4 md:p-5">
             <div className="flex items-center">
               <div className="flex-shrink-0">
-                <ClockIcon className="h-6 w-6 text-gray-400" />
+                <ClockIcon className="h-5 w-5 md:h-6 md:w-6 text-gray-400" />
               </div>
-              <div className="ml-5 w-0 flex-1">
+              <div className="ml-3 md:ml-5 w-0 flex-1">
                 <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">
+                  <dt className="text-xs md:text-sm font-medium text-gray-500 truncate">
                     Current Status
                   </dt>
-                  <dd className="text-lg font-medium text-gray-900">
+                  <dd className="text-base md:text-lg font-medium text-gray-900">
                     {isStatusLoading ? 'Loading...' :
                       statusError ? 'Status Unavailable' :
                         currentStatus?.current_status?.replace('_', ' ') || 'Not Clocked In'}
@@ -237,10 +239,10 @@ const Dashboard = () => {
               </div>
             </div>
           </div>
-          <div className={`px-5 py-3 ${isStatusLoading || statusError ? 'bg-red-50' :
+          <div className={`px-4 md:px-5 py-2 md:py-3 ${isStatusLoading || statusError ? 'bg-red-50' :
             isCurrentlyClockedIn ? 'bg-green-50' : 'bg-gray-50'
             }`}>
-            <div className="text-sm">
+            <div className="text-xs md:text-sm">
               <span className={`font-medium ${isStatusLoading ? 'text-gray-500' :
                 statusError ? 'text-red-700' :
                   isCurrentlyClockedIn ? 'text-green-700' : 'text-gray-700'
@@ -255,26 +257,26 @@ const Dashboard = () => {
 
         {/* Hours Today */}
         <div className="bg-white overflow-hidden shadow rounded-lg">
-          <div className="p-5">
+          <div className="p-4 md:p-5">
             <div className="flex items-center">
               <div className="flex-shrink-0">
-                <ChartBarIcon className="h-6 w-6 text-gray-400" />
+                <ChartBarIcon className="h-5 w-5 md:h-6 md:w-6 text-gray-400" />
               </div>
-              <div className="ml-5 w-0 flex-1">
+              <div className="ml-3 md:ml-5 w-0 flex-1">
                 <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">
+                  <dt className="text-xs md:text-sm font-medium text-gray-500 truncate">
                     Hours Today
                   </dt>
-                  <dd className="text-lg font-medium text-gray-900">
+                  <dd className="text-base md:text-lg font-medium text-gray-900">
                     {formatDuration(totalHoursToday)}
                   </dd>
                 </dl>
               </div>
             </div>
           </div>
-          <div className={`px-5 py-3 ${totalHoursToday > 8 ? 'bg-yellow-50' : 'bg-gray-50'
+          <div className={`px-4 md:px-5 py-2 md:py-3 ${totalHoursToday > 8 ? 'bg-yellow-50' : 'bg-gray-50'
             }`}>
-            <div className="text-sm">
+            <div className="text-xs md:text-sm">
               <span className={`font-medium ${totalHoursToday > 8 ? 'text-yellow-700' : 'text-gray-700'
                 }`}>
                 {totalHoursToday > 8 ? 'Overtime' : 'Regular Hours'}
@@ -286,17 +288,17 @@ const Dashboard = () => {
         {/* Clock In Time */}
         {currentLog && (
           <div className="bg-white overflow-hidden shadow rounded-lg">
-            <div className="p-5">
+            <div className="p-4 md:p-5">
               <div className="flex items-center">
                 <div className="flex-shrink-0">
-                  <CalendarIcon className="h-6 w-6 text-gray-400" />
+                  <CalendarIcon className="h-5 w-5 md:h-6 md:w-6 text-gray-400" />
                 </div>
-                <div className="ml-5 w-0 flex-1">
+                <div className="ml-3 md:ml-5 w-0 flex-1">
                   <dl>
-                    <dt className="text-sm font-medium text-gray-500 truncate">
+                    <dt className="text-xs md:text-sm font-medium text-gray-500 truncate">
                       Clocked In At
                     </dt>
-                    <dd className="text-lg font-medium text-gray-900">
+                    <dd className="text-base md:text-lg font-medium text-gray-900">
                       {format(new Date(currentLog.clock_in_time), 'h:mm a')}
                     </dd>
                   </dl>
@@ -309,25 +311,25 @@ const Dashboard = () => {
         {/* Alerts */}
         {totalHoursToday > 8 && (
           <div className="bg-white overflow-hidden shadow rounded-lg">
-            <div className="p-5">
+            <div className="p-4 md:p-5">
               <div className="flex items-center">
                 <div className="flex-shrink-0">
-                  <ExclamationIcon className="h-6 w-6 text-yellow-400" />
+                  <ExclamationIcon className="h-5 w-5 md:h-6 md:w-6 text-yellow-400" />
                 </div>
-                <div className="ml-5 w-0 flex-1">
+                <div className="ml-3 md:ml-5 w-0 flex-1">
                   <dl>
-                    <dt className="text-sm font-medium text-gray-500 truncate">
+                    <dt className="text-xs md:text-sm font-medium text-gray-500 truncate">
                       Alert
                     </dt>
-                    <dd className="text-lg font-medium text-gray-900">
+                    <dd className="text-base md:text-lg font-medium text-gray-900">
                       Overtime
                     </dd>
                   </dl>
                 </div>
               </div>
             </div>
-            <div className="bg-yellow-50 px-5 py-3">
-              <div className="text-sm">
+            <div className="bg-yellow-50 px-4 md:px-5 py-2 md:py-3">
+              <div className="text-xs md:text-sm">
                 <span className="font-medium text-yellow-700">
                   You've worked {formatDuration(totalHoursToday)} today
                 </span>
@@ -339,39 +341,39 @@ const Dashboard = () => {
 
 
 
-      {/* Recent Activity */}
+      {/* Recent Activity - Mobile Responsive */}
       <div className="bg-white shadow rounded-lg">
-        <div className="px-4 py-5 sm:p-6">
-          <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
+        <div className="px-4 py-4 sm:p-6">
+          <h3 className="text-base md:text-lg leading-6 font-medium text-gray-900 mb-3 md:mb-4">
             Today's Activity
           </h3>
 
           {todaysLogs.length === 0 ? (
-            <p className="text-gray-500">No activity recorded today.</p>
+            <p className="text-sm md:text-base text-gray-500">No activity recorded today.</p>
           ) : (
             <div className="space-y-3">
               {todaysLogs.map((log) => (
-                <div key={log.id} className="flex items-center justify-between py-2 border-b border-gray-200 last:border-b-0">
-                  <div>
-                    <p className="text-sm font-medium text-gray-900">
+                <div key={log.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between py-3 border-b border-gray-200 last:border-b-0 gap-2">
+                  <div className="flex-1">
+                    <p className="text-sm md:text-base font-medium text-gray-900">
                       Clock In: {format(new Date(log.clock_in_time), 'h:mm a')}
                     </p>
                     {log.clock_out_time && (
-                      <p className="text-sm text-gray-500">
+                      <p className="text-xs md:text-sm text-gray-500">
                         Clock Out: {format(new Date(log.clock_out_time), 'h:mm a')}
                         ({formatDuration(log.duration_hours)})
                       </p>
                     )}
                     {!log.clock_out_time && log.duration_hours && (
-                      <p className="text-sm text-green-600">
+                      <p className="text-xs md:text-sm text-green-600">
                         Currently working: {formatDuration(log.duration_hours)}
                       </p>
                     )}
                     {log.notes && (
-                      <p className="text-xs text-gray-400 mt-1">{log.notes}</p>
+                      <p className="text-xs text-gray-400 mt-1 line-clamp-2">{log.notes}</p>
                     )}
                   </div>
-                  <div className="text-right">
+                  <div className="text-left sm:text-right flex-shrink-0">
                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${log.clock_out_time
                       ? 'bg-green-100 text-green-800'
                       : 'bg-blue-100 text-blue-800'

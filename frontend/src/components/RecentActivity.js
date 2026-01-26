@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery } from 'react-query';
-import { 
-  ClockIcon, 
+import {
+  ClockIcon,
   ArrowRightOnRectangleIcon as LoginIcon,
   ArrowLeftOnRectangleIcon as LogoutIcon,
   UserIcon,
@@ -10,8 +10,10 @@ import {
 } from '@heroicons/react/24/outline';
 import { attendanceAPI, notificationAPI } from '../services/api';
 import useWebSocket from '../hooks/useWebSocket';
+import { useAuth } from '../contexts/AuthContext';
 
 const RecentActivity = ({ limit = 10 }) => {
+  const { user } = useAuth();
   const [activities, setActivities] = useState([]);
 
   // WebSocket connection for real-time activity updates
@@ -31,20 +33,22 @@ const RecentActivity = ({ limit = 10 }) => {
     }
   });
 
-  // Fetch recent time logs
+  // Fetch recent time logs - USER-SPECIFIC CACHE KEY
   const { data: timeLogs } = useQuery(
-    'recentTimeLogs',
+    ['recentTimeLogs', user?.id],
     () => attendanceAPI.list({ limit: 20, ordering: '-created_at' }),
     {
+      enabled: !!user?.id,
       refetchInterval: 60000, // Refetch every minute
     }
   );
 
-  // Fetch recent notifications for activity context
+  // Fetch recent notifications for activity context - USER-SPECIFIC CACHE KEY
   const { data: notifications } = useQuery(
-    'recentNotifications',
+    ['recentNotifications', user?.id],
     () => notificationAPI.list({ limit: 10 }),
     {
+      enabled: !!user?.id,
       refetchInterval: 60000,
     }
   );

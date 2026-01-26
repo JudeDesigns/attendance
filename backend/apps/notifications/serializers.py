@@ -5,6 +5,7 @@ from rest_framework import serializers
 from django.contrib.auth.models import User
 from .models import NotificationLog, NotificationTemplate, WebhookSubscription, WebhookDelivery
 from apps.employees.models import Employee
+from apps.core.timezone_utils import convert_to_naive_la_time
 
 
 class NotificationLogSerializer(serializers.ModelSerializer):
@@ -12,7 +13,7 @@ class NotificationLogSerializer(serializers.ModelSerializer):
     recipient_name = serializers.CharField(source='recipient.user.get_full_name', read_only=True)
     recipient_employee_id = serializers.CharField(source='recipient.employee_id', read_only=True)
     template_name = serializers.CharField(source='template.name', read_only=True, allow_null=True)
-    
+
     class Meta:
         model = NotificationLog
         fields = [
@@ -23,6 +24,18 @@ class NotificationLogSerializer(serializers.ModelSerializer):
             'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
+
+    def to_representation(self, instance):
+        """Convert timestamps to naive Los Angeles time before sending to frontend"""
+        data = super().to_representation(instance)
+
+        # Convert all datetime fields to naive LA time
+        datetime_fields = ['sent_at', 'delivered_at', 'created_at', 'updated_at']
+        for field in datetime_fields:
+            if data.get(field):
+                data[field] = convert_to_naive_la_time(getattr(instance, field))
+
+        return data
 
 
 class NotificationTemplateSerializer(serializers.ModelSerializer):

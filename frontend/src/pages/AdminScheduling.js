@@ -676,16 +676,31 @@ const AdminScheduling = () => {
 
 // Simple ShiftForm component
 const ShiftForm = ({ shift, employees, templates, onSubmit, onClose, isLoading }) => {
-  // Helper function to extract time from datetime string
+  // Helper function to extract time from datetime string (naive, no timezone conversion)
   const extractTimeFromDatetime = (datetimeString) => {
     if (!datetimeString) return '';
     try {
-      const date = new Date(datetimeString);
-      return date.toLocaleTimeString('en-GB', {
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: false
-      });
+      // Extract time portion directly from the string without timezone conversion
+      // Format: "2026-01-28 09:00:00" or "2026-01-28T09:00:00"
+      const timePart = datetimeString.split('T')[1] || datetimeString.split(' ')[1];
+      if (timePart) {
+        // Return HH:MM format
+        return timePart.substring(0, 5);
+      }
+      return '';
+    } catch (error) {
+      return '';
+    }
+  };
+
+  // Helper function to extract date from datetime string (naive, no timezone conversion)
+  const extractDateFromDatetime = (datetimeString) => {
+    if (!datetimeString) return '';
+    try {
+      // Extract date portion directly from the string without timezone conversion
+      // Format: "2026-01-28 09:00:00" or "2026-01-28T09:00:00"
+      const datePart = datetimeString.split('T')[0] || datetimeString.split(' ')[0];
+      return datePart; // Already in YYYY-MM-DD format
     } catch (error) {
       return '';
     }
@@ -693,7 +708,7 @@ const ShiftForm = ({ shift, employees, templates, onSubmit, onClose, isLoading }
 
   const [formData, setFormData] = useState({
     employee: shift?.employee || '',
-    date: shift?.date || format(new Date(), 'yyyy-MM-dd'),
+    date: shift ? (extractDateFromDatetime(shift.start_time_local || shift.start_time) || shift.date) : format(new Date(), 'yyyy-MM-dd'),
     start_time: shift ? extractTimeFromDatetime(shift.start_time_local || shift.start_time) : '09:00',
     end_time: shift ? extractTimeFromDatetime(shift.end_time_local || shift.end_time) : '17:00',
     shift_type: shift?.shift_type || 'REGULAR',

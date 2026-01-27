@@ -193,14 +193,37 @@ class ShiftCreateSerializer(serializers.ModelSerializer):
         return super().create(validated_data)
 
     def update(self, instance, validated_data):
-        """Update shift with proper overnight shift handling"""
+        """Update shift with proper timezone handling and overnight shift support"""
+        # FORCE LOS ANGELES TIME (same as create method)
+        import pytz
+        la_tz = pytz.timezone('America/Los_Angeles')
+
+        # Get start_time and end_time from validated_data or use existing values
         start_time = validated_data.get('start_time', instance.start_time)
         end_time = validated_data.get('end_time', instance.end_time)
 
+        # Ensure times are in Los Angeles timezone if they're being updated
+        if 'start_time' in validated_data:
+            if start_time and not start_time.tzinfo:
+                validated_data['start_time'] = la_tz.localize(start_time)
+            elif start_time and start_time.tzinfo:
+                validated_data['start_time'] = start_time.astimezone(la_tz)
+            start_time = validated_data['start_time']
+
+        if 'end_time' in validated_data:
+            if end_time and not end_time.tzinfo:
+                validated_data['end_time'] = la_tz.localize(end_time)
+            elif end_time and end_time.tzinfo:
+                validated_data['end_time'] = end_time.astimezone(la_tz)
+            end_time = validated_data['end_time']
+
         # Fix overnight shifts by adjusting end_time to next day
-        if start_time and end_time and end_time <= start_time:
-            # This is an overnight shift - move end_time to next day
-            validated_data['end_time'] = end_time + timedelta(days=1)
+        # Only do this if end_time is actually before start_time (overnight shift)
+        if start_time and end_time:
+            # Compare just the time portion to detect overnight shifts
+            if end_time.time() < start_time.time():
+                # This is an overnight shift - move end_time to next day
+                validated_data['end_time'] = end_time + timedelta(days=1)
 
         return super().update(instance, validated_data)
 

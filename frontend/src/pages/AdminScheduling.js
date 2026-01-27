@@ -706,16 +706,45 @@ const ShiftForm = ({ shift, employees, templates, onSubmit, onClose, isLoading }
     }
   };
 
+  // Initialize form data
   const [formData, setFormData] = useState({
-    employee: shift?.employee || '',
-    date: shift ? (extractDateFromDatetime(shift.start_time_local || shift.start_time) || shift.date) : format(new Date(), 'yyyy-MM-dd'),
-    start_time: shift ? extractTimeFromDatetime(shift.start_time_local || shift.start_time) : '09:00',
-    end_time: shift ? extractTimeFromDatetime(shift.end_time_local || shift.end_time) : '17:00',
-    shift_type: shift?.shift_type || 'REGULAR',
-    location: shift?.location || '',
-    notes: shift?.notes || '',
-    is_published: shift?.is_published !== undefined ? shift.is_published : true, // Default to published for new shifts
+    employee: '',
+    date: format(new Date(), 'yyyy-MM-dd'),
+    start_time: '09:00',
+    end_time: '17:00',
+    shift_type: 'REGULAR',
+    location: '',
+    notes: '',
+    is_published: true,
   });
+
+  // Update form data when shift prop changes
+  useEffect(() => {
+    if (shift) {
+      setFormData({
+        employee: shift.employee || '',
+        date: extractDateFromDatetime(shift.start_time_local || shift.start_time) || shift.date || format(new Date(), 'yyyy-MM-dd'),
+        start_time: extractTimeFromDatetime(shift.start_time_local || shift.start_time) || '09:00',
+        end_time: extractTimeFromDatetime(shift.end_time_local || shift.end_time) || '17:00',
+        shift_type: shift.shift_type || 'REGULAR',
+        location: shift.location || '',
+        notes: shift.notes || '',
+        is_published: shift.is_published !== undefined ? shift.is_published : true,
+      });
+    } else {
+      // Reset to defaults for new shift
+      setFormData({
+        employee: '',
+        date: format(new Date(), 'yyyy-MM-dd'),
+        start_time: '09:00',
+        end_time: '17:00',
+        shift_type: 'REGULAR',
+        location: '',
+        notes: '',
+        is_published: true,
+      });
+    }
+  }, [shift]); // Re-run whenever shift prop changes
 
   const handleSubmit = (e) => {
     e.preventDefault();

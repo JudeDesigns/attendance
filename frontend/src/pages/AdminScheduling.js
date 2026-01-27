@@ -175,8 +175,11 @@ const AdminScheduling = () => {
     if (!date) return acc; // Skip shifts without valid start_time
 
     if (!acc[date]) acc[date] = {};
-    if (!acc[date][shift.employee_name]) acc[date][shift.employee_name] = [];
-    acc[date][shift.employee_name].push(shift);
+
+    // Use employee ID as the key instead of name to avoid name mismatch issues
+    const employeeKey = shift.employee.toString();
+    if (!acc[date][employeeKey]) acc[date][employeeKey] = [];
+    acc[date][employeeKey].push(shift);
     return acc;
   }, {});
 
@@ -494,7 +497,9 @@ const AdminScheduling = () => {
                         </div>
                       </td>
                       {weekDays.map((day) => {
-                        const dayShifts = groupedShifts[day.date]?.[`${employee.user.first_name} ${employee.user.last_name}`] || [];
+                        // Use employee ID as the key to match the grouping logic
+                        const employeeKey = employee.id.toString();
+                        const dayShifts = groupedShifts[day.date]?.[employeeKey] || [];
                         return (
                           <td key={day.date} className="px-6 py-4 whitespace-nowrap">
                             <div className="space-y-1">

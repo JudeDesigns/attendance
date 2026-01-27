@@ -5,6 +5,7 @@
     <link rel="icon" href="%PUBLIC_URL%/favicon.ico" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#000000" />
+    <meta name="color-scheme" content="light only" />
     <meta
       name="description"
       content="Attendance - Employee Time Tracking & Attendance Management"
@@ -12,6 +13,18 @@
     <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" />
     <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
     <title>Attendance</title>
+    <style>
+      /* Force light mode - prevent dark mode from breaking UI */
+      :root {
+        color-scheme: light only;
+      }
+      html {
+        color-scheme: light only;
+      }
+      body {
+        color-scheme: light only;
+      }
+    </style>
   </head>
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>

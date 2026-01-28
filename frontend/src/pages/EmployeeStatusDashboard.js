@@ -12,13 +12,14 @@ import {
 } from '@heroicons/react/24/outline';
 import { employeeAPI, attendanceAPI } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
+import { getPSTDate } from '../utils/timezoneUtils';
 
 const EmployeeStatusDashboard = () => {
   const { isAdmin } = useAuth();
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
-  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState(getPSTDate());
 
   // Get all employees
   const { data: employeesData, isLoading: employeesLoading } = useQuery(

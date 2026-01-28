@@ -13,6 +13,7 @@ import { format, isToday } from 'date-fns';
 import toast from 'react-hot-toast';
 import BreakManager from '../components/BreakManager';
 import BreakButton from '../components/BreakButton';
+import { getPSTDateString, formatPSTDate } from '../utils/timezoneUtils';
 
 
 const Dashboard = () => {
@@ -57,14 +58,17 @@ const Dashboard = () => {
     }
   );
 
-  // Get today's time logs
+  // Get today's time logs (using PST timezone, not user's local timezone)
   const { data: timeLogsData } = useQuery(
     ['timeLogs', user?.employee_profile?.id],
-    () => attendanceAPI.timeLogs({
-      employee: user?.employee_profile?.id,
-      start_date: format(new Date(), 'yyyy-MM-dd'),
-      end_date: format(new Date(), 'yyyy-MM-dd'),
-    }),
+    () => {
+      const pstToday = getPSTDateString(); // Get "today" in PST, not user's local timezone
+      return attendanceAPI.timeLogs({
+        employee: user?.employee_profile?.id,
+        start_date: pstToday,
+        end_date: pstToday,
+      });
+    },
     {
       enabled: !!user?.employee_profile?.id,
     }
@@ -171,7 +175,7 @@ const Dashboard = () => {
           Welcome back, {user?.first_name}!
         </h1>
         <p className="text-sm md:text-base text-gray-600">
-          {format(new Date(), 'EEEE, MMMM do, yyyy')}
+          {formatPSTDate(new Date(), 'EEEE, MMMM do, yyyy')} PST
         </p>
       </div>
 

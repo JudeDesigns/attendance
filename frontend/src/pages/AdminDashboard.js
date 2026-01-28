@@ -16,9 +16,10 @@ import {
   ExclamationTriangleIcon,
   MapPinIcon as LocationMarkerIcon,
 } from '@heroicons/react/24/outline';
+import { getPSTDateString } from '../utils/timezoneUtils';
 
 const AdminDashboard = () => {
-  const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const [selectedDate, setSelectedDate] = useState(getPSTDateString());
 
   // Get all employees
   const { data: employeesData } = useQuery('employees', () => employeeAPI.list());

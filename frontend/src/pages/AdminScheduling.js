@@ -19,12 +19,13 @@ import {
   ArrowPathIcon,
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
+import { getPSTDateString } from '../utils/timezoneUtils';
 
 const AdminScheduling = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [searchParams] = useSearchParams();
-  const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const [selectedDate, setSelectedDate] = useState(getPSTDateString());
   const [showBulkForm, setShowBulkForm] = useState(false);
   const [showShiftForm, setShowShiftForm] = useState(false);
   const [showSpreadsheetImporter, setShowSpreadsheetImporter] = useState(false);
@@ -711,10 +712,22 @@ const ShiftForm = ({ shift, employees, templates, onSubmit, onClose, isLoading }
     }
   };
 
+  // Get PST date string for default values
+  const getDefaultDate = () => {
+    const pstDate = new Date().toLocaleString('en-US', {
+      timeZone: 'America/Los_Angeles',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    });
+    const [month, day, year] = pstDate.split(',')[0].split('/');
+    return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+  };
+
   // Initialize form data
   const [formData, setFormData] = useState({
     employee: '',
-    date: format(new Date(), 'yyyy-MM-dd'),
+    date: getDefaultDate(),
     start_time: '09:00',
     end_time: '17:00',
     shift_type: 'REGULAR',
@@ -728,7 +741,7 @@ const ShiftForm = ({ shift, employees, templates, onSubmit, onClose, isLoading }
     if (shift) {
       setFormData({
         employee: shift.employee || '',
-        date: extractDateFromDatetime(shift.start_time_local || shift.start_time) || shift.date || format(new Date(), 'yyyy-MM-dd'),
+        date: extractDateFromDatetime(shift.start_time_local || shift.start_time) || shift.date || getDefaultDate(),
         start_time: extractTimeFromDatetime(shift.start_time_local || shift.start_time) || '09:00',
         end_time: extractTimeFromDatetime(shift.end_time_local || shift.end_time) || '17:00',
         shift_type: shift.shift_type || 'REGULAR',
@@ -740,7 +753,7 @@ const ShiftForm = ({ shift, employees, templates, onSubmit, onClose, isLoading }
       // Reset to defaults for new shift
       setFormData({
         employee: '',
-        date: format(new Date(), 'yyyy-MM-dd'),
+        date: getDefaultDate(),
         start_time: '09:00',
         end_time: '17:00',
         shift_type: 'REGULAR',
@@ -911,10 +924,35 @@ const ShiftForm = ({ shift, employees, templates, onSubmit, onClose, isLoading }
 
 // Simple BulkShiftForm component
 const BulkShiftForm = ({ employees, templates, onSubmit, onClose, isLoading }) => {
+  // Get PST date string for default values
+  const getDefaultDate = () => {
+    const pstDate = new Date().toLocaleString('en-US', {
+      timeZone: 'America/Los_Angeles',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    });
+    const [month, day, year] = pstDate.split(',')[0].split('/');
+    return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+  };
+
+  const getDefaultEndDate = () => {
+    const pstDate = new Date();
+    pstDate.setDate(pstDate.getDate() + 6); // Add 6 days
+    const pstDateString = pstDate.toLocaleString('en-US', {
+      timeZone: 'America/Los_Angeles',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    });
+    const [month, day, year] = pstDateString.split(',')[0].split('/');
+    return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+  };
+
   const [formData, setFormData] = useState({
     employees: [],
-    start_date: format(new Date(), 'yyyy-MM-dd'),
-    end_date: format(addDays(new Date(), 6), 'yyyy-MM-dd'),
+    start_date: getDefaultDate(),
+    end_date: getDefaultEndDate(),
     start_time: '09:00',
     end_time: '17:00',
     shift_type: 'REGULAR',

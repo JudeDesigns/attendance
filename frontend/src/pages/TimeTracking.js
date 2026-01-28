@@ -11,11 +11,12 @@ import {
   ChartBarIcon,
   ExclamationTriangleIcon as ExclamationIcon,
 } from '@heroicons/react/24/outline';
+import { getPSTDate } from '../utils/timezoneUtils';
 
 const TimeTracking = () => {
   const { user } = useAuth();
   const [dateRange, setDateRange] = useState('week');
-  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState(getPSTDate());
   const [selectedEmployee, setSelectedEmployee] = useState('me');
 
   // Check if user is admin

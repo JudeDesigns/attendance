@@ -40,7 +40,7 @@ const ClockIn = () => {
   );
 
   // Get shift status - USER-SPECIFIC CACHE KEY
-  const { data: shiftStatusData } = useQuery(
+  const { data: shiftStatusData, refetch: refetchShiftStatus } = useQuery(
     ['shiftStatus', user?.employee_profile?.id],
     () => attendanceAPI.shiftStatus(),
     {
@@ -60,6 +60,11 @@ const ClockIn = () => {
   // Use shiftStatus as the primary source of truth since it's confirmed working
   // Fallback to currentStatus if shiftStatus is not yet loaded
   const isCurrentlyClockedIn = shiftStatus.is_clocked_in ?? (currentStatus?.is_clocked_in || false);
+
+  // Safe checks for clock in/out availability
+  // If shiftStatus is not loaded yet, default to false (disabled)
+  const canClockIn = shiftStatus.can_clock_in === true;
+  const canClockOut = shiftStatus.can_clock_out === true;
 
   // Get current location
   useEffect(() => {
@@ -99,7 +104,9 @@ const ClockIn = () => {
       toast.success('Clocked in successfully!');
       setNotes('');
       setActiveMethod('portal'); // Close camera if open
-      refetchStatus();
+
+      // CRITICAL FIX: Refetch BOTH status queries to update UI state
+      await Promise.all([refetchStatus(), refetchShiftStatus()]);
     } catch (error) {
       const errorData = error.response?.data;
       if (errorData?.requires_qr) {
@@ -133,7 +140,9 @@ const ClockIn = () => {
       toast.success(`Clocked out successfully! Worked ${duration.toFixed(1)} hours.`);
       setNotes('');
       setActiveMethod('portal'); // Close camera if open
-      refetchStatus();
+
+      // CRITICAL FIX: Refetch BOTH status queries to update UI state
+      await Promise.all([refetchStatus(), refetchShiftStatus()]);
     } catch (error) {
       const errorData = error.response?.data;
       if (errorData?.requires_qr) {
@@ -165,7 +174,9 @@ const ClockIn = () => {
       toast.success(response.data.message || 'Scan successful');
       setNotes('');
       setActiveMethod('portal');
-      refetchStatus();
+
+      // CRITICAL FIX: Refetch BOTH status queries to update UI state
+      await Promise.all([refetchStatus(), refetchShiftStatus()]);
     } catch (error) {
       console.error('QR Scan error:', error);
       const errorData = error.response?.data;
@@ -279,14 +290,14 @@ const ClockIn = () => {
 
           {/* Clock In/Out Eligibility Status */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
-            <div className={`p-3 rounded-lg ${shiftStatus.can_clock_in ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
-              <p className={`text-sm font-medium ${shiftStatus.can_clock_in ? 'text-green-800' : 'text-red-800'}`}>
-                Clock In: {shiftStatus.can_clock_in ? 'Available' : 'Not Available'}
+            <div className={`p-3 rounded-lg ${canClockIn ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
+              <p className={`text-sm font-medium ${canClockIn ? 'text-green-800' : 'text-red-800'}`}>
+                Clock In: {canClockIn ? 'Available' : 'Not Available'}
               </p>
             </div>
-            <div className={`p-3 rounded-lg ${shiftStatus.can_clock_out ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
-              <p className={`text-sm font-medium ${shiftStatus.can_clock_out ? 'text-green-800' : 'text-red-800'}`}>
-                Clock Out: {shiftStatus.can_clock_out ? 'Available' : 'Not Available'}
+            <div className={`p-3 rounded-lg ${canClockOut ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
+              <p className={`text-sm font-medium ${canClockOut ? 'text-green-800' : 'text-red-800'}`}>
+                Clock Out: {canClockOut ? 'Available' : 'Not Available'}
               </p>
             </div>
           </div>
@@ -358,8 +369,8 @@ const ClockIn = () => {
               <div>
                 <button
                   onClick={handleClockOut}
-                  disabled={loading || qrEnforcement.requires_qr_for_clock_out || !shiftStatus.can_clock_out}
-                  className={`w-full sm:w-auto inline-flex items-center justify-center px-6 md:px-8 py-3 md:py-4 border border-transparent text-base md:text-lg font-medium rounded-md text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed ${qrEnforcement.requires_qr_for_clock_out || !shiftStatus.can_clock_out
+                  disabled={loading || qrEnforcement.requires_qr_for_clock_out || !canClockOut}
+                  className={`w-full sm:w-auto inline-flex items-center justify-center px-6 md:px-8 py-3 md:py-4 border border-transparent text-base md:text-lg font-medium rounded-md text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed ${qrEnforcement.requires_qr_for_clock_out || !canClockOut
                     ? 'bg-gray-400 cursor-not-allowed'
                     : 'bg-red-600 hover:bg-red-700'
                     }`}
@@ -376,7 +387,7 @@ const ClockIn = () => {
                     QR code required for clock-out. Switch to QR scanner.
                   </p>
                 )}
-                {!shiftStatus.can_clock_out && (
+                {!canClockOut && !qrEnforcement.requires_qr_for_clock_out && (
                   <p className="text-xs md:text-sm text-red-600 mt-2">
                     No active scheduled shift found for clock-out.
                   </p>
@@ -386,8 +397,8 @@ const ClockIn = () => {
               <div>
                 <button
                   onClick={() => handleClockIn()}
-                  disabled={loading || qrEnforcement.requires_qr_for_clock_in || !shiftStatus.can_clock_in}
-                  className={`w-full sm:w-auto inline-flex items-center justify-center px-6 md:px-8 py-3 md:py-4 border border-transparent text-base md:text-lg font-medium rounded-md text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed ${qrEnforcement.requires_qr_for_clock_in || !shiftStatus.can_clock_in
+                  disabled={loading || qrEnforcement.requires_qr_for_clock_in || !canClockIn}
+                  className={`w-full sm:w-auto inline-flex items-center justify-center px-6 md:px-8 py-3 md:py-4 border border-transparent text-base md:text-lg font-medium rounded-md text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed ${qrEnforcement.requires_qr_for_clock_in || !canClockIn
                     ? 'bg-gray-400 cursor-not-allowed'
                     : 'bg-green-600 hover:bg-green-700'
                     }`}
@@ -404,7 +415,7 @@ const ClockIn = () => {
                     QR code required for clock-in. Switch to QR scanner.
                   </p>
                 )}
-                {!shiftStatus.can_clock_in && (
+                {!canClockIn && !qrEnforcement.requires_qr_for_clock_in && (
                   <p className="text-xs md:text-sm text-red-600 mt-2">
                     No scheduled shift found for clock-in.
                   </p>

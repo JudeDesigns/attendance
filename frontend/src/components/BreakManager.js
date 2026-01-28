@@ -8,6 +8,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { attendanceAPI } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
+import toast from 'react-hot-toast';
 
 const BreakManager = () => {
   const { user } = useAuth();
@@ -75,11 +76,21 @@ const BreakManager = () => {
 
   // End break mutation (FIXED: Changed POST to PATCH to match backend)
   const endBreakMutation = useMutation(
-    (breakId) => attendanceAPI.patch(`/breaks/${breakId}/end_break/`),
+    (breakId) => attendanceAPI.patch(`/breaks/${breakId}/end_break/`, {}),
     {
-      onSuccess: () => {
+      onSuccess: (response) => {
+        console.log('Break ended successfully:', response);
+        toast.success('Break ended successfully');
         queryClient.invalidateQueries(['activeBreak', user?.employee_profile?.id]);
         queryClient.invalidateQueries(['breakRequirements', user?.employee_profile?.id]);
+        queryClient.invalidateQueries(['currentAttendanceStatus', user?.employee_profile?.id]);
+        queryClient.invalidateQueries(['shiftStatus', user?.employee_profile?.id]);
+      },
+      onError: (error) => {
+        console.error('End break error:', error);
+        console.error('Error response:', error.response);
+        const errorMessage = error.response?.data?.detail || error.message || 'Failed to end break';
+        toast.error(`Error: ${errorMessage}`);
       }
     }
   );
@@ -101,8 +112,19 @@ const BreakManager = () => {
   };
 
   const handleEndBreak = () => {
-    if (activeBreakData?.break?.id) {
-      endBreakMutation.mutate(activeBreakData.break.id);
+    console.log('handleEndBreak called');
+    console.log('activeBreakData:', activeBreakData);
+
+    // FIXED: Access the correct nested path
+    const breakId = activeBreakData?.data?.break?.id;
+    console.log('breakId:', breakId);
+
+    if (breakId) {
+      console.log('Calling endBreakMutation with breakId:', breakId);
+      endBreakMutation.mutate(breakId);
+    } else {
+      console.error('No break ID found in activeBreakData');
+      alert('Error: Cannot find active break ID');
     }
   };
 

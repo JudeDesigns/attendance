@@ -107,22 +107,22 @@ const BreakManager = () => {
   };
 
   // Show break reminder if required
-  if (breakRequirements?.requires_break && !activeBreakData?.has_active_break) {
+  if (breakRequirements?.data?.requires_break && !activeBreakData?.data?.has_active_break) {
     return (
       <div className="glass-status-warning p-4 mb-4 glass-fade-in">
         <div className="flex items-start">
           <ExclamationTriangleIcon className="h-6 w-6 text-orange-600 mt-1 mr-3" />
           <div className="flex-1">
             <h3 className="text-lg font-medium glass-text-primary mb-2">
-              {breakRequirements.is_overdue ? 'Break Overdue!' : 'Break Reminder'}
+              {breakRequirements.data.is_overdue ? 'Break Overdue!' : 'Break Reminder'}
             </h3>
             <p className="glass-text-secondary mb-4">
-              You've worked {breakRequirements.hours_worked} hours. {breakRequirements.reason}
+              You've worked {breakRequirements.data.hours_worked} hours. {breakRequirements.data.reason}
             </p>
 
             <div className="flex flex-wrap gap-2">
               <button
-                onClick={() => handleStartBreak(breakRequirements.break_type)}
+                onClick={() => handleStartBreak(breakRequirements.data.break_type)}
                 className="uber-button-primary flex items-center"
                 disabled={startBreakMutation.isLoading}
               >
@@ -219,8 +219,8 @@ const BreakManager = () => {
   }
 
   // Show active break status
-  if (activeBreakData?.has_active_break) {
-    const breakData = activeBreakData.break;
+  if (activeBreakData?.data?.has_active_break) {
+    const breakData = activeBreakData.data.break;
     return (
       <div className="glass-status-success p-4 mb-4 glass-fade-in">
         <div className="flex items-center justify-between">

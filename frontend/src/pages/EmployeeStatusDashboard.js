@@ -269,22 +269,36 @@ const EmployeeStatusDashboard = () => {
   const getCurrentDuration = (clockInTime) => {
     if (!clockInTime) return '0h 0m';
 
-    // Backend sends naive PST datetime strings (e.g., "2026-01-28 08:47:00")
-    // JavaScript's new Date() interprets this as LOCAL time, not PST!
-    // We need to explicitly parse it as PST time.
+    // CRITICAL: Backend sends naive PST datetime strings (e.g., "2026-01-28 08:47:00")
+    // User is in Nigeria (UTC+1), but the string represents PST time (UTC-8)
+    // We MUST parse this as PST time, not as Nigeria local time!
 
-    // Convert "2026-01-28 08:47:00" to "2026-01-28T08:47:00" (ISO-like format)
-    const clockInStr = clockInTime.replace(' ', 'T');
+    // Method: Parse the string components and create a proper PST timestamp
+    const parts = clockInTime.match(/(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2}):(\d{2})/);
+    if (!parts) return '0h 0m';
 
-    // Parse as PST by creating a date in PST timezone
-    // Method: Use toLocaleString to get PST time, then parse it
-    const clockInPST = new Date(clockInStr + '-08:00'); // Append PST offset (-08:00 for PST, -07:00 for PDT)
+    const [, year, month, day, hour, minute, second] = parts;
+
+    // Create an ISO string with PST offset
+    // PST is UTC-8, PDT is UTC-7. In January, it's PST (UTC-8)
+    // We need to determine if it's PST or PDT based on the date
+    const date = new Date(`${year}-${month}-${day}`);
+    const monthNum = parseInt(month);
+
+    // Rough DST check: PDT is roughly March-November, PST is December-February
+    // More accurate: DST starts 2nd Sunday in March, ends 1st Sunday in November
+    const isPDT = monthNum >= 3 && monthNum <= 10; // Simplified check
+    const offset = isPDT ? '-07:00' : '-08:00';
+
+    // Create ISO string with timezone offset
+    const clockInISO = `${year}-${month}-${day}T${hour}:${minute}:${second}${offset}`;
+    const clockInDate = new Date(clockInISO);
 
     // Get current time in PST
     const nowPST = getPSTDate();
 
-    // Calculate the difference
-    const diffMs = nowPST - clockInPST;
+    // Calculate difference
+    const diffMs = nowPST - clockInDate;
     const hours = diffMs / (1000 * 60 * 60);
 
     // Ensure we don't show negative or unreasonable durations

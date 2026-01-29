@@ -11,13 +11,14 @@ import {
   ExclamationTriangleIcon,
 } from '@heroicons/react/24/outline';
 import { attendanceAPI, employeeAPI, schedulingAPI } from '../services/api';
+import { getPSTDate } from '../utils/timezoneUtils';
 
 const EmployeeDetails = () => {
   const { employeeId } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
   const [dateRange, setDateRange] = useState('week');
-  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState(getPSTDate()); // Use PST date instead of local date
 
   // Get employee data from navigation state or fetch it
   const employeeFromState = location.state?.employee;

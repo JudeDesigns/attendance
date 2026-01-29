@@ -328,6 +328,31 @@ class BreakSerializer(serializers.ModelSerializer):
     duration_hours = serializers.FloatField(read_only=True)
     is_active = serializers.BooleanField(read_only=True)
 
+    def to_representation(self, instance):
+        """
+        Convert timezone-aware datetimes to naive LA time before sending to frontend.
+        This prevents the browser from doing additional timezone conversions.
+        """
+        representation = super().to_representation(instance)
+
+        # Convert start_time to naive LA time
+        if representation.get('start_time'):
+            representation['start_time'] = convert_to_naive_la_time(instance.start_time)
+
+        # Convert end_time to naive LA time
+        if representation.get('end_time'):
+            representation['end_time'] = convert_to_naive_la_time(instance.end_time)
+
+        # Convert created_at to naive LA time
+        if representation.get('created_at'):
+            representation['created_at'] = convert_to_naive_la_time(instance.created_at)
+
+        # Convert updated_at to naive LA time
+        if representation.get('updated_at'):
+            representation['updated_at'] = convert_to_naive_la_time(instance.updated_at)
+
+        return representation
+
     class Meta:
         model = Break
         fields = [

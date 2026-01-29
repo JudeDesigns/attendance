@@ -115,6 +115,21 @@ const EmployeeDetails = () => {
     }))
   ].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)); // Sort by most recent first
 
+  // Group activities by date for better organization
+  const activitiesByDate = activityTimeline.reduce((groups, activity) => {
+    const date = format(new Date(activity.timestamp), 'yyyy-MM-dd');
+    if (!groups[date]) {
+      groups[date] = [];
+    }
+    groups[date].push(activity);
+    return groups;
+  }, {});
+
+  // Convert to array and sort by date (most recent first)
+  const groupedActivities = Object.entries(activitiesByDate)
+    .map(([date, activities]) => ({ date, activities }))
+    .sort((a, b) => new Date(b.date) - new Date(a.date));
+
   // Calculate statistics
   const totalHours = timeLogs.reduce((sum, log) => sum + (log.duration_hours || 0), 0);
 
@@ -593,12 +608,19 @@ const EmployeeDetails = () => {
         </div>
       </div>
 
-      {/* Activity Timeline Table (Time Logs + Breaks) */}
-      <div className="bg-white shadow overflow-hidden sm:rounded-md">
+      {/* Activity Timeline - Card-Based View */}
+      <div className="bg-white shadow overflow-hidden sm:rounded-lg">
         <div className="px-4 py-5 sm:p-6">
-          <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
-            Detailed Activity Timeline ({activityTimeline.length} entries: {timeLogs.length} time logs, {breaks.length} breaks)
-          </h3>
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h3 className="text-lg leading-6 font-medium text-gray-900">
+                Activity Timeline
+              </h3>
+              <p className="mt-1 text-sm text-gray-500">
+                {activityTimeline.length} total entries: {timeLogs.length} time logs, {breaks.length} breaks
+              </p>
+            </div>
+          </div>
 
           {(isLoading || breaksLoading) ? (
             <div className="flex items-center justify-center h-32">
@@ -613,133 +635,138 @@ const EmployeeDetails = () => {
               </p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Type
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Date
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Start Time
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      End Time
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Duration
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Status
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Notes
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {activityTimeline.map((activity) => (
-                    <tr key={`${activity.type}-${activity.id}`} className="hover:bg-gray-50">
-                      {/* Type Column */}
-                      <td className="px-6 py-4 whitespace-nowrap">
+            <div className="space-y-6">
+              {groupedActivities.map(({ date, activities }) => (
+                <div key={date} className="border border-gray-200 rounded-lg overflow-hidden">
+                  {/* Date Header */}
+                  <div className="bg-gray-50 px-4 py-3 border-b border-gray-200">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-sm font-semibold text-gray-900">
+                        {format(new Date(date), 'EEEE, MMMM d, yyyy')}
+                      </h4>
+                      <span className="text-xs text-gray-500">
+                        {activities.length} {activities.length === 1 ? 'entry' : 'entries'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Activities for this day */}
+                  <div className="divide-y divide-gray-100">
+                    {activities.map((activity) => (
+                      <div
+                        key={`${activity.type}-${activity.id}`}
+                        className="px-4 py-4 hover:bg-gray-50 transition-colors"
+                      >
                         {activity.type === 'timelog' ? (
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                            Time Log
-                          </span>
+                          // Time Log Card
+                          <div className="flex items-start space-x-4">
+                            {/* Icon */}
+                            <div className="flex-shrink-0">
+                              <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                                <ClockIcon className="w-5 h-5 text-blue-600" />
+                              </div>
+                            </div>
+
+                            {/* Content */}
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <p className="text-sm font-medium text-gray-900">
+                                    Work Shift
+                                  </p>
+                                  <p className="text-sm text-gray-500 mt-1">
+                                    {format(new Date(activity.data.clock_in_time), 'h:mm a')}
+                                    {' → '}
+                                    {activity.data.clock_out_time
+                                      ? format(new Date(activity.data.clock_out_time), 'h:mm a')
+                                      : <span className="text-green-600 font-medium">Active</span>
+                                    }
+                                  </p>
+                                </div>
+                                <div className="flex items-center space-x-3">
+                                  {activity.data.duration_hours && (
+                                    <span className={`text-sm font-medium ${activity.data.duration_hours > 8 ? 'text-orange-600' : 'text-gray-700'}`}>
+                                      {formatDuration(activity.data.duration_hours)}
+                                    </span>
+                                  )}
+                                  {activity.data.clock_out_time ? (
+                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                      Completed
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                      <div className="w-2 h-2 bg-blue-400 rounded-full mr-1.5 animate-pulse"></div>
+                                      In Progress
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                              {activity.data.notes && (
+                                <p className="text-xs text-gray-500 mt-2 italic">
+                                  {activity.data.notes}
+                                </p>
+                              )}
+                            </div>
+                          </div>
                         ) : (
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                            Break
-                          </span>
+                          // Break Card
+                          <div className="flex items-start space-x-4">
+                            {/* Icon */}
+                            <div className="flex-shrink-0">
+                              <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+                                <svg className="w-5 h-5 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                              </div>
+                            </div>
+
+                            {/* Content */}
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <p className="text-sm font-medium text-gray-900">
+                                    Break
+                                  </p>
+                                  <p className="text-sm text-gray-500 mt-1">
+                                    {format(new Date(activity.data.start_time), 'h:mm a')}
+                                    {' → '}
+                                    {activity.data.end_time
+                                      ? format(new Date(activity.data.end_time), 'h:mm a')
+                                      : <span className="text-orange-600 font-medium">On Break</span>
+                                    }
+                                  </p>
+                                </div>
+                                <div className="flex items-center space-x-3">
+                                  {activity.data.duration_minutes && (
+                                    <span className="text-sm font-medium text-gray-700">
+                                      {formatBreakDuration(activity.data.duration_minutes)}
+                                    </span>
+                                  )}
+                                  {activity.data.end_time ? (
+                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                                      Completed
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                                      <div className="w-2 h-2 bg-orange-400 rounded-full mr-1.5 animate-pulse"></div>
+                                      On Break
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                              {activity.data.notes && (
+                                <p className="text-xs text-gray-500 mt-2 italic">
+                                  {activity.data.notes}
+                                </p>
+                              )}
+                            </div>
+                          </div>
                         )}
-                      </td>
-
-                      {/* Date Column */}
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        {format(new Date(activity.timestamp), 'MMM d, yyyy')}
-                      </td>
-
-                      {/* Start Time Column */}
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {activity.type === 'timelog'
-                          ? format(new Date(activity.data.clock_in_time), 'h:mm a')
-                          : format(new Date(activity.data.start_time), 'h:mm a')
-                        }
-                      </td>
-
-                      {/* End Time Column */}
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {activity.type === 'timelog' ? (
-                          activity.data.clock_out_time ? (
-                            format(new Date(activity.data.clock_out_time), 'h:mm a')
-                          ) : (
-                            <span className="text-green-600 font-medium">Active</span>
-                          )
-                        ) : (
-                          activity.data.end_time ? (
-                            format(new Date(activity.data.end_time), 'h:mm a')
-                          ) : (
-                            <span className="text-orange-600 font-medium">On Break</span>
-                          )
-                        )}
-                      </td>
-
-                      {/* Duration Column */}
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {activity.type === 'timelog' ? (
-                          activity.data.duration_hours ? (
-                            <span className={activity.data.duration_hours > 8 ? 'text-orange-600 font-medium' : ''}>
-                              {formatDuration(activity.data.duration_hours)}
-                            </span>
-                          ) : (
-                            <span className="text-gray-400">-</span>
-                          )
-                        ) : (
-                          activity.data.duration_minutes ? (
-                            <span>{formatBreakDuration(activity.data.duration_minutes)}</span>
-                          ) : (
-                            <span className="text-gray-400">-</span>
-                          )
-                        )}
-                      </td>
-
-                      {/* Status Column */}
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {activity.type === 'timelog' ? (
-                          activity.data.clock_out_time ? (
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                              Completed
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                              <div className="w-2 h-2 bg-blue-400 rounded-full mr-1 animate-pulse"></div>
-                              In Progress
-                            </span>
-                          )
-                        ) : (
-                          activity.data.end_time ? (
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                              Break Completed
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
-                              <div className="w-2 h-2 bg-orange-400 rounded-full mr-1 animate-pulse"></div>
-                              On Break
-                            </span>
-                          )
-                        )}
-                      </td>
-
-                      {/* Notes Column */}
-                      <td className="px-6 py-4 text-sm text-gray-900 max-w-xs truncate">
-                        {activity.data.notes || '-'}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </div>

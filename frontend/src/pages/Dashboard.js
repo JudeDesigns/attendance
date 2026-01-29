@@ -74,6 +74,21 @@ const Dashboard = () => {
     }
   );
 
+  // Get today's breaks (using PST timezone)
+  const { data: breaksData } = useQuery(
+    ['breaks', user?.employee_profile?.id],
+    () => {
+      const pstToday = getPSTDateString(); // Get "today" in PST, not user's local timezone
+      return attendanceAPI.breaks({
+        start_date: `${pstToday}T00:00:00`,
+        end_date: `${pstToday}T23:59:59`,
+      });
+    },
+    {
+      enabled: !!user?.employee_profile?.id,
+    }
+  );
+
   useEffect(() => {
     if (statusData?.data) {
       // Normalize data structure to match what the UI expects
@@ -141,8 +156,25 @@ const Dashboard = () => {
   };
 
   const todaysLogs = timeLogsData?.data?.results || [];
+  const todaysBreaks = breaksData?.data?.results || [];
   const currentLog = todaysLogs.find(log => !log.clock_out_time);
   const completedLogs = todaysLogs.filter(log => log.clock_out_time);
+
+  // Merge time logs and breaks into a unified activity timeline
+  const todaysActivity = [
+    ...todaysLogs.map(log => ({
+      type: 'timelog',
+      id: log.id,
+      timestamp: log.clock_in_time,
+      data: log
+    })),
+    ...todaysBreaks.map(breakItem => ({
+      type: 'break',
+      id: breakItem.id,
+      timestamp: breakItem.start_time,
+      data: breakItem
+    }))
+  ].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)); // Sort by most recent first
 
   // Calculate total hours including current active session
   const totalHoursToday = todaysLogs.reduce((total, log) => {
@@ -352,39 +384,75 @@ const Dashboard = () => {
             Today's Activity
           </h3>
 
-          {todaysLogs.length === 0 ? (
+          {todaysActivity.length === 0 ? (
             <p className="text-sm md:text-base text-gray-500">No activity recorded today.</p>
           ) : (
             <div className="space-y-3">
-              {todaysLogs.map((log) => (
-                <div key={log.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between py-3 border-b border-gray-200 last:border-b-0 gap-2">
-                  <div className="flex-1">
-                    <p className="text-sm md:text-base font-medium text-gray-900">
-                      Clock In: {format(new Date(log.clock_in_time), 'h:mm a')}
-                    </p>
-                    {log.clock_out_time && (
-                      <p className="text-xs md:text-sm text-gray-500">
-                        Clock Out: {format(new Date(log.clock_out_time), 'h:mm a')}
-                        ({formatDuration(log.duration_hours)})
-                      </p>
-                    )}
-                    {!log.clock_out_time && log.duration_hours && (
-                      <p className="text-xs md:text-sm text-green-600">
-                        Currently working: {formatDuration(log.duration_hours)}
-                      </p>
-                    )}
-                    {log.notes && (
-                      <p className="text-xs text-gray-400 mt-1 line-clamp-2">{log.notes}</p>
-                    )}
-                  </div>
-                  <div className="text-left sm:text-right flex-shrink-0">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${log.clock_out_time
-                      ? 'bg-green-100 text-green-800'
-                      : 'bg-blue-100 text-blue-800'
-                      }`}>
-                      {log.clock_out_time ? 'Completed' : 'In Progress'}
-                    </span>
-                  </div>
+              {todaysActivity.map((activity) => (
+                <div key={`${activity.type}-${activity.id}`} className="flex flex-col sm:flex-row sm:items-center sm:justify-between py-3 border-b border-gray-200 last:border-b-0 gap-2">
+                  {activity.type === 'timelog' ? (
+                    // Time Log Display
+                    <>
+                      <div className="flex-1">
+                        <p className="text-sm md:text-base font-medium text-gray-900">
+                          Clock In: {format(new Date(activity.data.clock_in_time), 'h:mm a')}
+                        </p>
+                        {activity.data.clock_out_time && (
+                          <p className="text-xs md:text-sm text-gray-500">
+                            Clock Out: {format(new Date(activity.data.clock_out_time), 'h:mm a')}
+                            ({formatDuration(activity.data.duration_hours)})
+                          </p>
+                        )}
+                        {!activity.data.clock_out_time && activity.data.duration_hours && (
+                          <p className="text-xs md:text-sm text-green-600">
+                            Currently working: {formatDuration(activity.data.duration_hours)}
+                          </p>
+                        )}
+                        {activity.data.notes && (
+                          <p className="text-xs text-gray-400 mt-1 line-clamp-2">{activity.data.notes}</p>
+                        )}
+                      </div>
+                      <div className="text-left sm:text-right flex-shrink-0">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${activity.data.clock_out_time
+                          ? 'bg-green-100 text-green-800'
+                          : 'bg-blue-100 text-blue-800'
+                          }`}>
+                          {activity.data.clock_out_time ? 'Completed' : 'In Progress'}
+                        </span>
+                      </div>
+                    </>
+                  ) : (
+                    // Break Display
+                    <>
+                      <div className="flex-1">
+                        <p className="text-sm md:text-base font-medium text-gray-900">
+                          Break Started: {format(new Date(activity.data.start_time), 'h:mm a')}
+                        </p>
+                        {activity.data.end_time && (
+                          <p className="text-xs md:text-sm text-gray-500">
+                            Break Ended: {format(new Date(activity.data.end_time), 'h:mm a')}
+                            ({activity.data.duration_minutes} minutes)
+                          </p>
+                        )}
+                        {!activity.data.end_time && (
+                          <p className="text-xs md:text-sm text-orange-600">
+                            Break in progress
+                          </p>
+                        )}
+                        {activity.data.notes && (
+                          <p className="text-xs text-gray-400 mt-1 line-clamp-2">{activity.data.notes}</p>
+                        )}
+                      </div>
+                      <div className="text-left sm:text-right flex-shrink-0">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${activity.data.end_time
+                          ? 'bg-purple-100 text-purple-800'
+                          : 'bg-orange-100 text-orange-800'
+                          }`}>
+                          {activity.data.end_time ? 'Break Completed' : 'On Break'}
+                        </span>
+                      </div>
+                    </>
+                  )}
                 </div>
               ))}
             </div>

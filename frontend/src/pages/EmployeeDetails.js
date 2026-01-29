@@ -74,6 +74,16 @@ const EmployeeDetails = () => {
     })
   );
 
+  // Get breaks for this employee
+  const { data: breaksData, isLoading: breaksLoading } = useQuery(
+    ['employee-breaks', employeeId, start, end],
+    () => attendanceAPI.breaks({
+      employee: employeeId,
+      start_date: `${start}T00:00:00`,
+      end_date: `${end}T23:59:59`,
+    })
+  );
+
   // Get scheduled shifts for this employee
   const { data: shiftsData, isLoading: shiftsLoading } = useQuery(
     ['employee-shifts', employeeId, start, end],
@@ -85,7 +95,24 @@ const EmployeeDetails = () => {
   );
 
   const timeLogs = timeLogsData?.data?.results || timeLogsData?.results || [];
+  const breaks = breaksData?.data?.results || breaksData?.results || [];
   const shifts = shiftsData?.data?.results || shiftsData?.results || [];
+
+  // Merge time logs and breaks into a unified activity timeline
+  const activityTimeline = [
+    ...timeLogs.map(log => ({
+      type: 'timelog',
+      id: log.id,
+      timestamp: log.clock_in_time,
+      data: log
+    })),
+    ...breaks.map(breakItem => ({
+      type: 'break',
+      id: breakItem.id,
+      timestamp: breakItem.start_time,
+      data: breakItem
+    }))
+  ].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)); // Sort by most recent first
 
   // Calculate statistics
   const totalHours = timeLogs.reduce((sum, log) => sum + (log.duration_hours || 0), 0);
@@ -118,6 +145,14 @@ const EmployeeDetails = () => {
     const h = Math.floor(hours);
     const m = Math.round((hours - h) * 60);
     return `${h}h ${m}m`;
+  };
+
+  const formatBreakDuration = (minutes) => {
+    if (!minutes) return '-';
+    if (minutes < 60) return `${minutes}m`;
+    const h = Math.floor(minutes / 60);
+    const m = minutes % 60;
+    return m > 0 ? `${h}h ${m}m` : `${h}h`;
   };
 
   const handleExportData = async () => {
@@ -557,23 +592,23 @@ const EmployeeDetails = () => {
         </div>
       </div>
 
-      {/* Time Logs Table */}
+      {/* Activity Timeline Table (Time Logs + Breaks) */}
       <div className="bg-white shadow overflow-hidden sm:rounded-md">
         <div className="px-4 py-5 sm:p-6">
           <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
-            Detailed Time Logs ({timeLogs.length})
+            Detailed Activity Timeline ({activityTimeline.length} entries: {timeLogs.length} time logs, {breaks.length} breaks)
           </h3>
 
-          {isLoading ? (
+          {(isLoading || breaksLoading) ? (
             <div className="flex items-center justify-center h-32">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-500"></div>
             </div>
-          ) : timeLogs.length === 0 ? (
+          ) : activityTimeline.length === 0 ? (
             <div className="text-center py-12">
               <ClockIcon className="mx-auto h-12 w-12 text-gray-400" />
-              <h3 className="mt-2 text-sm font-medium text-gray-900">No time logs found</h3>
+              <h3 className="mt-2 text-sm font-medium text-gray-900">No activity found</h3>
               <p className="mt-1 text-sm text-gray-500">
-                No time logs found for the selected period.
+                No time logs or breaks found for the selected period.
               </p>
             </div>
           ) : (
@@ -582,19 +617,19 @@ const EmployeeDetails = () => {
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Type
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Date
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Clock In
+                      Start Time
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Clock Out
+                      End Time
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Duration
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Method
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Status
@@ -605,38 +640,100 @@ const EmployeeDetails = () => {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {timeLogs.map((log) => (
-                    <tr key={log.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        {log.clock_in_time ? format(new Date(log.clock_in_time), 'MMM d, yyyy') : '-'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {log.clock_in_time ? format(new Date(log.clock_in_time), 'h:mm a') : '-'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {log.clock_out_time ? format(new Date(log.clock_out_time), 'h:mm a') : (
-                          <span className="text-green-600 font-medium">Active</span>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {log.duration_hours ? (
-                          <span className={log.duration_hours > 8 ? 'text-orange-600 font-medium' : ''}>
-                            {formatDuration(log.duration_hours)}
+                  {activityTimeline.map((activity) => (
+                    <tr key={`${activity.type}-${activity.id}`} className="hover:bg-gray-50">
+                      {/* Type Column */}
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {activity.type === 'timelog' ? (
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                            Time Log
                           </span>
                         ) : (
-                          <span className="text-gray-400">-</span>
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                            Break
+                          </span>
                         )}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                          {log.clock_in_method || 'PORTAL'}
-                        </span>
+
+                      {/* Date Column */}
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        {format(new Date(activity.timestamp), 'MMM d, yyyy')}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {getStatusBadge(log.status)}
+
+                      {/* Start Time Column */}
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {activity.type === 'timelog'
+                          ? format(new Date(activity.data.clock_in_time), 'h:mm a')
+                          : format(new Date(activity.data.start_time), 'h:mm a')
+                        }
                       </td>
+
+                      {/* End Time Column */}
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {activity.type === 'timelog' ? (
+                          activity.data.clock_out_time ? (
+                            format(new Date(activity.data.clock_out_time), 'h:mm a')
+                          ) : (
+                            <span className="text-green-600 font-medium">Active</span>
+                          )
+                        ) : (
+                          activity.data.end_time ? (
+                            format(new Date(activity.data.end_time), 'h:mm a')
+                          ) : (
+                            <span className="text-orange-600 font-medium">On Break</span>
+                          )
+                        )}
+                      </td>
+
+                      {/* Duration Column */}
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {activity.type === 'timelog' ? (
+                          activity.data.duration_hours ? (
+                            <span className={activity.data.duration_hours > 8 ? 'text-orange-600 font-medium' : ''}>
+                              {formatDuration(activity.data.duration_hours)}
+                            </span>
+                          ) : (
+                            <span className="text-gray-400">-</span>
+                          )
+                        ) : (
+                          activity.data.duration_minutes ? (
+                            <span>{formatBreakDuration(activity.data.duration_minutes)}</span>
+                          ) : (
+                            <span className="text-gray-400">-</span>
+                          )
+                        )}
+                      </td>
+
+                      {/* Status Column */}
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {activity.type === 'timelog' ? (
+                          activity.data.clock_out_time ? (
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                              Completed
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                              <div className="w-2 h-2 bg-blue-400 rounded-full mr-1 animate-pulse"></div>
+                              In Progress
+                            </span>
+                          )
+                        ) : (
+                          activity.data.end_time ? (
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                              Break Completed
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                              <div className="w-2 h-2 bg-orange-400 rounded-full mr-1 animate-pulse"></div>
+                              On Break
+                            </span>
+                          )
+                        )}
+                      </td>
+
+                      {/* Notes Column */}
                       <td className="px-6 py-4 text-sm text-gray-900 max-w-xs truncate">
-                        {log.notes || '-'}
+                        {activity.data.notes || '-'}
                       </td>
                     </tr>
                   ))}

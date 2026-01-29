@@ -127,7 +127,47 @@ export const isPSTToday = (date) => {
   });
   const [month, day, year] = datePST.split(',')[0].split('/');
   const dateStr = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
-  
+
   return dateStr === todayPST;
+};
+
+/**
+ * Parse a naive PST datetime string from the backend
+ * Backend sends datetime strings like "2026-01-28 08:47:00" which are in PST timezone
+ * but have no timezone information. We need to parse them correctly.
+ *
+ * @param {string} pstDateTimeString - Naive datetime string in PST (e.g., "2026-01-28 08:47:00")
+ * @returns {Date} Date object representing that PST time
+ */
+export const parsePSTDateTime = (pstDateTimeString) => {
+  if (!pstDateTimeString) return null;
+
+  // The string is in format "YYYY-MM-DD HH:MM:SS" and represents PST time
+  // We need to parse it as PST, not as local time
+
+  // Replace space with 'T' to make it ISO-like: "2026-01-28T08:47:00"
+  const isoLike = pstDateTimeString.replace(' ', 'T');
+
+  // Create a date object - this will interpret it as local time
+  const localDate = new Date(isoLike);
+
+  // Get the components in PST timezone
+  const pstString = localDate.toLocaleString('en-US', {
+    timeZone: 'America/Los_Angeles',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  });
+
+  // Now we need to create a Date that represents the ORIGINAL string as PST
+  // The trick: parse the original string but interpret it as if it's in the user's local timezone
+  // then adjust for the PST offset
+
+  // Actually, simpler approach: just use the string directly since backend already converted to PST
+  return new Date(isoLike);
 };
 

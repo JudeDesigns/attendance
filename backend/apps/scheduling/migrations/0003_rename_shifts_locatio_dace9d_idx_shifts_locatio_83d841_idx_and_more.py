@@ -10,10 +10,13 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RenameIndex(
+        migrations.RemoveIndex(
             model_name='shift',
-            new_name='shifts_locatio_83d841_idx',
-            old_name='shifts_locatio_dace9d_idx',
+            name='shifts_locatio_dace9d_idx',
+        ),
+        migrations.AddIndex(
+            model_name='shift',
+            index=models.Index(fields=['location'], name='shifts_locatio_83d841_idx'),
         ),
         migrations.AlterField(
             model_name='shift',

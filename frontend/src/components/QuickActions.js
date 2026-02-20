@@ -22,16 +22,27 @@ const QuickActions = () => {
 
   // Quick clock in/out mutation
   const clockMutation = useMutation(
-    (action) => {
+    async (action) => {
+      // Attempt to capture GPS coordinates (non-blocking)
+      let gpsData = {};
+      try {
+        const pos = await new Promise((resolve, reject) => {
+          navigator.geolocation?.getCurrentPosition(resolve, reject, { timeout: 5000 });
+        });
+        gpsData = { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
+      } catch (e) { /* GPS unavailable — proceed without it */ }
+
       if (action === 'clock_in') {
         return attendanceAPI.clockIn({
-          coordinates: { latitude: 0, longitude: 0 }, // Default coordinates
-          location_name: 'Quick Action'
+          method: 'PORTAL',
+          notes: 'Quick clock-in from Quick Actions',
+          ...gpsData,
         });
       } else {
         return attendanceAPI.clockOut({
-          coordinates: { latitude: 0, longitude: 0 },
-          location_name: 'Quick Action'
+          method: 'PORTAL',
+          notes: 'Quick clock-out from Quick Actions',
+          ...gpsData,
         });
       }
     },
@@ -53,7 +64,7 @@ const QuickActions = () => {
       // Get templates
       const templatesResponse = await reportsAPI.getTemplates();
       const template = templatesResponse.data.results.find(t => t.report_type === reportType);
-      
+
       if (!template) {
         alert('Report template not found');
         return;
@@ -202,9 +213,9 @@ const QuickActions = () => {
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold text-gray-900">
-                {new Date().toLocaleDateString('en-US', { 
-                  month: 'short', 
-                  day: 'numeric' 
+                {new Date().toLocaleDateString('en-US', {
+                  month: 'short',
+                  day: 'numeric'
                 })}
               </div>
               <div className="text-sm text-gray-500">Date</div>

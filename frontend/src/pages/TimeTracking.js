@@ -130,50 +130,48 @@ const TimeTracking = () => {
   }
 
   return (
-    <div className="space-y-4 md:space-y-6">
-      {/* Header - Mobile Responsive */}
-      <div className="glass-card glass-fade-in p-4 md:p-6">
-        <div className="flex flex-col space-y-3 md:space-y-0 md:flex-row md:items-center md:justify-between">
-          <h1 className="text-xl md:text-2xl font-bold glass-text-primary">Time Tracking</h1>
+    <div className="space-y-4">
+      {/* ── Header ──────────────────────────────────────────────────── */}
+      <div className="flex flex-col gap-3">
+        <h1 className="text-2xl font-bold text-gray-900">Time Tracking</h1>
 
-          {/* Date Range Selector - Mobile Responsive */}
-          <div className="flex flex-col space-y-2 md:space-y-0 md:flex-row md:items-center md:space-x-3">
-            <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
-              <select
-                value={dateRange}
-                onChange={(e) => setDateRange(e.target.value)}
-                className="glass-input text-sm md:text-base"
+        {/* Filter row */}
+        <div className="flex flex-wrap gap-2 items-center">
+          <div className="flex bg-gray-100 rounded-xl p-1 gap-1">
+            {['day', 'week', 'month'].map(range => (
+              <button
+                key={range}
+                onClick={() => setDateRange(range)}
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-150 ${dateRange === range ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:text-gray-700'
+                  }`}
               >
-                <option value="day">Today</option>
-                <option value="week">This Week</option>
-                <option value="month">This Month</option>
-              </select>
-
-              <input
-                type="date"
-                value={format(selectedDate, 'yyyy-MM-dd')}
-                onChange={(e) => setSelectedDate(new Date(e.target.value))}
-                className="glass-input text-sm md:text-base"
-              />
-            </div>
-
-            {/* Employee Selector for Admins */}
-            {isAdmin && (
-              <select
-                value={selectedEmployee}
-                onChange={(e) => setSelectedEmployee(e.target.value)}
-                className="glass-input text-sm md:text-base w-full md:w-auto"
-              >
-                <option value="me">My Time Logs</option>
-                <option value="all">All Employees</option>
-                {(employeesData?.data?.results || employeesData?.results || []).map(employee => (
-                  <option key={employee.id} value={employee.id}>
-                    {employee.user.first_name} {employee.user.last_name} ({employee.employee_id})
-                  </option>
-                ))}
-              </select>
-            )}
+                {range === 'day' ? 'Today' : range === 'week' ? 'Week' : 'Month'}
+              </button>
+            ))}
           </div>
+
+          <input
+            type="date"
+            value={format(selectedDate, 'yyyy-MM-dd')}
+            onChange={(e) => setSelectedDate(new Date(e.target.value))}
+            className="glass-input text-sm flex-1 min-w-0"
+          />
+
+          {isAdmin && (
+            <select
+              value={selectedEmployee}
+              onChange={(e) => setSelectedEmployee(e.target.value)}
+              className="glass-input text-sm flex-1 min-w-0"
+            >
+              <option value="me">My Logs</option>
+              <option value="all">All Employees</option>
+              {(employeesData?.data?.results || employeesData?.results || []).map(employee => (
+                <option key={employee.id} value={employee.id}>
+                  {employee.user.first_name} {employee.user.last_name}
+                </option>
+              ))}
+            </select>
+          )}
         </div>
       </div>
 
@@ -243,18 +241,16 @@ const TimeTracking = () => {
           <div className="p-3 md:p-5">
             <div className="flex items-center">
               <div className="flex-shrink-0">
-                <ExclamationIcon className={`h-5 w-5 md:h-6 md:w-6 ${
-                  overtimeHours > 0 ? 'text-orange-500' : 'text-gray-400'
-                }`} />
+                <ExclamationIcon className={`h-5 w-5 md:h-6 md:w-6 ${overtimeHours > 0 ? 'text-orange-500' : 'text-gray-400'
+                  }`} />
               </div>
               <div className="ml-2 md:ml-5 w-0 flex-1">
                 <dl>
                   <dt className="text-xs md:text-sm font-medium glass-text-secondary truncate">
                     Overtime
                   </dt>
-                  <dd className={`text-sm md:text-lg font-medium ${
-                    overtimeHours > 0 ? 'text-orange-600' : 'glass-text-primary'
-                  }`}>
+                  <dd className={`text-sm md:text-lg font-medium ${overtimeHours > 0 ? 'text-orange-600' : 'glass-text-primary'
+                    }`}>
                     {formatDuration(overtimeHours)}
                   </dd>
                 </dl>
@@ -294,20 +290,19 @@ const TimeTracking = () => {
                           {log.clock_in_time ? format(new Date(log.clock_in_time), 'h:mm a') : '-'} - {log.clock_out_time ? format(new Date(log.clock_out_time), 'h:mm a') : 'In Progress'}
                         </p>
                       </div>
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                        log.attendance_status === 'IN_PROGRESS' ? 'glass-status-info' :
-                        log.attendance_status === 'COMPLETED' ? 'glass-status-success' :
-                        log.attendance_status === 'OVERTIME' ? 'glass-status-warning' :
-                        log.attendance_status === 'EARLY_DEPARTURE' ? 'glass-status-error' :
-                        log.attendance_status === 'UNSCHEDULED' ? 'glass-status-warning' :
-                        'glass-status-secondary'
-                      }`}>
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${log.attendance_status === 'IN_PROGRESS' ? 'glass-status-info' :
+                          log.attendance_status === 'COMPLETED' ? 'glass-status-success' :
+                            log.attendance_status === 'OVERTIME' ? 'glass-status-warning' :
+                              log.attendance_status === 'EARLY_DEPARTURE' ? 'glass-status-error' :
+                                log.attendance_status === 'UNSCHEDULED' ? 'glass-status-warning' :
+                                  'glass-status-secondary'
+                        }`}>
                         {log.attendance_status === 'IN_PROGRESS' ? 'In Progress' :
-                         log.attendance_status === 'COMPLETED' ? 'Completed' :
-                         log.attendance_status === 'OVERTIME' ? 'Overtime' :
-                         log.attendance_status === 'EARLY_DEPARTURE' ? 'Early' :
-                         log.attendance_status === 'UNSCHEDULED' ? 'Unscheduled' :
-                         log.attendance_status || 'Unknown'
+                          log.attendance_status === 'COMPLETED' ? 'Completed' :
+                            log.attendance_status === 'OVERTIME' ? 'Overtime' :
+                              log.attendance_status === 'EARLY_DEPARTURE' ? 'Early' :
+                                log.attendance_status === 'UNSCHEDULED' ? 'Unscheduled' :
+                                  log.attendance_status || 'Unknown'
                         }
                       </span>
                     </div>
@@ -366,20 +361,19 @@ const TimeTracking = () => {
                           {log.duration_hours ? formatDuration(log.duration_hours) : '-'}
                         </td>
                         <td className="glass-table-cell whitespace-nowrap">
-                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                            log.attendance_status === 'IN_PROGRESS' ? 'glass-status-info' :
-                            log.attendance_status === 'COMPLETED' ? 'glass-status-success' :
-                            log.attendance_status === 'OVERTIME' ? 'glass-status-warning' :
-                            log.attendance_status === 'EARLY_DEPARTURE' ? 'glass-status-error' :
-                            log.attendance_status === 'UNSCHEDULED' ? 'glass-status-warning' :
-                            'glass-status-secondary'
-                          }`}>
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${log.attendance_status === 'IN_PROGRESS' ? 'glass-status-info' :
+                              log.attendance_status === 'COMPLETED' ? 'glass-status-success' :
+                                log.attendance_status === 'OVERTIME' ? 'glass-status-warning' :
+                                  log.attendance_status === 'EARLY_DEPARTURE' ? 'glass-status-error' :
+                                    log.attendance_status === 'UNSCHEDULED' ? 'glass-status-warning' :
+                                      'glass-status-secondary'
+                            }`}>
                             {log.attendance_status === 'IN_PROGRESS' ? 'In Progress' :
-                             log.attendance_status === 'COMPLETED' ? 'Completed' :
-                             log.attendance_status === 'OVERTIME' ? 'Overtime' :
-                             log.attendance_status === 'EARLY_DEPARTURE' ? 'Early Departure' :
-                             log.attendance_status === 'UNSCHEDULED' ? 'Unscheduled' :
-                             log.attendance_status || 'Unknown'
+                              log.attendance_status === 'COMPLETED' ? 'Completed' :
+                                log.attendance_status === 'OVERTIME' ? 'Overtime' :
+                                  log.attendance_status === 'EARLY_DEPARTURE' ? 'Early Departure' :
+                                    log.attendance_status === 'UNSCHEDULED' ? 'Unscheduled' :
+                                      log.attendance_status || 'Unknown'
                             }
                           </span>
                         </td>

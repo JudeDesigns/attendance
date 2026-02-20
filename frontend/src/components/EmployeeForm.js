@@ -5,7 +5,7 @@ import { employeeAPI } from '../services/api';
 
 const EmployeeForm = ({ employee, onClose, onSuccess }) => {
   const isEditing = !!employee;
-  
+
   // Form state
   const [formData, setFormData] = useState({
     // User fields
@@ -14,7 +14,7 @@ const EmployeeForm = ({ employee, onClose, onSuccess }) => {
     email: '',
     username: '',
     password: '',
-    
+
     // Employee fields
     employee_id: '',
     role: '',
@@ -55,9 +55,9 @@ const EmployeeForm = ({ employee, onClose, onSuccess }) => {
         email: employee.user.email || '',
         username: employee.user.username || '',
         password: '', // Don't populate password for editing
-        
+
         employee_id: employee.employee_id || '',
-        role: employee.role.id || '',
+        role: employee.role?.id || employee.role || '',
         phone_number: employee.phone_number || '',
         address: employee.address || '',
         date_of_birth: employee.date_of_birth || '',
@@ -118,41 +118,40 @@ const EmployeeForm = ({ employee, onClose, onSuccess }) => {
   const handleSubmit = (e) => {
     e.preventDefault();
     setErrors({});
-    
+
     // Basic validation
     const requiredFields = ['first_name', 'last_name', 'email', 'employee_id', 'role'];
     if (!isEditing) {
       requiredFields.push('username', 'password');
     }
-    
+
     const newErrors = {};
     requiredFields.forEach(field => {
       if (!formData[field]) {
         newErrors[field] = ['This field is required.'];
       }
     });
-    
+
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
       return;
     }
-    
+
     // Prepare data for submission
     const submitData = { ...formData };
-    
-    // Convert empty strings to null for optional fields
-    ['phone_number', 'address', 'date_of_birth', 'emergency_contact_name', 
-     'emergency_contact_phone', 'department', 'job_title', 'hourly_rate'].forEach(field => {
+
+    // Convert empty strings to null for nullable optional fields
+    ['date_of_birth', 'hourly_rate'].forEach(field => {
       if (submitData[field] === '') {
         submitData[field] = null;
       }
     });
-    
+
     // Convert hourly_rate to number if provided
     if (submitData.hourly_rate) {
       submitData.hourly_rate = parseFloat(submitData.hourly_rate);
     }
-    
+
     mutation.mutate(submitData);
   };
 
@@ -195,7 +194,7 @@ const EmployeeForm = ({ employee, onClose, onSuccess }) => {
               <h4 className="text-md font-medium text-gray-900 border-b pb-2">
                 Personal Information
               </h4>
-              
+
               <div>
                 <label className="block text-sm font-medium text-gray-700">
                   First Name *
@@ -205,9 +204,8 @@ const EmployeeForm = ({ employee, onClose, onSuccess }) => {
                   name="first_name"
                   value={formData.first_name}
                   onChange={handleChange}
-                  className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 ${
-                    getFieldError('first_name') ? 'border-red-300' : 'border-gray-300'
-                  }`}
+                  className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 ${getFieldError('first_name') ? 'border-red-300' : 'border-gray-300'
+                    }`}
                 />
                 {getFieldError('first_name') && (
                   <p className="mt-1 text-sm text-red-600">{getFieldError('first_name')[0]}</p>
@@ -223,9 +221,8 @@ const EmployeeForm = ({ employee, onClose, onSuccess }) => {
                   name="last_name"
                   value={formData.last_name}
                   onChange={handleChange}
-                  className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 ${
-                    getFieldError('last_name') ? 'border-red-300' : 'border-gray-300'
-                  }`}
+                  className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 ${getFieldError('last_name') ? 'border-red-300' : 'border-gray-300'
+                    }`}
                 />
                 {getFieldError('last_name') && (
                   <p className="mt-1 text-sm text-red-600">{getFieldError('last_name')[0]}</p>
@@ -241,9 +238,8 @@ const EmployeeForm = ({ employee, onClose, onSuccess }) => {
                   name="email"
                   value={formData.email}
                   onChange={handleChange}
-                  className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 ${
-                    getFieldError('email') ? 'border-red-300' : 'border-gray-300'
-                  }`}
+                  className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 ${getFieldError('email') ? 'border-red-300' : 'border-gray-300'
+                    }`}
                 />
                 {getFieldError('email') && (
                   <p className="mt-1 text-sm text-red-600">{getFieldError('email')[0]}</p>
@@ -307,9 +303,8 @@ const EmployeeForm = ({ employee, onClose, onSuccess }) => {
                       name="username"
                       value={formData.username}
                       onChange={handleChange}
-                      className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 ${
-                        getFieldError('username') ? 'border-red-300' : 'border-gray-300'
-                      }`}
+                      className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 ${getFieldError('username') ? 'border-red-300' : 'border-gray-300'
+                        }`}
                     />
                     {getFieldError('username') && (
                       <p className="mt-1 text-sm text-red-600">{getFieldError('username')[0]}</p>
@@ -325,9 +320,8 @@ const EmployeeForm = ({ employee, onClose, onSuccess }) => {
                       name="password"
                       value={formData.password}
                       onChange={handleChange}
-                      className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 ${
-                        getFieldError('password') ? 'border-red-300' : 'border-gray-300'
-                      }`}
+                      className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 ${getFieldError('password') ? 'border-red-300' : 'border-gray-300'
+                        }`}
                     />
                     {getFieldError('password') && (
                       <p className="mt-1 text-sm text-red-600">{getFieldError('password')[0]}</p>
@@ -345,9 +339,8 @@ const EmployeeForm = ({ employee, onClose, onSuccess }) => {
                   name="employee_id"
                   value={formData.employee_id}
                   onChange={handleChange}
-                  className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 ${
-                    getFieldError('employee_id') ? 'border-red-300' : 'border-gray-300'
-                  }`}
+                  className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 ${getFieldError('employee_id') ? 'border-red-300' : 'border-gray-300'
+                    }`}
                 />
                 {getFieldError('employee_id') && (
                   <p className="mt-1 text-sm text-red-600">{getFieldError('employee_id')[0]}</p>
@@ -363,9 +356,8 @@ const EmployeeForm = ({ employee, onClose, onSuccess }) => {
                   value={formData.role}
                   onChange={handleChange}
                   disabled={rolesLoading}
-                  className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 ${
-                    getFieldError('role') ? 'border-red-300' : 'border-gray-300'
-                  }`}
+                  className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 ${getFieldError('role') ? 'border-red-300' : 'border-gray-300'
+                    }`}
                 >
                   <option value="">{rolesLoading ? 'Loading roles...' : 'Select a role'}</option>
                   {(() => {

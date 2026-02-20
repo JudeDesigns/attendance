@@ -1,7 +1,7 @@
 import React, { useRef, useEffect, useState } from 'react';
 import jsQR from 'jsqr';
 
-const QRScanner = ({ onScan, onError, isActive = false }) => {
+const QRScanner = ({ onScan, onError, isActive = false, onActivate }) => {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const [stream, setStream] = useState(null);
@@ -34,13 +34,18 @@ const QRScanner = ({ onScan, onError, isActive = false }) => {
     setIsInitializing(true);
 
     try {
-      const mediaStream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: 'environment', // Use back camera on mobile
-          width: { ideal: 1280 },
-          height: { ideal: 720 }
-        }
-      });
+      // Request camera and GPS simultaneously so both permission prompts appear together
+      const [mediaStream] = await Promise.all([
+        navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: 'environment', // Use back camera on mobile
+            width: { ideal: 1280 },
+            height: { ideal: 720 }
+          }
+        }),
+        // Fire GPS request alongside camera — this triggers the location permission prompt
+        onActivate ? onActivate() : Promise.resolve(),
+      ]);
 
       setStream(mediaStream);
 
@@ -107,8 +112,8 @@ const QRScanner = ({ onScan, onError, isActive = false }) => {
       video.srcObject = null;
 
       // Remove any event listeners that might have been added
-      video.removeEventListener('canplay', () => {});
-      video.removeEventListener('loadedmetadata', () => {});
+      video.removeEventListener('canplay', () => { });
+      video.removeEventListener('loadedmetadata', () => { });
     }
   };
 
@@ -178,7 +183,7 @@ const QRScanner = ({ onScan, onError, isActive = false }) => {
           ref={canvasRef}
           className="hidden"
         />
-        
+
         {/* Scanner overlay */}
         <div className="qr-scanner-overlay">
           <div className="qr-scanner-corner top-left"></div>
@@ -186,7 +191,7 @@ const QRScanner = ({ onScan, onError, isActive = false }) => {
           <div className="qr-scanner-corner bottom-left"></div>
           <div className="qr-scanner-corner bottom-right"></div>
         </div>
-        
+
         {/* Instructions */}
         <div className="absolute bottom-4 left-0 right-0 text-center">
           <p className="text-white bg-black bg-opacity-50 px-4 py-2 rounded-lg inline-block">

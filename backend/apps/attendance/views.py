@@ -155,15 +155,15 @@ class TimeLogViewSet(viewsets.ModelViewSet):
         # Check if employee has a scheduled shift that allows clock-in
         from apps.scheduling.models import Shift
         eligible_shift = Shift.get_clockin_eligible_shift(employee)
-        # if not eligible_shift:
-        #     return Response(
-        #         {
-        #             'detail': 'No scheduled shift found for clock-in. You can only clock in during scheduled shifts or within 15 minutes before shift start.',
-        #             'requires_shift': True,
-        #             'current_time': timezone.now().isoformat(),
-        #         },
-        #         status=status.HTTP_403_FORBIDDEN
-        #     )
+        if not eligible_shift:
+            return Response(
+                {
+                    'detail': 'No scheduled shift found for clock-in. You can only clock in during scheduled shifts or within 15 minutes before shift start.',
+                    'requires_shift': True,
+                    'current_time': timezone.now().isoformat(),
+                },
+                status=status.HTTP_403_FORBIDDEN
+            )
 
         # Check QR code enforcement
         if employee.requires_location_qr and employee.qr_enforcement_type != 'NONE':
@@ -191,7 +191,9 @@ class TimeLogViewSet(viewsets.ModelViewSet):
                 )
         
         serializer = ClockInSerializer(data=request.data, context={'employee': employee})
-        serializer.is_valid(raise_exception=True)
+        if not serializer.is_valid():
+            logger.error(f"Clock in validation failed for {employee.employee_id}: {serializer.errors}")
+            serializer.is_valid(raise_exception=True)
 
         # SECURITY FIX: Prevent direct use of QR_CODE method on generic endpoint
         # Users must use the dedicated qr_scan endpoint which validates the payload
@@ -338,15 +340,15 @@ class TimeLogViewSet(viewsets.ModelViewSet):
         from apps.scheduling.models import Shift
         if action_type == 'clock_in':
             eligible_shift = Shift.get_clockin_eligible_shift(employee)
-            # if not eligible_shift:
-            #     return Response(
-            #         {
-            #             'detail': 'No scheduled shift found for clock-in. You can only clock in during scheduled shifts or within 15 minutes before shift start.',
-            #             'requires_shift': True,
-            #             'current_time': timezone.now().isoformat(),
-            #         },
-            #         status=status.HTTP_403_FORBIDDEN
-            #     )
+            if not eligible_shift:
+                return Response(
+                    {
+                        'detail': 'No scheduled shift found for clock-in. You can only clock in during scheduled shifts or within 15 minutes before shift start.',
+                        'requires_shift': True,
+                        'current_time': timezone.now().isoformat(),
+                    },
+                    status=status.HTTP_403_FORBIDDEN
+                )
         else:  # clock_out
             # CRITICAL FIX: Always allow QR clock-out if employee is clocked in
             # Check if employee has a scheduled shift (for logging purposes only)
@@ -363,6 +365,8 @@ class TimeLogViewSet(viewsets.ModelViewSet):
                 clock_in_time=timezone.now(),
                 clock_in_location=location,
                 clock_in_method='QR_CODE',
+                clock_in_latitude=serializer.validated_data.get('latitude'),
+                clock_in_longitude=serializer.validated_data.get('longitude'),
                 notes=notes,
                 status='CLOCKED_IN'
             )
@@ -376,6 +380,8 @@ class TimeLogViewSet(viewsets.ModelViewSet):
             time_log.clock_out_time = timezone.now()
             time_log.clock_out_location = location
             time_log.clock_out_method = 'QR_CODE'
+            time_log.clock_out_latitude = serializer.validated_data.get('latitude')
+            time_log.clock_out_longitude = serializer.validated_data.get('longitude')
             time_log.status = 'CLOCKED_OUT'
             if notes:
                 time_log.notes = f"{time_log.notes}\n{notes}" if time_log.notes else notes
@@ -1178,6 +1184,14 @@ class BreakViewSet(viewsets.ModelViewSet):
 
         if break_waiver:
             logger.info(f"Break waived by {employee.employee_id}: {waiver_reason}")
+            
+            # Send notification to admins
+            try:
+                hours_worked = round((timezone.now() - active_time_log.clock_in_time).total_seconds() / 3600, 2)
+                notification_service.send_break_waiver_notification(employee, waiver_reason, hours_worked)
+            except Exception as e:
+                logger.error(f"Failed to send break waiver notification: {str(e)}")
+
             return Response({
                 'message': 'Break waiver recorded successfully',
                 'waiver_id': break_waiver.id,

@@ -92,7 +92,7 @@ const AdminDashboard = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl font-bold text-gray-900">Admin Dashboard</h1>
-        
+
         {/* Date Selector */}
         <div className="mt-4 sm:mt-0">
           <input
@@ -216,7 +216,7 @@ const AdminDashboard = () => {
           <h3 className="text-lg leading-6 font-medium glass-text-primary mb-4">
             Current Employee Status ({format(new Date(selectedDate), 'MMM d, yyyy')})
           </h3>
-          
+
           {attendanceLogs.length === 0 ? (
             <div className="glass-empty-state">
               <ClockIcon className="mx-auto h-12 w-12 text-gray-400" />
@@ -274,19 +274,12 @@ const AdminDashboard = () => {
                         }
                       </td>
                       <td className="glass-table-cell whitespace-nowrap">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                          log.clock_out_time
-                            ? log.duration_hours > 8
-                              ? 'glass-status-warning'
-                              : 'glass-status-success'
-                            : 'bg-blue-100 text-blue-800'
-                        }`}>
-                          {log.clock_out_time
-                            ? log.duration_hours > 8
-                              ? 'Overtime'
-                              : 'Completed'
-                            : 'Active'
-                          }
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium focus:outline-none ${log.attendance_status === 'COMPLETED' ? 'glass-status-success' :
+                            (log.attendance_status === 'EARLY_DEPARTURE' || log.attendance_status === 'OVERTIME') ? 'glass-status-warning' :
+                              log.attendance_status === 'UNSCHEDULED' ? 'bg-orange-100 text-orange-800' :
+                                'bg-blue-100 text-blue-800'
+                          }`}>
+                          {log.attendance_status ? log.attendance_status.replace('_', ' ') : 'ACTIVE'}
                         </span>
                       </td>
                       <td className="glass-table-cell whitespace-nowrap text-sm glass-text-secondary">
@@ -322,8 +315,9 @@ const AdminDashboard = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {employees.map((employee) => {
+              const fullName = `${employee.user?.first_name || ''} ${employee.user?.last_name || ''}`.trim() || employee.user?.username || employee.employee_id;
               const todayAttendance = attendanceLogs.filter(log =>
-                log.employee_name === employee.full_name
+                log.employee_name === fullName || log.employee_id === employee.employee_id
               );
               const isActive = todayAttendance.some(log => !log.clock_out_time);
 
@@ -331,19 +325,18 @@ const AdminDashboard = () => {
                 <div key={employee.employee_id} className="glass-employee-card">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h4 className="text-sm font-medium glass-text-primary">
-                        {employee.full_name}
+                      <h4 className="text-sm font-medium glass-text-primary capitalize">
+                        {fullName.toLowerCase()}
                       </h4>
                       <p className="text-sm glass-text-secondary">
-                        {employee.employee_id} • {employee.role}
+                        {employee.employee_id} • {employee.role_name || 'No Role'}
                       </p>
                     </div>
                     <div className="flex flex-col items-end">
-                      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                        employee.employment_status === 'ACTIVE'
+                      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${employee.employment_status === 'ACTIVE'
                           ? 'glass-status-success'
                           : 'bg-gray-100 text-gray-800'
-                      }`}>
+                        }`}>
                         {employee.employment_status}
                       </span>
                       {isActive && (

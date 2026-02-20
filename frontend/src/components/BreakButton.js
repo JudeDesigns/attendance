@@ -9,8 +9,6 @@ const BreakButton = ({ className = "", currentStatus }) => {
   const { user } = useAuth();
   const [showWaiverModal, setShowWaiverModal] = useState(false);
   const [waiverReason, setWaiverReason] = useState('');
-  const [breakTimeReached, setBreakTimeReached] = useState(false);
-  const [followUpSent, setFollowUpSent] = useState(false);
 
   const queryClient = useQueryClient();
 
@@ -52,8 +50,6 @@ const BreakButton = ({ className = "", currentStatus }) => {
         toast.success('Break waived successfully');
         setShowWaiverModal(false);
         setWaiverReason('');
-        setBreakTimeReached(false);
-        setFollowUpSent(false);
         queryClient.invalidateQueries(['breakRequirements', user?.employee_profile?.id]);
         queryClient.invalidateQueries(['activeBreak', user?.employee_profile?.id]);
       },
@@ -69,8 +65,6 @@ const BreakButton = ({ className = "", currentStatus }) => {
     {
       onSuccess: () => {
         toast.success('Break started successfully');
-        setBreakTimeReached(false);
-        setFollowUpSent(false);
         queryClient.invalidateQueries(['activeBreak', user?.employee_profile?.id]);
         queryClient.invalidateQueries(['breakRequirements', user?.employee_profile?.id]);
         queryClient.invalidateQueries(['currentAttendanceStatus', user?.employee_profile?.id]);
@@ -82,91 +76,7 @@ const BreakButton = ({ className = "", currentStatus }) => {
     }
   );
 
-  // Check if break time has been reached and send notifications
-  useEffect(() => {
-    if (breakRequirements?.data?.requires_break && !breakTimeReached && !activeBreakData?.data?.has_active_break) {
-      setBreakTimeReached(true);
 
-      // Send immediate notification
-      toast.custom(
-        (t) => (
-          <div className="break-notification-toast p-4 rounded-lg shadow-lg max-w-md">
-            <div className="text-white">
-              <strong>Break Time!</strong>
-              <br />
-              You've worked {breakRequirements.data.hours_worked} hours. Time for your {breakRequirements.data.break_type.toLowerCase()} break.
-              <div className="mt-3 flex gap-2">
-                <button
-                  onClick={() => {
-                    handleStartBreak(breakRequirements.data.break_type);
-                    toast.dismiss(t.id);
-                  }}
-                  className="bg-white bg-opacity-20 text-white px-3 py-1 rounded text-sm hover:bg-opacity-30 transition-all"
-                >
-                  Take Break
-                </button>
-                <button
-                  onClick={() => {
-                    setShowWaiverModal(true);
-                    toast.dismiss(t.id);
-                  }}
-                  className="bg-white bg-opacity-20 text-white px-3 py-1 rounded text-sm hover:bg-opacity-30 transition-all"
-                >
-                  Waive
-                </button>
-              </div>
-            </div>
-          </div>
-        ),
-        {
-          duration: Infinity,
-          position: 'top-center',
-        }
-      );
-
-      // Set 5-minute follow-up timer
-      setTimeout(() => {
-        if (!followUpSent && !activeBreakData?.data?.has_active_break) {
-          setFollowUpSent(true);
-          toast.custom(
-            (t) => (
-              <div className="break-followup-toast p-4 rounded-lg shadow-lg max-w-md">
-                <div className="text-white">
-                  <strong>URGENT: Break Reminder</strong>
-                  <br />
-                  You still haven't taken your required break. Please take your break or waive it now.
-                  <div className="mt-3 flex gap-2">
-                    <button
-                      onClick={() => {
-                        handleStartBreak(breakRequirements.data.break_type);
-                        toast.dismiss(t.id);
-                      }}
-                      className="bg-white bg-opacity-20 text-white px-3 py-1 rounded text-sm hover:bg-opacity-30 transition-all"
-                    >
-                      Take Break Now
-                    </button>
-                    <button
-                      onClick={() => {
-                        setShowWaiverModal(true);
-                        toast.dismiss(t.id);
-                      }}
-                      className="bg-white bg-opacity-20 text-white px-3 py-1 rounded text-sm hover:bg-opacity-30 transition-all"
-                    >
-                      Waive Break
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ),
-            {
-              duration: Infinity,
-              position: 'top-center',
-            }
-          );
-        }
-      }, 5 * 60 * 1000); // 5 minutes
-    }
-  }, [breakRequirements, breakTimeReached, activeBreakData, followUpSent]);
 
   const handleStartBreak = (breakType) => {
     startBreakMutation.mutate({
@@ -194,9 +104,12 @@ const BreakButton = ({ className = "", currentStatus }) => {
   let buttonIcon = ClockIcon;
   let isDisabled = false;
 
+  // If we've worked enough hours but can't take a manual break and no breaks are required,
+  // it likely means the max breaks for the shift have been taken/waived.
+  const hasMetMaxBreaks = !requiresBreak && !canTakeManualBreak && (breakRequirements?.data?.hours_worked >= 1.0);
+
   if (!isCurrentlyClockedIn) {
-    // Not clocked in - blurred/disabled
-    buttonClass += "bg-gray-300 text-gray-500 cursor-not-allowed opacity-50 blur-sm";
+    buttonClass += "bg-gray-300 text-gray-500 cursor-not-allowed hidden md:flex";
     buttonText = "Clock In First";
     isDisabled = true;
   } else if (hasActiveBreak) {
@@ -221,6 +134,12 @@ const BreakButton = ({ className = "", currentStatus }) => {
     buttonClass += "bg-gray-500 text-white shadow-md hover:bg-gray-600 hover:scale-105";
     buttonText = "Take Break";
     isDisabled = false;
+  } else if (hasMetMaxBreaks) {
+    // Shift break requirements have been fulfilled
+    buttonClass += "bg-emerald-500 text-white shadow-md opacity-80 cursor-default";
+    buttonText = "All Breaks Completed";
+    buttonIcon = CheckCircleIcon;
+    isDisabled = true;
   } else {
     // Break time not reached yet - blurred/disabled
     buttonClass += "bg-gray-300 text-gray-500 cursor-not-allowed opacity-50 blur-sm";
@@ -246,7 +165,9 @@ const BreakButton = ({ className = "", currentStatus }) => {
                   ? `Take your ${breakRequirements.data.break_type.toLowerCase()} break`
                   : canTakeManualBreak
                     ? "Take a voluntary break"
-                    : "Break not available yet (work at least 1 hour)"
+                    : hasMetMaxBreaks
+                      ? "You have completed all scheduled breaks for this shift"
+                      : "Break not available yet (work at least 1 hour)"
           }
         >
           <IconComponent className="h-5 w-5 mr-2" />
@@ -267,6 +188,10 @@ const BreakButton = ({ className = "", currentStatus }) => {
             ) : canTakeManualBreak ? (
               <span className="text-gray-600">
                 {breakRequirements?.data?.hours_worked || 0}h worked - Manual break available
+              </span>
+            ) : hasMetMaxBreaks ? (
+              <span className="text-emerald-600 font-medium">
+                {breakRequirements?.data?.hours_worked || 0}h worked - Breaks completed
               </span>
             ) : (
               <span>

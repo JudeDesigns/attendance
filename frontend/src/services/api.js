@@ -221,6 +221,7 @@ export const notificationAPI = {
   list: (params) => api.get('/notifications/', { params }),
   getLogs: (params) => api.get('/notifications/logs/', { params }),
   getMyNotifications: (params) => api.get('/notifications/logs/my_notifications/', { params }),
+  getActivityFeed: (params) => api.get('/notifications/logs/activity_feed/', { params }),
   markAsRead: (data) => api.post('/notifications/logs/mark_as_read/', data),
   markAllAsRead: () => api.post('/notifications/logs/mark_all_as_read/'),
 

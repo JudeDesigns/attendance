@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery, useQueryClient, useMutation } from 'react-query';
-import { notificationAPI } from '../services/api';
+import { notificationAPI, employeeAPI } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import {
   BellIcon,
@@ -206,31 +206,28 @@ const NotificationManagement = () => {
           <nav className="-mb-px flex space-x-8 px-6">
             <button
               onClick={() => setActiveTab('templates')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'templates'
-                  ? 'border-indigo-500 text-indigo-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'templates'
+                ? 'border-indigo-500 text-indigo-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
             >
               Templates ({templates.length})
             </button>
             <button
               onClick={() => setActiveTab('logs')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'logs'
-                  ? 'border-indigo-500 text-indigo-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'logs'
+                ? 'border-indigo-500 text-indigo-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
             >
               Notification Logs ({logs.length})
             </button>
             <button
               onClick={() => setActiveTab('analytics')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'analytics'
-                  ? 'border-indigo-500 text-indigo-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'analytics'
+                ? 'border-indigo-500 text-indigo-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
             >
               Analytics
             </button>
@@ -253,12 +250,7 @@ const NotificationManagement = () => {
           )}
 
           {activeTab === 'logs' && (
-            <LogsTab
-              logs={logs}
-              isLoading={logsLoading}
-              getStatusColor={getStatusColor}
-              getNotificationTypeIcon={getNotificationTypeIcon}
-            />
+            <LogsTab />
           )}
 
           {activeTab === 'analytics' && (
@@ -274,8 +266,8 @@ const NotificationManagement = () => {
       {(showCreateForm || selectedTemplate) && (
         <TemplateForm
           template={selectedTemplate}
-          onSubmit={selectedTemplate ? 
-            (data) => handleUpdateTemplate(selectedTemplate.id, data) : 
+          onSubmit={selectedTemplate ?
+            (data) => handleUpdateTemplate(selectedTemplate.id, data) :
             handleCreateTemplate
           }
           onCancel={() => {
@@ -362,9 +354,8 @@ const TemplatesTab = ({ templates, isLoading, onEdit, onDelete, onView }) => {
                 {template.event_type}
               </td>
               <td className="px-6 py-4 whitespace-nowrap">
-                <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                  template.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-                }`}>
+                <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${template.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                  }`}>
                   {template.is_active ? 'Active' : 'Inactive'}
                 </span>
               </td>
@@ -398,81 +389,285 @@ const TemplatesTab = ({ templates, isLoading, onEdit, onDelete, onView }) => {
   );
 };
 
-// Logs Tab Component
-const LogsTab = ({ logs, isLoading, getStatusColor, getNotificationTypeIcon }) => {
+// Activity Center Tab Component (replaces old LogsTab)
+const LogsTab = () => {
+  const [filters, setFilters] = useState({
+    employee_id: '',
+    event_type: '',
+    date_from: '',
+    date_to: '',
+  });
+  const [expandedNotifs, setExpandedNotifs] = useState({});
+  const [expandedEmployees, setExpandedEmployees] = useState({});
+
+  // Fetch activity feed
+  const { data: activityData, isLoading } = useQuery(
+    ['activity-feed', filters],
+    () => notificationAPI.getActivityFeed(filters),
+    { refetchInterval: 30000, keepPreviousData: true }
+  );
+
+  // Fetch employees for filter dropdown
+  const { data: employeesData } = useQuery(
+    'employees-list',
+    () => employeeAPI.list(),
+    { staleTime: 300000 }
+  );
+
+  const activity = activityData?.data || {};
+  const summary = activity.summary || {};
+  const employees = activity.employees || [];
+  const employeeList = employeesData?.data?.results || employeesData?.data || [];
+
+  const toggleNotif = (id) => setExpandedNotifs(prev => ({ ...prev, [id]: !prev[id] }));
+  const toggleEmployee = (id) => setExpandedEmployees(prev => ({ ...prev, [id]: !prev[id] }));
+
+  const eventTypeOptions = [
+    { value: '', label: 'All Events' },
+    { value: 'clock_in', label: '🟢 Clock In' },
+    { value: 'clock_out', label: '🔴 Clock Out' },
+    { value: 'break_waived', label: '⚠️ Break Waived' },
+    { value: 'break_reminder', label: '⏰ Break Reminder' },
+    { value: 'break_compliance_violation', label: '🚨 Compliance Violation' },
+    { value: 'overtime', label: '⏱️ Overtime' },
+    { value: 'overtime_admin', label: '⏱️ Overtime (Admin)' },
+    { value: 'late_clock_in', label: '⚡ Late Clock In' },
+    { value: 'missed_clock_out', label: '❌ Missed Clock Out' },
+    { value: 'shift_reminder', label: '📋 Shift Reminder' },
+  ];
+
+  const getEventBadge = (eventType) => {
+    const badges = {
+      'clock_in': { bg: 'bg-green-100 text-green-800', icon: '🟢' },
+      'clock_out': { bg: 'bg-red-100 text-red-800', icon: '🔴' },
+      'break_waived': { bg: 'bg-amber-100 text-amber-800', icon: '⚠️' },
+      'break_reminder': { bg: 'bg-blue-100 text-blue-800', icon: '⏰' },
+      'break_overdue': { bg: 'bg-orange-100 text-orange-800', icon: '⏰' },
+      'break_compliance_violation': { bg: 'bg-red-100 text-red-900', icon: '🚨' },
+      'overtime': { bg: 'bg-purple-100 text-purple-800', icon: '⏱️' },
+      'overtime_admin': { bg: 'bg-purple-100 text-purple-800', icon: '⏱️' },
+      'late_clock_in': { bg: 'bg-yellow-100 text-yellow-800', icon: '⚡' },
+      'missed_clock_out': { bg: 'bg-red-100 text-red-800', icon: '❌' },
+      'shift_reminder': { bg: 'bg-indigo-100 text-indigo-800', icon: '📋' },
+      'shift_assigned': { bg: 'bg-teal-100 text-teal-800', icon: '📋' },
+      'custom': { bg: 'bg-gray-100 text-gray-800', icon: '💬' },
+    };
+    return badges[eventType] || { bg: 'bg-gray-100 text-gray-800', icon: '📌' };
+  };
+
+  const formatTime = (isoStr) => {
+    if (!isoStr) return '';
+    const d = new Date(isoStr);
+    return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+  };
+
+  const formatDate = (dateStr) => {
+    if (!dateStr || dateStr === 'Unknown') return dateStr;
+    const d = new Date(dateStr + 'T00:00:00');
+    return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+  };
+
   if (isLoading) {
     return (
       <div className="text-center py-8">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mx-auto"></div>
-        <p className="mt-2 text-gray-600">Loading logs...</p>
-      </div>
-    );
-  }
-
-  if (logs.length === 0) {
-    return (
-      <div className="text-center py-8">
-        <ChartBarIcon className="mx-auto h-12 w-12 text-gray-400" />
-        <h3 className="mt-2 text-sm font-medium text-gray-900">No notification logs</h3>
-        <p className="mt-1 text-sm text-gray-500">Notification logs will appear here once notifications are sent.</p>
+        <p className="mt-2 text-gray-600">Loading activity feed...</p>
       </div>
     );
   }
 
   return (
-    <div className="overflow-hidden shadow ring-1 ring-black ring-opacity-5 md:rounded-lg">
-      <table className="min-w-full divide-y divide-gray-300">
-        <thead className="bg-gray-50">
-          <tr>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Recipient
-            </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Type
-            </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Event
-            </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Status
-            </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Sent At
-            </th>
-          </tr>
-        </thead>
-        <tbody className="bg-white divide-y divide-gray-200">
-          {logs.map((log) => (
-            <tr key={log.id} className="hover:bg-gray-50">
-              <td className="px-6 py-4 whitespace-nowrap">
-                <div>
-                  <div className="text-sm font-medium text-gray-900">
-                    {log.recipient_name || 'Unknown'}
+    <div className="space-y-6">
+      {/* Summary Stats */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
+        <div className="bg-indigo-50 rounded-lg p-3 text-center">
+          <p className="text-2xl font-bold text-indigo-700">{summary.total_activities || 0}</p>
+          <p className="text-xs text-indigo-600 font-medium">Total</p>
+        </div>
+        <div className="bg-green-50 rounded-lg p-3 text-center">
+          <p className="text-2xl font-bold text-green-700">{summary.clock_ins || 0}</p>
+          <p className="text-xs text-green-600 font-medium">Clock Ins</p>
+        </div>
+        <div className="bg-red-50 rounded-lg p-3 text-center">
+          <p className="text-2xl font-bold text-red-700">{summary.clock_outs || 0}</p>
+          <p className="text-xs text-red-600 font-medium">Clock Outs</p>
+        </div>
+        <div className="bg-amber-50 rounded-lg p-3 text-center">
+          <p className="text-2xl font-bold text-amber-700">{summary.break_waivers || 0}</p>
+          <p className="text-xs text-amber-600 font-medium">Break Waivers</p>
+        </div>
+        <div className="bg-red-50 rounded-lg p-3 text-center">
+          <p className="text-2xl font-bold text-red-700">{summary.compliance_violations || 0}</p>
+          <p className="text-xs text-red-600 font-medium">Violations</p>
+        </div>
+        <div className="bg-blue-50 rounded-lg p-3 text-center">
+          <p className="text-2xl font-bold text-blue-700">{summary.unique_employees || 0}</p>
+          <p className="text-xs text-blue-600 font-medium">Employees</p>
+        </div>
+      </div>
+
+      {/* Filters */}
+      <div className="bg-gray-50 rounded-lg p-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Employee</label>
+            <select
+              value={filters.employee_id}
+              onChange={(e) => setFilters(prev => ({ ...prev, employee_id: e.target.value }))}
+              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+            >
+              <option value="">All Employees</option>
+              {employeeList.map(emp => (
+                <option key={emp.id} value={emp.id}>
+                  {emp.user?.first_name || ''} {emp.user?.last_name || emp.employee_id || ''}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Event Type</label>
+            <select
+              value={filters.event_type}
+              onChange={(e) => setFilters(prev => ({ ...prev, event_type: e.target.value }))}
+              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+            >
+              {eventTypeOptions.map(opt => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">From Date</label>
+            <input
+              type="date"
+              value={filters.date_from}
+              onChange={(e) => setFilters(prev => ({ ...prev, date_from: e.target.value }))}
+              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">To Date</label>
+            <input
+              type="date"
+              value={filters.date_to}
+              onChange={(e) => setFilters(prev => ({ ...prev, date_to: e.target.value }))}
+              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+            />
+          </div>
+        </div>
+        {(filters.employee_id || filters.event_type || filters.date_from || filters.date_to) && (
+          <div className="mt-2 flex justify-end">
+            <button
+              onClick={() => setFilters({ employee_id: '', event_type: '', date_from: '', date_to: '' })}
+              className="text-xs text-indigo-600 hover:text-indigo-800 font-medium"
+            >
+              Clear all filters
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Grouped Activity Feed */}
+      {employees.length === 0 ? (
+        <div className="text-center py-12">
+          <ChartBarIcon className="mx-auto h-12 w-12 text-gray-400" />
+          <h3 className="mt-2 text-sm font-medium text-gray-900">No activity found</h3>
+          <p className="mt-1 text-sm text-gray-500">Notification activity will appear here once events occur.</p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {employees.map((emp) => (
+            <div key={emp.employee_id} className="border border-gray-200 rounded-lg overflow-hidden">
+              {/* Employee Header */}
+              <button
+                onClick={() => toggleEmployee(emp.employee_id)}
+                className="w-full flex items-center justify-between bg-gray-50 hover:bg-gray-100 px-5 py-3 transition-colors"
+              >
+                <div className="flex items-center space-x-3">
+                  <div className="h-9 w-9 bg-indigo-100 rounded-full flex items-center justify-center">
+                    <span className="text-sm font-bold text-indigo-700">
+                      {emp.employee_name?.charAt(0)?.toUpperCase() || '?'}
+                    </span>
                   </div>
-                  <div className="text-sm text-gray-500">{log.recipient_address}</div>
+                  <div className="text-left">
+                    <p className="text-sm font-semibold text-gray-900">{emp.employee_name}</p>
+                    <p className="text-xs text-gray-500">ID: {emp.employee_code} · {emp.total_notifications} activities</p>
+                  </div>
                 </div>
-              </td>
-              <td className="px-6 py-4 whitespace-nowrap">
-                <div className="flex items-center">
-                  {getNotificationTypeIcon(log.notification_type)}
-                  <span className="ml-2 text-sm text-gray-900">{log.notification_type}</span>
+                <svg
+                  className={`h-5 w-5 text-gray-400 transition-transform ${expandedEmployees[emp.employee_id] !== false ? 'rotate-180' : ''}`}
+                  fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              {/* Employee Dates (default expanded) */}
+              {expandedEmployees[emp.employee_id] !== false && (
+                <div className="divide-y divide-gray-100">
+                  {emp.dates.map((dateGroup) => (
+                    <div key={dateGroup.date} className="px-5 py-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                          📅 {formatDate(dateGroup.date)}
+                        </p>
+                        <span className="text-xs text-gray-400">{dateGroup.count} event{dateGroup.count !== 1 ? 's' : ''}</span>
+                      </div>
+                      <div className="space-y-2">
+                        {dateGroup.notifications.map((notif) => {
+                          const badge = getEventBadge(notif.event_type);
+                          const isExpanded = expandedNotifs[notif.id];
+                          return (
+                            <div
+                              key={notif.id}
+                              className="bg-white border border-gray-100 rounded-md hover:shadow-sm transition-shadow"
+                            >
+                              <button
+                                onClick={() => toggleNotif(notif.id)}
+                                className="w-full flex items-center justify-between px-3 py-2 text-left"
+                              >
+                                <div className="flex items-center space-x-2 min-w-0">
+                                  <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${badge.bg}`}>
+                                    {badge.icon} {notif.event_type.replace(/_/g, ' ')}
+                                  </span>
+                                  <span className="text-xs text-gray-500 truncate">
+                                    {notif.subject || 'No subject'}
+                                  </span>
+                                </div>
+                                <span className="text-xs text-gray-400 ml-2 flex-shrink-0">
+                                  {formatTime(notif.created_at)}
+                                </span>
+                              </button>
+                              {isExpanded && (
+                                <div className="px-3 pb-3 border-t border-gray-50">
+                                  <div className="mt-2 bg-gray-50 rounded p-3">
+                                    <p className="text-sm text-gray-700 whitespace-pre-wrap">{notif.message || 'No message content'}</p>
+                                  </div>
+                                  <div className="mt-2 flex items-center space-x-3 text-xs text-gray-400">
+                                    <span>Type: {notif.notification_type}</span>
+                                    <span>·</span>
+                                    <span>Status: {notif.status}</span>
+                                    {notif.sent_at && (
+                                      <>
+                                        <span>·</span>
+                                        <span>Sent: {formatTime(notif.sent_at)}</span>
+                                      </>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              </td>
-              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                {log.event_type}
-              </td>
-              <td className="px-6 py-4 whitespace-nowrap">
-                <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(log.status)}`}>
-                  {log.status}
-                </span>
-              </td>
-              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                {log.sent_at ? new Date(log.sent_at).toLocaleString() : 'Not sent'}
-              </td>
-            </tr>
+              )}
+            </div>
           ))}
-        </tbody>
-      </table>
+        </div>
+      )}
     </div>
   );
 };
@@ -746,9 +941,8 @@ const TemplateViewModal = ({ template, onClose }) => {
 
             <div>
               <label className="block text-sm font-medium text-gray-700">Status</label>
-              <span className={`mt-1 inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                template.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-              }`}>
+              <span className={`mt-1 inline-flex px-2 py-1 text-xs font-semibold rounded-full ${template.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                }`}>
                 {template.is_active ? 'Active' : 'Inactive'}
               </span>
             </div>

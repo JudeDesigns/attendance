@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery } from 'react-query';
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
@@ -12,7 +12,8 @@ import {
 } from '@heroicons/react/24/outline';
 import { employeeAPI, attendanceAPI } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
-import { getPSTDate } from '../utils/timezoneUtils';
+import { getPSTDate, parsePSTDateTime, formatInPST } from '../utils/timezoneUtils';
+
 
 const EmployeeStatusDashboard = () => {
   const { isAdmin } = useAuth();
@@ -20,6 +21,12 @@ const EmployeeStatusDashboard = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [selectedDate, setSelectedDate] = useState(getPSTDate());
+  // Live ticker so current-session duration updates every minute without waiting for an API refetch
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const timer = setInterval(() => setTick(t => t + 1), 60000);
+    return () => clearInterval(timer);
+  }, []);
 
   // Get all employees
   const { data: employeesData, isLoading: employeesLoading } = useQuery(
@@ -70,10 +77,7 @@ const EmployeeStatusDashboard = () => {
   const attendanceLogs = attendanceData?.data?.results || attendanceData?.results || [];
   const currentlyActiveLogs = currentlyActiveData?.data?.results || currentlyActiveData?.results || [];
 
-  // Debug: Log the attendance data to see what we're getting
-  console.log('Attendance logs:', attendanceLogs.slice(0, 3)); // Log first 3 entries
-  console.log('Currently active logs:', currentlyActiveLogs.slice(0, 3)); // Log first 3 active entries
-  console.log('Employees:', employees.slice(0, 3).map(e => ({ id: e.id, employee_id: e.employee_id, name: e.user?.first_name + ' ' + e.user?.last_name })));
+
 
   // Create employee status map
   const employeeStatusMap = {};
@@ -132,6 +136,11 @@ const EmployeeStatusDashboard = () => {
         }
       }
 
+      // Track the most recent clock in time (from any log, not just active ones)
+      if (log.clock_in_time) {
+        employeeStatusMap[empId].clockInTime = log.clock_in_time;
+      }
+
       // Track the most recent clock out time
       if (log.clock_out_time) {
         employeeStatusMap[empId].clockOutTime = log.clock_out_time;
@@ -160,49 +169,27 @@ const EmployeeStatusDashboard = () => {
     }
   });
 
-  // Debug: Log the employee status map
-  console.log('Employee Status Map:', Object.keys(employeeStatusMap).map(empId => ({
-    empId,
-    status: employeeStatusMap[empId].currentStatus,
-    clockInTime: employeeStatusMap[empId].clockInTime,
-    totalHours: employeeStatusMap[empId].totalHours
-  })));
-  console.log('Active logs by employee:', Object.keys(activeLogsByEmployee));
 
-  // Debug: Log the total hours calculation
-  const totalHours = Object.values(employeeStatusMap).reduce((sum, s) => sum + s.totalHours, 0);
-  console.log('Attendance logs count:', attendanceLogs.length);
-  console.log('Employee status map:', Object.keys(employeeStatusMap).length, 'employees with logs');
-  console.log('Total hours calculated:', totalHours);
-  console.log('Selected date:', format(selectedDate, 'yyyy-MM-dd'));
-  if (Object.values(employeeStatusMap)[0]) {
-    console.log('Sample employee data:', Object.values(employeeStatusMap)[0]);
-  }
-
-  // If no logs for today, totalHours should be 0
-  if (attendanceLogs.length === 0) {
-    console.log('No attendance logs found for selected date - this is correct if no one clocked in today');
-  }
 
   // Filter employees
   const filteredEmployees = employees.filter(employee => {
-    const matchesSearch = 
+    const matchesSearch =
       employee.user.first_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       employee.user.last_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       employee.employee_id.toLowerCase().includes(searchTerm.toLowerCase());
-    
+
     const empStatus = employeeStatusMap[employee.id];
-    const matchesStatus = statusFilter === 'ALL' || 
+    const matchesStatus = statusFilter === 'ALL' ||
       (statusFilter === 'CLOCKED_IN' && empStatus?.currentStatus === 'CLOCKED_IN') ||
       (statusFilter === 'CLOCKED_OUT' && (!empStatus || empStatus.currentStatus === 'CLOCKED_OUT'));
-    
+
     return matchesSearch && matchesStatus;
   });
 
   const handleViewDetails = (employee) => {
     navigate(`/employee-details/${employee.id}`, {
-      state: { 
-        employee, 
+      state: {
+        employee,
         statusData: employeeStatusMap[employee.id],
         selectedDate: format(selectedDate, 'yyyy-MM-dd')
       }
@@ -218,7 +205,7 @@ const EmployeeStatusDashboard = () => {
         start_date: dateStr,
         end_date: dateStr
       });
-      
+
       // Create download link
       const blob = new Blob([response.data], { type: 'text/csv' });
       const url = window.URL.createObjectURL(blob);
@@ -268,46 +255,14 @@ const EmployeeStatusDashboard = () => {
 
   const getCurrentDuration = (clockInTime) => {
     if (!clockInTime) return '0h 0m';
-
-    // CRITICAL: Backend sends naive PST datetime strings (e.g., "2026-01-28 08:47:00")
-    // User is in Nigeria (UTC+1), but the string represents PST time (UTC-8)
-    // We MUST parse this as PST time, not as Nigeria local time!
-
-    // Method: Parse the string components and create a proper PST timestamp
-    const parts = clockInTime.match(/(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2}):(\d{2})/);
-    if (!parts) return '0h 0m';
-
-    const [, year, month, day, hour, minute, second] = parts;
-
-    // Create an ISO string with PST offset
-    // PST is UTC-8, PDT is UTC-7. In January, it's PST (UTC-8)
-    // We need to determine if it's PST or PDT based on the date
-    const date = new Date(`${year}-${month}-${day}`);
-    const monthNum = parseInt(month);
-
-    // Rough DST check: PDT is roughly March-November, PST is December-February
-    // More accurate: DST starts 2nd Sunday in March, ends 1st Sunday in November
-    const isPDT = monthNum >= 3 && monthNum <= 10; // Simplified check
-    const offset = isPDT ? '-07:00' : '-08:00';
-
-    // Create ISO string with timezone offset
-    const clockInISO = `${year}-${month}-${day}T${hour}:${minute}:${second}${offset}`;
-    const clockInDate = new Date(clockInISO);
-
-    // Get current time in PST
-    const nowPST = getPSTDate();
-
-    // Calculate difference
-    const diffMs = nowPST - clockInDate;
+    const clockInDate = parsePSTDateTime(clockInTime);
+    if (!clockInDate || isNaN(clockInDate.getTime())) return '0h 0m';
+    const diffMs = Date.now() - clockInDate.getTime();
     const hours = diffMs / (1000 * 60 * 60);
-
-    // Ensure we don't show negative or unreasonable durations
-    if (hours < 0 || hours > 24) {
-      return '0h 0m';
-    }
-
+    if (hours < 0 || hours > 24) return '0h 0m';
     return formatDuration(hours);
   };
+
 
   if (employeesLoading || attendanceLoading || activeLoading) {
     return (
@@ -355,7 +310,7 @@ const EmployeeStatusDashboard = () => {
               className="pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
             />
           </div>
-          
+
           {/* Status Filter */}
           <div className="flex items-center space-x-4">
             <FunnelIcon className="h-4 w-4 text-gray-400" />
@@ -521,9 +476,9 @@ const EmployeeStatusDashboard = () => {
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                           {statusData.clockInTime ? (
                             <div>
-                              <div>{format(new Date(statusData.clockInTime), 'h:mm a')}</div>
+                              <div>{formatInPST(statusData.clockInTime, { hour: 'numeric', minute: '2-digit', hour12: true })}</div>
                               <div className="text-xs text-gray-500">
-                                {format(new Date(statusData.clockInTime), 'MMM d')}
+                                {formatInPST(statusData.clockInTime, { month: 'short', day: 'numeric' })} PST
                               </div>
                             </div>
                           ) : (
@@ -548,9 +503,9 @@ const EmployeeStatusDashboard = () => {
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                           {statusData.clockOutTime ? (
                             <div>
-                              <div>{format(new Date(statusData.clockOutTime), 'h:mm a')}</div>
+                              <div>{formatInPST(statusData.clockOutTime, { hour: 'numeric', minute: '2-digit', hour12: true })}</div>
                               <div className="text-xs text-gray-500">
-                                {format(new Date(statusData.clockOutTime), 'MMM d')}
+                                {formatInPST(statusData.clockOutTime, { month: 'short', day: 'numeric' })} PST
                               </div>
                             </div>
                           ) : (

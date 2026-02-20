@@ -122,32 +122,26 @@ const Schedule = () => {
   }
 
   return (
-    <div className="space-y-4 md:space-y-6">
-      {/* Header - Mobile Responsive */}
-      <div className="glass-card glass-fade-in p-4 md:p-6">
-        <div className="flex flex-col space-y-4 md:flex-row md:items-center md:justify-between md:space-y-0">
-          <h1 className="text-xl md:text-2xl font-bold glass-text-primary">Schedule</h1>
-
-          {/* Week Navigation - Mobile Responsive */}
-          <div className="flex items-center justify-center space-x-2 md:space-x-4">
-            <button
-              onClick={() => navigateWeek('prev')}
-              className="glass-button p-2 rounded-md"
-            >
-              <ChevronLeftIcon className="h-4 w-4 md:h-5 md:w-5" />
-            </button>
-
-            <div className="text-sm md:text-lg font-medium glass-text-primary text-center min-w-0">
-              {format(weekStart, 'MMM d')} - {format(weekEnd, 'MMM d, yyyy')}
-            </div>
-
-            <button
-              onClick={() => navigateWeek('next')}
-              className="glass-button p-2 rounded-md"
-            >
-              <ChevronRightIcon className="h-4 w-4 md:h-5 md:w-5" />
-            </button>
-          </div>
+    <div className="space-y-4">
+      {/* ── Header ──────────────────────────────────────────────────── */}
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold text-gray-900">Schedule</h1>
+        <div className="flex items-center bg-gray-100 rounded-xl p-1 gap-0.5">
+          <button
+            onClick={() => navigateWeek('prev')}
+            className="p-2 rounded-lg hover:bg-white hover:shadow transition-all duration-150"
+          >
+            <ChevronLeftIcon className="h-4 w-4 text-gray-600" />
+          </button>
+          <span className="text-sm font-medium text-gray-700 px-1 tabular-nums">
+            {format(weekStart, 'MMM d')} – {format(weekEnd, 'MMM d')}
+          </span>
+          <button
+            onClick={() => navigateWeek('next')}
+            className="p-2 rounded-lg hover:bg-white hover:shadow transition-all duration-150"
+          >
+            <ChevronRightIcon className="h-4 w-4 text-gray-600" />
+          </button>
         </div>
       </div>
 
@@ -204,13 +198,11 @@ const Schedule = () => {
                 return (
                   <div
                     key={date.toISOString()}
-                    className={`glass-table-row p-2 md:p-3 min-h-24 md:min-h-32 ${
-                      isToday ? 'bg-blue-500 bg-opacity-10' : ''
-                    }`}
+                    className={`glass-table-row p-2 md:p-3 min-h-24 md:min-h-32 ${isToday ? 'bg-blue-500 bg-opacity-10' : ''
+                      }`}
                   >
-                    <div className={`text-xs md:text-sm font-medium mb-1 md:mb-2 ${
-                      isToday ? 'text-blue-600' : 'glass-text-primary'
-                    }`}>
+                    <div className={`text-xs md:text-sm font-medium mb-1 md:mb-2 ${isToday ? 'text-blue-600' : 'glass-text-primary'
+                      }`}>
                       {format(date, 'd')}
                     </div>
 

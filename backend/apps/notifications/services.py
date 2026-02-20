@@ -13,6 +13,7 @@ import requests
 import json
 
 from apps.employees.models import Employee
+from apps.core.timezone_utils import convert_to_naive_la_time
 from .models import NotificationTemplate, NotificationLog
 
 logger = logging.getLogger(__name__)
@@ -50,7 +51,7 @@ class NotificationService:
             context.update({
                 'employee_name': f"{recipient.user.first_name} {recipient.user.last_name}",
                 'employee_email': recipient.user.email,
-                'timestamp': timezone.now().strftime('%Y-%m-%d %H:%M:%S'),
+                'timestamp': convert_to_naive_la_time(timezone.now()).strftime('%Y-%m-%d %H:%M:%S'),
             })
             
             # Render the message template
@@ -203,15 +204,33 @@ class NotificationService:
 
     def send_clock_in_notification(self, employee, time_log):
         """Send notification when employee clocks in"""
+        from apps.core.timezone_utils import convert_to_naive_la_time
         location_name = time_log.clock_in_location.name if time_log.clock_in_location else "Unknown Location"
+        pst_time = convert_to_naive_la_time(time_log.clock_in_time)
         
         context = {
-            'clock_in_time': time_log.clock_in_time.strftime('%H:%M:%S'),
+            'clock_in_time': pst_time.strftime('%H:%M:%S'),
             'location': location_name,
-            'date': time_log.clock_in_time.strftime('%Y-%m-%d'),
+            'date': pst_time.strftime('%Y-%m-%d'),
         }
         
-        return self.send_notification('clock_in', employee, context)
+        # Notify the employee
+        employee_result = self.send_notification('clock_in', employee, context)
+        
+        # Also notify admins
+        admin_context = {
+            **context,
+            'employee_name': employee.full_name,
+            'employee_id': employee.employee_id,
+        }
+        self.send_notification_to_admins(
+            'clock_in',
+            admin_context,
+            custom_message=f"{admin_context['employee_name']} ({employee.employee_id}) clocked in at {pst_time.strftime('%I:%M %p')} at {location_name}.",
+            custom_subject=f"Clock In: {admin_context['employee_name']}"
+        )
+        
+        return employee_result
     
     def send_clock_out_notification(self, employee, time_log):
         """Send notification when employee clocks out"""
@@ -231,7 +250,28 @@ class NotificationService:
             'date': time_log.clock_out_time.strftime('%Y-%m-%d'),
         }
         
-        return self.send_notification('clock_out', employee, context)
+        # Notify the employee
+        employee_result = self.send_notification('clock_out', employee, context)
+
+        # Also notify admins
+        admin_context = {
+            **context,
+            'employee_name': employee.full_name,
+            'employee_id': employee.employee_id,
+        }
+        
+        # We need the pst time for the message just like clock_in
+        from apps.core.timezone_utils import convert_to_naive_la_time
+        pst_time = convert_to_naive_la_time(time_log.clock_out_time)
+
+        self.send_notification_to_admins(
+            'clock_out',
+            admin_context,
+            custom_message=f"{admin_context['employee_name']} ({employee.employee_id}) clocked out at {pst_time.strftime('%I:%M %p')} at {location_name}. Total hours: {total_hours}.",
+            custom_subject=f"Clock Out: {admin_context['employee_name']}"
+        )
+        
+        return employee_result
     
     def send_overtime_alert(self, employee, total_hours):
         """Send alert when employee works overtime"""
@@ -239,7 +279,7 @@ class NotificationService:
             'employee_name': employee.full_name,
             'employee_id': employee.employee_id,
             'total_hours': total_hours,
-            'date': timezone.now().strftime('%Y-%m-%d'),
+            'date': convert_to_naive_la_time(timezone.now()).strftime('%Y-%m-%d'),
         }
 
         # Send notification to employee
@@ -318,8 +358,8 @@ class NotificationService:
             'hours_worked': hours_worked,
             'break_type': break_type,
             'is_overdue': is_overdue,
-            'date': timezone.now().strftime('%Y-%m-%d'),
-            'time': timezone.now().strftime('%H:%M'),
+            'date': convert_to_naive_la_time(timezone.now()).strftime('%Y-%m-%d'),
+            'time': convert_to_naive_la_time(timezone.now()).strftime('%H:%M'),
         }
 
         # Format notification using template
@@ -343,8 +383,8 @@ class NotificationService:
             'employee_id': employee.employee_id,
             'waiver_reason': waiver_reason,
             'hours_worked': hours_worked,
-            'date': timezone.now().strftime('%Y-%m-%d'),
-            'time': timezone.now().strftime('%H:%M'),
+            'date': convert_to_naive_la_time(timezone.now()).strftime('%Y-%m-%d'),
+            'time': convert_to_naive_la_time(timezone.now()).strftime('%H:%M'),
         }
 
         # Format notification using template
@@ -364,7 +404,7 @@ class NotificationService:
             'employee_name': employee.full_name,
             'employee_id': employee.employee_id,
             'hours_worked': hours_worked,
-            'date': timezone.now().strftime('%Y-%m-%d'),
+            'date': convert_to_naive_la_time(timezone.now()).strftime('%Y-%m-%d'),
         }
 
         # Format notification using template
@@ -463,10 +503,13 @@ class NotificationService:
     def send_notification_to_admins(self, event_type, context_data, custom_message=None, custom_subject=None):
         """Send notification to all admin users (simplified for Admin/Employee system)"""
         from apps.employees.models import Employee
+        from django.db.models import Q
 
         try:
-            # Get all admin users
-            admin_employees = Employee.objects.filter(role__name='Admin')
+            # Get all admin users - case-insensitive role match + is_staff fallback
+            admin_employees = Employee.objects.filter(
+                Q(role__name__iexact='admin') | Q(role__name__iexact='administrator') | Q(user__is_staff=True)
+            ).distinct()
 
             if not admin_employees.exists():
                 logger.warning("No admin users found to send notification to")

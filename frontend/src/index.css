@@ -7,8 +7,18 @@
   color-scheme: light only !important;
 }
 
+html,
+body {
+  position: fixed;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior-y: none;
+}
+
 html {
   color-scheme: light only !important;
+  scroll-behavior: smooth;
 }
 
 body {
@@ -20,6 +30,8 @@ body {
   -moz-osx-font-smoothing: grayscale;
   color-scheme: light only !important;
   background-color: #ffffff !important;
+  /* Remove tap highlight on mobile */
+  -webkit-tap-highlight-color: transparent;
 }
 
 code {
@@ -27,19 +39,71 @@ code {
     monospace;
 }
 
-/* Custom styles for mobile-first design */
-@media (max-width: 768px) {
-  .mobile-optimized {
-    padding: 1rem;
-  }
-  
-  .mobile-button {
-    min-height: 44px;
-    font-size: 16px;
+/* ============================================
+   MOBILE BOTTOM NAV SAFE AREA
+   ============================================ */
+
+/* Main content padding when bottom nav is visible */
+.mobile-page-content {
+  padding-bottom: calc(4.5rem + env(safe-area-inset-bottom, 0px));
+}
+
+@media (min-width: 768px) {
+  .mobile-page-content {
+    padding-bottom: 0;
   }
 }
 
-/* QR Scanner styles */
+/* Bottom nav itself */
+.bottom-nav-bar {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* ============================================
+   TOUCH TARGETS & BUTTONS
+   ============================================ */
+
+/* All interactive elements should be at least 44px on mobile */
+@media (max-width: 767px) {
+  .mobile-touch-target {
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  button,
+  [role="button"] {
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+/* ============================================
+   EMPLOYEE HERO CARD STATUS PULSE
+   ============================================ */
+
+@keyframes status-pulse {
+
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 0.6;
+    transform: scale(1.15);
+  }
+}
+
+.status-pulse {
+  animation: status-pulse 2s ease-in-out infinite;
+}
+
+/* ============================================
+   QR SCANNER
+   ============================================ */
+
 .qr-scanner-container {
   position: relative;
   width: 100%;

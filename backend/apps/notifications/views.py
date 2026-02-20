@@ -247,6 +247,106 @@ class NotificationLogViewSet(viewsets.ModelViewSet):
         serializer = NotificationStatsSerializer(stats_data)
         return Response(serializer.data)
 
+    @action(detail=False, methods=['get'], permission_classes=[IsAdminUser])
+    def activity_feed(self, request):
+        """Get notification activity feed grouped by employee and date (admin only)"""
+        from apps.core.timezone_utils import convert_to_naive_la_time
+        from collections import defaultdict
+
+        # Filter parameters
+        employee_id = request.query_params.get('employee_id')
+        event_type = request.query_params.get('event_type')
+        date_from = request.query_params.get('date_from')
+        date_to = request.query_params.get('date_to')
+        limit = int(request.query_params.get('limit', 200))
+
+        queryset = NotificationLog.objects.select_related(
+            'recipient__user', 'recipient__role', 'template'
+        ).order_by('-created_at')
+
+        # Apply filters
+        if employee_id:
+            queryset = queryset.filter(recipient__id=employee_id)
+        if event_type:
+            # Support comma-separated event types
+            event_types = [e.strip() for e in event_type.split(',')]
+            queryset = queryset.filter(event_type__in=event_types)
+        if date_from:
+            try:
+                from_date = datetime.strptime(date_from, '%Y-%m-%d')
+                queryset = queryset.filter(created_at__date__gte=from_date.date())
+            except ValueError:
+                pass
+        if date_to:
+            try:
+                to_date = datetime.strptime(date_to, '%Y-%m-%d')
+                queryset = queryset.filter(created_at__date__lte=to_date.date())
+            except ValueError:
+                pass
+
+        notifications = queryset[:limit]
+
+        # Group by employee → date
+        employee_groups = defaultdict(lambda: defaultdict(list))
+        for notif in notifications:
+            emp = notif.recipient
+            emp_key = str(emp.id)
+            la_time = convert_to_naive_la_time(notif.created_at)
+            date_key = la_time.strftime('%Y-%m-%d') if la_time else 'Unknown'
+
+            employee_groups[emp_key][date_key].append({
+                'id': str(notif.id),
+                'event_type': notif.event_type,
+                'notification_type': notif.notification_type,
+                'subject': notif.subject,
+                'message': notif.message,
+                'status': notif.status,
+                'created_at': la_time.isoformat() if la_time else None,
+                'sent_at': convert_to_naive_la_time(notif.sent_at).isoformat() if notif.sent_at else None,
+            })
+
+        # Build response
+        result = []
+        for emp_key, dates in employee_groups.items():
+            try:
+                emp = Employee.objects.select_related('user').get(id=emp_key)
+                employee_data = {
+                    'employee_id': str(emp.id),
+                    'employee_name': emp.user.get_full_name() or emp.user.username,
+                    'employee_code': emp.employee_id,
+                    'dates': []
+                }
+                for date_key in sorted(dates.keys(), reverse=True):
+                    employee_data['dates'].append({
+                        'date': date_key,
+                        'notifications': dates[date_key],
+                        'count': len(dates[date_key]),
+                    })
+                employee_data['total_notifications'] = sum(d['count'] for d in employee_data['dates'])
+                result.append(employee_data)
+            except Employee.DoesNotExist:
+                continue
+
+        # Sort by total notifications descending
+        result.sort(key=lambda x: x['total_notifications'], reverse=True)
+
+        # Summary stats
+        all_notifs = list(notifications)
+        summary = {
+            'total_activities': len(all_notifs),
+            'break_waivers': sum(1 for n in all_notifs if n.event_type == 'break_waived'),
+            'compliance_violations': sum(1 for n in all_notifs if n.event_type == 'break_compliance_violation'),
+            'clock_ins': sum(1 for n in all_notifs if n.event_type == 'clock_in'),
+            'clock_outs': sum(1 for n in all_notifs if n.event_type == 'clock_out'),
+            'overtime_alerts': sum(1 for n in all_notifs if 'overtime' in n.event_type),
+            'unique_employees': len(result),
+        }
+
+        return Response({
+            'summary': summary,
+            'employees': result,
+        })
+
 
 class NotificationTemplateViewSet(viewsets.ModelViewSet):
     """

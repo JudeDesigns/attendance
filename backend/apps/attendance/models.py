@@ -178,7 +178,8 @@ class TimeLog(models.Model):
             if clock_in_diff <= 30:  # Within 30 minutes of shift start
                 return shift
 
-        return shifts.first()  # Return first shift of the day if no exact match
+        # No matching shift found — do NOT return an arbitrary shift
+        return None
 
     @property
     def attendance_status(self):
@@ -188,7 +189,7 @@ class TimeLog(models.Model):
 
         shift = self.scheduled_shift
         if not shift:
-            # No scheduled shift - this is an unscheduled work session
+            # No matching scheduled shift — this is an unscheduled work session
             if self.duration_hours and self.duration_hours > 8:
                 return 'OVERTIME'
             return 'UNSCHEDULED'
@@ -200,6 +201,13 @@ class TimeLog(models.Model):
         # Check for overtime
         if self.duration_hours and self.duration_hours > 8:
             return 'OVERTIME'
+
+        # Verify the employee actually worked a reasonable portion of the shift
+        # Only mark as COMPLETED if they worked at least 75% of scheduled hours
+        shift_duration_hours = shift.duration_hours or 0
+        actual_hours = self.duration_hours or 0
+        if shift_duration_hours > 0 and actual_hours < (shift_duration_hours * 0.75):
+            return 'EARLY_DEPARTURE'
 
         return 'COMPLETED'
 

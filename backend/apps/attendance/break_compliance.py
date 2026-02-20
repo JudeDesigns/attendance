@@ -56,12 +56,20 @@ class BreakComplianceManager:
         current_time = timezone.now()
         hours_worked = (current_time - time_log.clock_in_time).total_seconds() / 3600
         
-        # Check if employee has already taken required breaks
-        existing_breaks = Break.objects.filter(
+        # Count breaks
+        existing_lunch_breaks = Break.objects.filter(
             time_log=time_log,
             break_type='LUNCH'
         ).count()
         
+        short_breaks = Break.objects.filter(
+            time_log=time_log,
+            break_type='SHORT'
+        ).count()
+
+        # Check if they have met the maximum breaks for a standard shift (1 short, 1 lunch)
+        has_taken_max_breaks = (short_breaks >= 1) and (existing_lunch_breaks >= 1)
+
         # Break requirements based on hours worked
         requirements = {
             'requires_break': False,
@@ -69,26 +77,20 @@ class BreakComplianceManager:
             'hours_worked': round(hours_worked, 2),
             'reason': '',
             'is_overdue': False,
-            'can_take_manual_break': hours_worked >= 1.0  # Allow manual breaks after 1 hour
+            'can_take_manual_break': (hours_worked >= 1.0) and not has_taken_max_breaks
         }
         
         # Short break recommended after 2 hours (FIXED: was 3 hours)
-        if hours_worked >= 2.0:
-            short_breaks = Break.objects.filter(
-                time_log=time_log,
-                break_type='SHORT'
-            ).count()
-
-            if short_breaks == 0:
-                requirements.update({
-                    'requires_break': True,
-                    'break_type': 'SHORT',
-                    'reason': 'Short break recommended after 2 hours of work',
-                    'is_overdue': hours_worked >= 2.5  # Overdue after 2.5 hours
-                })
+        if hours_worked >= 2.0 and short_breaks == 0:
+            requirements.update({
+                'requires_break': True,
+                'break_type': 'SHORT',
+                'reason': 'Short break recommended after 2 hours of work',
+                'is_overdue': hours_worked >= 2.5  # Overdue after 2.5 hours
+            })
 
         # Lunch break required after 4 hours (FIXED: was 6 hours)
-        elif hours_worked >= 4.0 and existing_breaks == 0:
+        elif hours_worked >= 4.0 and existing_lunch_breaks == 0:
             requirements.update({
                 'requires_break': True,
                 'break_type': 'LUNCH',
@@ -146,10 +148,14 @@ class BreakComplianceManager:
         """Record that employee waived their break"""
         try:
             with transaction.atomic():
+                # Determine which break type is currently required
+                requirements = self.get_break_requirements(employee, time_log)
+                break_type_to_waive = requirements.get('break_type') or 'SHORT'
+
                 # Create a waived break record
                 break_waiver = Break.objects.create(
                     time_log=time_log,
-                    break_type='LUNCH',  # Assuming lunch break waiver
+                    break_type=break_type_to_waive,
                     start_time=timezone.now(),
                     end_time=timezone.now(),  # Immediately ended
                     notes=f"WAIVED: {waiver_reason}"

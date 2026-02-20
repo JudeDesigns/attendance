@@ -19,7 +19,7 @@ import toast from 'react-hot-toast';
 const LeaveManagement = () => {
   const { user, isAdmin } = useAuth();
   const queryClient = useQueryClient();
-  
+
   // State management
   const [activeTab, setActiveTab] = useState('my-requests');
   const [showRequestForm, setShowRequestForm] = useState(false);
@@ -88,9 +88,9 @@ const LeaveManagement = () => {
       },
       onError: (error) => {
         const errorMessage = error.response?.data?.detail ||
-                           error.response?.data?.message ||
-                           error.response?.data?.error ||
-                           'Failed to submit leave request';
+          error.response?.data?.message ||
+          error.response?.data?.error ||
+          'Failed to submit leave request';
         toast.error(errorMessage, { duration: 5000 });
       },
     }
@@ -226,12 +226,11 @@ const LeaveManagement = () => {
       title: 'Status',
       sortable: true,
       render: (value) => (
-        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-          value === 'APPROVED' ? 'bg-green-100 text-green-800' :
-          value === 'REJECTED' ? 'bg-red-100 text-red-800' :
-          value === 'PENDING' ? 'bg-yellow-100 text-yellow-800' :
-          'bg-gray-100 text-gray-800'
-        }`}>
+        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${value === 'APPROVED' ? 'bg-green-100 text-green-800' :
+            value === 'REJECTED' ? 'bg-red-100 text-red-800' :
+              value === 'PENDING' ? 'bg-yellow-100 text-yellow-800' :
+                'bg-gray-100 text-gray-800'
+          }`}>
           {value === 'APPROVED' && <CheckCircleIcon className="w-3 h-3 mr-1" />}
           {value === 'REJECTED' && <XCircleIcon className="w-3 h-3 mr-1" />}
           {value === 'PENDING' && <ClockIcon className="w-3 h-3 mr-1" />}
@@ -322,38 +321,28 @@ const LeaveManagement = () => {
   ];
 
   return (
-    <div className="space-y-4 md:space-y-6">
-      {/* Header - Mobile Responsive */}
-      <div className="glass-card glass-fade-in p-4 md:p-6">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 className="text-xl md:text-2xl font-bold glass-text-primary">Leave Management</h1>
-            <p className="mt-1 text-xs md:text-sm glass-text-secondary">
-              Manage your leave requests and view balances
-            </p>
-          </div>
-
-          {activeTab === 'my-requests' && (
-            <div className="mt-3 sm:mt-0">
-              <PrimaryButton
-                onClick={() => {
-                  if (!Array.isArray(leaveBalances) || leaveBalances.length === 0) {
-                    toast.error(
-                      'You do not have leave balances configured yet. Please contact your administrator to set up your leave balances before submitting requests.',
-                      { duration: 6000 }
-                    );
-                    return;
-                  }
-                  setShowRequestForm(true);
-                }}
-                icon={<PlusIcon />}
-                size="medium"
-              >
-                New Request
-              </PrimaryButton>
-            </div>
-          )}
+    <div className="space-y-4">
+      {/* ── Header ──────────────────────────────────────────────────── */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Leave</h1>
+          <p className="text-sm text-gray-500 mt-0.5">Requests & balances</p>
         </div>
+        {activeTab === 'my-requests' && (
+          <PrimaryButton
+            onClick={() => {
+              if (!Array.isArray(leaveBalances) || leaveBalances.length === 0) {
+                toast.error('No leave balances configured. Contact your administrator.', { duration: 5000 });
+                return;
+              }
+              setShowRequestForm(true);
+            }}
+            icon={<PlusIcon />}
+            size="medium"
+          >
+            New
+          </PrimaryButton>
+        )}
       </div>
 
       {/* Tabs - Mobile Responsive */}
@@ -363,11 +352,10 @@ const LeaveManagement = () => {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center whitespace-nowrap py-2 px-1 border-b-2 font-medium text-xs md:text-sm ${
-                activeTab === tab.id
+              className={`flex items-center whitespace-nowrap py-2 px-1 border-b-2 font-medium text-xs md:text-sm ${activeTab === tab.id
                   ? 'border-blue-500 text-blue-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
+                }`}
             >
               <tab.icon className="w-4 h-4 md:w-5 md:h-5 mr-1 md:mr-2" />
               {tab.name}
@@ -474,11 +462,10 @@ const LeaveManagement = () => {
                 <button
                   key={filter.value}
                   onClick={() => setFilterStatus(filter.value)}
-                  className={`px-2.5 md:px-3 py-1 rounded-full text-xs md:text-sm font-medium ${
-                    filterStatus === filter.value
+                  className={`px-2.5 md:px-3 py-1 rounded-full text-xs md:text-sm font-medium ${filterStatus === filter.value
                       ? 'bg-blue-100 text-blue-800'
                       : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
+                    }`}
                 >
                   {filter.label}
                 </button>
@@ -531,7 +518,7 @@ const LeaveManagement = () => {
                   <XCircleIcon className="w-6 h-6" />
                 </button>
               </div>
-              
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700">Employee</label>
@@ -560,39 +547,38 @@ const LeaveManagement = () => {
                 <div>
                   <label className="block text-sm font-medium text-gray-700">Status</label>
                   <p className="mt-1">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                      selectedRequest.status === 'APPROVED' ? 'bg-green-100 text-green-800' :
-                      selectedRequest.status === 'REJECTED' ? 'bg-red-100 text-red-800' :
-                      selectedRequest.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800' :
-                      'bg-gray-100 text-gray-800'
-                    }`}>
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${selectedRequest.status === 'APPROVED' ? 'bg-green-100 text-green-800' :
+                        selectedRequest.status === 'REJECTED' ? 'bg-red-100 text-red-800' :
+                          selectedRequest.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800' :
+                            'bg-gray-100 text-gray-800'
+                      }`}>
                       {selectedRequest.status}
                     </span>
                   </p>
                 </div>
               </div>
-              
+
               {selectedRequest.reason && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700">Reason</label>
                   <p className="mt-1 text-sm text-gray-900">{selectedRequest.reason}</p>
                 </div>
               )}
-              
+
               {selectedRequest.notes && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700">Notes</label>
                   <p className="mt-1 text-sm text-gray-900">{selectedRequest.notes}</p>
                 </div>
               )}
-              
+
               {selectedRequest.rejection_reason && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700">Rejection Reason</label>
                   <p className="mt-1 text-sm text-red-600">{selectedRequest.rejection_reason}</p>
                 </div>
               )}
-              
+
               {/* Action buttons */}
               <div className="flex flex-col sm:flex-row sm:justify-end space-y-2 sm:space-y-0 sm:space-x-3 pt-4 border-t">
                 {activeTab === 'pending-approvals' && selectedRequest.status === 'PENDING' && (
@@ -625,7 +611,7 @@ const LeaveManagement = () => {
                     Reject Approved Request
                   </SecondaryButton>
                 )}
-                
+
                 {selectedRequest.can_be_cancelled && (
                   <SecondaryButton
                     onClick={() => handleCancel(selectedRequest)}
@@ -635,7 +621,7 @@ const LeaveManagement = () => {
                     Cancel Request
                   </SecondaryButton>
                 )}
-                
+
                 <SecondaryButton
                   onClick={() => setSelectedRequest(null)}
                   size="medium"

@@ -104,8 +104,8 @@ class ClockInSerializer(serializers.Serializer):
     notes = serializers.CharField(required=False, allow_blank=True, max_length=500)
 
     # GPS coordinates (optional)
-    latitude = serializers.DecimalField(max_digits=9, decimal_places=6, required=False, allow_null=True)
-    longitude = serializers.DecimalField(max_digits=9, decimal_places=6, required=False, allow_null=True)
+    latitude = serializers.FloatField(required=False, allow_null=True)
+    longitude = serializers.FloatField(required=False, allow_null=True)
     
     def validate_location_id(self, value):
         """Validate location exists and is active"""
@@ -172,8 +172,8 @@ class ClockOutSerializer(serializers.Serializer):
     notes = serializers.CharField(required=False, allow_blank=True, max_length=500)
 
     # GPS coordinates (optional)
-    latitude = serializers.DecimalField(max_digits=9, decimal_places=6, required=False, allow_null=True)
-    longitude = serializers.DecimalField(max_digits=9, decimal_places=6, required=False, allow_null=True)
+    latitude = serializers.FloatField(required=False, allow_null=True)
+    longitude = serializers.FloatField(required=False, allow_null=True)
     
     def validate_location_id(self, value):
         """Validate location exists and is active"""
@@ -236,16 +236,35 @@ class QRCodeClockSerializer(serializers.Serializer):
     qr_code = serializers.CharField(required=True)
     action = serializers.ChoiceField(choices=['clock_in', 'clock_out'], required=True)
     notes = serializers.CharField(required=False, allow_blank=True, max_length=500)
+
+    # GPS coordinates (optional) - recorded for location verification
+    latitude = serializers.FloatField(required=False, allow_null=True)
+    longitude = serializers.FloatField(required=False, allow_null=True)
     
     def validate_qr_code(self, value):
         """Validate QR code and get location"""
+        # Strip whitespace/newlines that QR scanners sometimes add
+        cleaned_value = value.strip()
+
+        # Try exact match first
         try:
-            location = Location.objects.get(qr_code_payload=value)
+            location = Location.objects.get(qr_code_payload=cleaned_value)
             if not location.is_active:
                 raise serializers.ValidationError("This location is not active")
-            return value
+            return cleaned_value
         except Location.DoesNotExist:
-            raise serializers.ValidationError("Invalid QR code")
+            pass
+
+        # Try case-insensitive match as fallback
+        try:
+            location = Location.objects.get(qr_code_payload__iexact=cleaned_value)
+            if not location.is_active:
+                raise serializers.ValidationError("This location is not active")
+            return location.qr_code_payload  # Return the DB's canonical value
+        except Location.DoesNotExist:
+            pass
+
+        raise serializers.ValidationError("Invalid QR code")
     
     def validate(self, data):
         """Validate QR code clock action"""
@@ -255,6 +274,25 @@ class QRCodeClockSerializer(serializers.Serializer):
         # Get location from QR code
         location = Location.objects.get(qr_code_payload=data['qr_code'])
         data['location'] = location
+
+        # Validate geofencing if location requires GPS verification
+        if hasattr(location, 'requires_gps_verification') and location.requires_gps_verification:
+            latitude = data.get('latitude')
+            longitude = data.get('longitude')
+
+            if latitude is None or longitude is None:
+                raise serializers.ValidationError({
+                    'detail': 'GPS coordinates are required when scanning this location\'s QR code. '
+                              'Please enable location services and try again.'
+                })
+
+            # Use TimeLog's geofencing validation
+            temp_log = TimeLog()
+            if not temp_log.is_within_geofence(latitude, longitude, location):
+                raise serializers.ValidationError({
+                    'detail': f'You are not within the required area for {location.name}. '
+                              f'Please move closer to the location (within {location.radius_meters or 100}m) and try again.'
+                })
         
         # Check current clock status
         active_log = TimeLog.objects.filter(

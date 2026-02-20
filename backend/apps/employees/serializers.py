@@ -102,6 +102,8 @@ class EmployeeSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'user', 'employee_id', 'role', 'role_name', 'location_name',
             'employment_status', 'hire_date', 'requires_location_qr', 'qr_enforcement_type',
+            'phone_number', 'address', 'date_of_birth', 'emergency_contact_name', 
+            'emergency_contact_phone', 'department', 'job_title', 'hourly_rate',
             'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
@@ -138,7 +140,9 @@ class EmployeeCreateSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'username', 'email', 'password', 'first_name', 'last_name',
             'employee_id', 'role', 'employment_status', 'hire_date',
-            'requires_location_qr', 'qr_enforcement_type'
+            'requires_location_qr', 'qr_enforcement_type',
+            'phone_number', 'address', 'date_of_birth', 'emergency_contact_name', 
+            'emergency_contact_phone', 'department', 'job_title', 'hourly_rate'
         ]
         read_only_fields = ['id']
     
@@ -207,7 +211,9 @@ class EmployeeUpdateSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'employee_id', 'role', 'employment_status',
             'hire_date', 'first_name', 'last_name', 'email',
-            'requires_location_qr', 'qr_enforcement_type', 'hourly_rate'
+            'requires_location_qr', 'qr_enforcement_type', 'hourly_rate',
+            'phone_number', 'address', 'date_of_birth', 'emergency_contact_name', 
+            'emergency_contact_phone', 'department', 'job_title'
         ]
         read_only_fields = ['id']
     

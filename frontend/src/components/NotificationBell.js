@@ -171,7 +171,7 @@ const NotificationBell = () => {
 
       {/* Dropdown Panel - Mobile Responsive */}
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-80 md:w-80 max-w-[calc(100vw-2rem)] glass-notification-dropdown z-[9999]">
+        <div className="absolute -right-2 sm:right-0 mt-2 w-[90vw] sm:w-80 max-w-sm glass-notification-dropdown z-[9999]">
           <div className="py-1">
             {/* Header */}
             <div className="px-4 py-3 border-b border-white border-opacity-20">
@@ -225,17 +225,15 @@ const NotificationBell = () => {
                       <div
                         key={notification.id}
                         onClick={() => handleNotificationClick(notification)}
-                        className={`px-4 py-3 hover:bg-white hover:bg-opacity-20 cursor-pointer border-l-4 transition-all duration-200 ${
-                          notification.status === 'DELIVERED'
+                        className={`px-4 py-3 hover:bg-white hover:bg-opacity-20 cursor-pointer border-l-4 transition-all duration-200 ${notification.status === 'DELIVERED'
                             ? 'border-transparent'
                             : 'border-blue-500 bg-blue-500 bg-opacity-10'
-                        }`}
+                          }`}
                       >
                         <div className="flex items-start">
                           <div className="flex-1 min-w-0">
-                            <p className={`text-sm ${
-                              notification.status === 'DELIVERED' ? 'glass-text-secondary' : 'glass-text-primary font-medium'
-                            }`}>
+                            <p className={`text-sm ${notification.status === 'DELIVERED' ? 'glass-text-secondary' : 'glass-text-primary font-medium'
+                              }`}>
                               {notification.message}
                             </p>
                             <p className="text-xs glass-text-muted mt-1">

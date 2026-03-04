@@ -45,6 +45,11 @@ class ShiftViewSet(viewsets.ModelViewSet):
     queryset = Shift.objects.select_related(
         'employee__user', 'employee__role', 'created_by'
     ).all()
+    # CRITICAL FIX: Disable pagination for shifts endpoint.
+    # Weekly schedules can have 7+ employees × 7 days = 49+ shifts.
+    # Global PAGE_SIZE (20) was truncating results, causing only the most recent
+    # day's shifts (Saturday) to appear in the admin scheduling grid.
+    pagination_class = None
     permission_classes = [permissions.IsAuthenticated]
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_fields = ['employee', 'location', 'is_published']
@@ -90,31 +95,38 @@ class ShiftViewSet(viewsets.ModelViewSet):
 
         if start_date:
             try:
-                # Parse start_date and set to beginning of day
+                from django.utils import timezone as dj_timezone
+                from datetime import time
+                import pytz
+                # Parse start_date — treat as LA timezone start-of-day
+                la_tz = pytz.timezone('America/Los_Angeles')
                 start = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
-                if start.time() == datetime.min.time():  # If no time specified, it's start of day
-                    # Keep as start of day (00:00:00)
-                    pass
+                if start.time() == datetime.min.time():
+                    # Date-only string: interpret as start of day in LA timezone
+                    start = la_tz.localize(datetime.combine(start.date(), time.min))
+                elif start.tzinfo is None:
+                    start = la_tz.localize(start)
                 queryset = queryset.filter(start_time__gte=start)
             except ValueError:
                 pass
 
         if end_date:
             try:
-                # Parse end_date and handle end-of-day logic
+                from django.utils import timezone as dj_timezone
+                from datetime import time
+                import pytz
+                # Parse end_date — treat as LA timezone end-of-day
+                la_tz = pytz.timezone('America/Los_Angeles')
                 end = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
-                if end.time() == datetime.min.time():  # If no time specified (just date)
-                    # Convert to end of day (23:59:59.999999) to include shifts starting later in the day
-                    from datetime import time
-                    end = datetime.combine(end.date(), time.max)
-                    # Make timezone-aware if needed
-                    if hasattr(end, 'tzinfo') and end.tzinfo is None:
-                        from django.utils import timezone
-                        end = timezone.make_aware(end)
+                if end.time() == datetime.min.time():
+                    # Date-only string: interpret as end of day in LA timezone
+                    end = la_tz.localize(datetime.combine(end.date(), time.max))
+                elif end.tzinfo is None:
+                    end = la_tz.localize(end)
                 queryset = queryset.filter(start_time__lte=end)
             except ValueError:
                 pass
-        
+
         return queryset
     
     def perform_create(self, serializer):

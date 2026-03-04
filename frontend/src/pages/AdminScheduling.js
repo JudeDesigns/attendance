@@ -78,8 +78,11 @@ const AdminScheduling = () => {
   const employees = employeesData?.data?.results || [];
 
   // Fetch shifts for selected period
-  const weekStart = startOfWeek(new Date(selectedDate));
-  const weekEnd = endOfWeek(new Date(selectedDate));
+  // CRITICAL FIX: Parse date string with 'T00:00:00' to avoid UTC midnight interpretation.
+  // new Date('2026-03-01') parses as UTC midnight, which in PST is Feb 28 4pm,
+  // causing startOfWeek to potentially calculate the wrong week.
+  const weekStart = startOfWeek(new Date(selectedDate + 'T00:00:00'));
+  const weekEnd = endOfWeek(new Date(selectedDate + 'T00:00:00'));
   
   const { data: shiftsData, isLoading } = useQuery(
     ['admin-shifts', selectedDate, selectedEmployee],
@@ -90,11 +93,13 @@ const AdminScheduling = () => {
     }),
     {
       refetchInterval: false, // Disable auto-refresh to prevent table flickering
-      staleTime: 5 * 60 * 1000, // Consider data fresh for 5 minutes
+      staleTime: 30 * 1000, // Consider data fresh for 30 seconds (reduced from 5 min to ensure updates reflect quickly)
     }
   );
 
-  const shifts = shiftsData?.data?.results || [];
+  // CRITICAL FIX: Handle both paginated (results array) and non-paginated (direct array) responses.
+  // The backend now returns all shifts without pagination for scheduling queries.
+  const shifts = Array.isArray(shiftsData?.data) ? shiftsData.data : (shiftsData?.data?.results || []);
 
   // Fetch shift templates
   const { data: templatesData } = useQuery('shift-templates', () => schedulingAPI.getShiftTemplates());

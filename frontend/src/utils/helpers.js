@@ -15,7 +15,8 @@ export const formatDate = (date, formatString = DATE_FORMATS.DISPLAY_DATE) => {
 };
 
 /**
- * Format time for display (UTC-aware to avoid timezone conversion)
+ * Format time for display in PST (America/Los_Angeles) timezone.
+ * ALL times in this application are PST — no UTC, no other timezone.
  */
 export const formatTime = (time, formatString = DATE_FORMATS.DISPLAY_TIME) => {
   if (!time) return '';
@@ -25,28 +26,25 @@ export const formatTime = (time, formatString = DATE_FORMATS.DISPLAY_TIME) => {
 
     if (!isValid(date)) return '';
 
-    // Use UTC methods to avoid local timezone conversion for shift times
-    if (typeof time === 'string' && time.includes('T') && time.includes('Z')) {
-      // This is likely a shift datetime - keep in UTC
-      const hours = date.getUTCHours();
-      const minutes = date.getUTCMinutes();
-
-      if (formatString === DATE_FORMATS.DISPLAY_TIME) {
-        // Convert to 12-hour format
-        const period = hours >= 12 ? 'PM' : 'AM';
-        const displayHours = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
-        const displayMinutes = minutes.toString().padStart(2, '0');
-        return `${displayHours}:${displayMinutes} ${period}`;
-      } else {
-        // For other formats, use UTC values
-        const utcHours = hours.toString().padStart(2, '0');
-        const utcMinutes = minutes.toString().padStart(2, '0');
-        return formatString.replace('HH', utcHours).replace('mm', utcMinutes);
-      }
+    // ALWAYS display in America/Los_Angeles timezone
+    if (formatString === DATE_FORMATS.DISPLAY_TIME) {
+      return date.toLocaleString('en-US', {
+        timeZone: 'America/Los_Angeles',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
+      });
     }
 
-    // For non-shift times (like attendance logs), use local timezone
-    return format(date, formatString);
+    // For custom formats, extract PST components
+    const pstString = date.toLocaleString('en-US', {
+      timeZone: 'America/Los_Angeles',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    });
+    const [pstHours, pstMinutes] = pstString.split(':');
+    return formatString.replace('HH', pstHours).replace('mm', pstMinutes);
   } catch (error) {
     return time;
   }

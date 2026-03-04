@@ -70,9 +70,16 @@ const QuickActions = () => {
         return;
       }
 
-      // Generate report for last 30 days
-      const endDate = new Date().toISOString().split('T')[0];
-      const startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+      // Generate report for last 30 days (in PST)
+      const pstDateParts = (d) => {
+        const p = new Intl.DateTimeFormat('en-US', {
+          timeZone: 'America/Los_Angeles', year: 'numeric', month: '2-digit', day: '2-digit',
+        }).formatToParts(d);
+        const g = (t) => p.find(x => x.type === t)?.value || '';
+        return `${g('year')}-${g('month')}-${g('day')}`;
+      };
+      const endDate = pstDateParts(new Date());
+      const startDate = pstDateParts(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000));
 
       const response = await reportsAPI.generateReport({
         template_id: template.id,

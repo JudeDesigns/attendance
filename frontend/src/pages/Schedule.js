@@ -30,7 +30,8 @@ const Schedule = () => {
     }
   );
 
-  const shifts = shiftsData?.data?.results || [];
+  // CRITICAL FIX: Handle both paginated (results array) and non-paginated (direct array) responses.
+  const shifts = Array.isArray(shiftsData?.data) ? shiftsData.data : (shiftsData?.data?.results || []);
 
   const navigateWeek = (direction) => {
     if (direction === 'prev') {

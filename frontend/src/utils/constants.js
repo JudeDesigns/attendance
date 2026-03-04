@@ -67,13 +67,13 @@ export const WEBHOOK_EVENTS = {
   BREAK_ENDED: 'break.ended',
 };
 
-// Date Formats
+// Date Formats — ALL times are America/Los_Angeles (PST), no UTC
 export const DATE_FORMATS = {
   DISPLAY_DATE: 'MMM d, yyyy',
   DISPLAY_TIME: 'h:mm a',
   DISPLAY_DATETIME: 'MMM d, yyyy h:mm a',
   API_DATE: 'yyyy-MM-dd',
-  API_DATETIME: "yyyy-MM-dd'T'HH:mm:ss'Z'",
+  API_DATETIME: "yyyy-MM-dd'T'HH:mm:ss",
 };
 
 // Local Storage Keys

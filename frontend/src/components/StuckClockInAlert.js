@@ -44,13 +44,19 @@ const StuckClockInAlert = ({ isAdmin = false }) => {
     }
   );
 
-  // Set default clockout time when modal opens
+  // Set default clockout time when modal opens — always in PST
   useEffect(() => {
     if (forceClockoutModal && selectedEmployee) {
-      // Default to current time
+      // Default to current time in America/Los_Angeles (PST)
       const now = new Date();
-      const isoString = now.toISOString().slice(0, 16); // Format for datetime-local input
-      setClockoutTime(isoString);
+      const pstParts = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'America/Los_Angeles',
+        year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit', hour12: false,
+      }).formatToParts(now);
+      const get = (type) => pstParts.find(p => p.type === type)?.value || '';
+      const pstString = `${get('year')}-${get('month')}-${get('day')}T${get('hour')}:${get('minute')}`;
+      setClockoutTime(pstString);
     }
   }, [forceClockoutModal, selectedEmployee]);
 
@@ -216,8 +222,24 @@ const StuckClockInAlert = ({ isAdmin = false }) => {
                 value={clockoutTime}
                 onChange={(e) => setClockoutTime(e.target.value)}
                 className="w-full border border-gray-300 rounded-md p-2"
-                min={new Date(selectedEmployee.clock_in_time).toISOString().slice(0, 16)}
-                max={new Date().toISOString().slice(0, 16)}
+                min={(() => {
+                  const d = new Date(selectedEmployee.clock_in_time);
+                  const p = new Intl.DateTimeFormat('en-US', {
+                    timeZone: 'America/Los_Angeles', year: 'numeric', month: '2-digit', day: '2-digit',
+                    hour: '2-digit', minute: '2-digit', hour12: false,
+                  }).formatToParts(d);
+                  const g = (t) => p.find(x => x.type === t)?.value || '';
+                  return `${g('year')}-${g('month')}-${g('day')}T${g('hour')}:${g('minute')}`;
+                })()}
+                max={(() => {
+                  const d = new Date();
+                  const p = new Intl.DateTimeFormat('en-US', {
+                    timeZone: 'America/Los_Angeles', year: 'numeric', month: '2-digit', day: '2-digit',
+                    hour: '2-digit', minute: '2-digit', hour12: false,
+                  }).formatToParts(d);
+                  const g = (t) => p.find(x => x.type === t)?.value || '';
+                  return `${g('year')}-${g('month')}-${g('day')}T${g('hour')}:${g('minute')}`;
+                })()}
               />
             </div>
 

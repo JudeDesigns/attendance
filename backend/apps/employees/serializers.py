@@ -205,18 +205,19 @@ class EmployeeUpdateSerializer(serializers.ModelSerializer):
     first_name = serializers.CharField(write_only=True, required=False)
     last_name = serializers.CharField(write_only=True, required=False)
     email = serializers.EmailField(write_only=True, required=False)
+    new_password = serializers.CharField(write_only=True, required=False, allow_blank=True, style={'input_type': 'password'})
 
     class Meta:
         model = Employee
         fields = [
             'id', 'employee_id', 'role', 'employment_status',
-            'hire_date', 'first_name', 'last_name', 'email',
+            'hire_date', 'first_name', 'last_name', 'email', 'new_password',
             'requires_location_qr', 'qr_enforcement_type', 'hourly_rate',
-            'phone_number', 'address', 'date_of_birth', 'emergency_contact_name', 
+            'phone_number', 'address', 'date_of_birth', 'emergency_contact_name',
             'emergency_contact_phone', 'department', 'job_title'
         ]
         read_only_fields = ['id']
-    
+
     def validate_email(self, value):
         """Validate email uniqueness"""
         if value:
@@ -224,14 +225,24 @@ class EmployeeUpdateSerializer(serializers.ModelSerializer):
             if User.objects.filter(email=value).exclude(id=user_id).exists():
                 raise serializers.ValidationError("A user with this email already exists")
         return value.lower() if value else value
-    
+
+    def validate_new_password(self, value):
+        """Validate new password strength if provided"""
+        if value:
+            try:
+                validate_password(value)
+            except DjangoValidationError as e:
+                raise serializers.ValidationError(list(e.messages))
+        return value
+
     def update(self, instance, validated_data):
         """Update employee and user information"""
         # Extract user fields
         first_name = validated_data.pop('first_name', None)
         last_name = validated_data.pop('last_name', None)
         email = validated_data.pop('email', None)
-        
+        new_password = validated_data.pop('new_password', None)
+
         # Update user fields if provided
         if first_name is not None:
             instance.user.first_name = first_name
@@ -239,15 +250,17 @@ class EmployeeUpdateSerializer(serializers.ModelSerializer):
             instance.user.last_name = last_name
         if email is not None:
             instance.user.email = email
-        
-        if first_name or last_name or email:
+        if new_password:
+            instance.user.set_password(new_password)
+
+        if first_name or last_name or email or new_password:
             instance.user.save()
-        
+
         # Update employee fields
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         instance.save()
-        
+
         return instance
 
 

@@ -153,7 +153,7 @@ const TimeTracking = () => {
           <input
             type="date"
             value={format(selectedDate, 'yyyy-MM-dd')}
-            onChange={(e) => setSelectedDate(new Date(e.target.value))}
+            onChange={(e) => setSelectedDate(new Date(e.target.value + 'T00:00:00'))}
             className="glass-input text-sm flex-1 min-w-0"
           />
 

@@ -157,14 +157,14 @@ const LeaveManagement = () => {
       label: 'Start Date',
       type: 'date',
       required: true,
-      min: new Date().toISOString().split('T')[0]
+      min: (() => { const p = new Intl.DateTimeFormat('en-US', { timeZone: 'America/Los_Angeles', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date()); const g = (t) => p.find(x => x.type === t)?.value || ''; return `${g('year')}-${g('month')}-${g('day')}`; })()
     },
     {
       name: 'end_date',
       label: 'End Date',
       type: 'date',
       required: true,
-      min: new Date().toISOString().split('T')[0]
+      min: (() => { const p = new Intl.DateTimeFormat('en-US', { timeZone: 'America/Los_Angeles', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date()); const g = (t) => p.find(x => x.type === t)?.value || ''; return `${g('year')}-${g('month')}-${g('day')}`; })()
     },
     {
       name: 'reason',

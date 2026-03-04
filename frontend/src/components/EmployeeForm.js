@@ -6,6 +6,13 @@ import { employeeAPI } from '../services/api';
 const EmployeeForm = ({ employee, onClose, onSuccess }) => {
   const isEditing = !!employee;
 
+  // Password change state (edit mode only)
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [pendingSubmitData, setPendingSubmitData] = useState(null);
+
   // Form state
   const [formData, setFormData] = useState({
     // User fields
@@ -23,7 +30,7 @@ const EmployeeForm = ({ employee, onClose, onSuccess }) => {
     date_of_birth: '',
     emergency_contact_name: '',
     emergency_contact_phone: '',
-    hire_date: new Date().toISOString().split('T')[0],
+    hire_date: (() => { const p = new Intl.DateTimeFormat('en-US', { timeZone: 'America/Los_Angeles', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date()); const g = (t) => p.find(x => x.type === t)?.value || ''; return `${g('year')}-${g('month')}-${g('day')}`; })(),
     employment_status: 'ACTIVE',
     department: '',
     job_title: '',
@@ -63,7 +70,7 @@ const EmployeeForm = ({ employee, onClose, onSuccess }) => {
         date_of_birth: employee.date_of_birth || '',
         emergency_contact_name: employee.emergency_contact_name || '',
         emergency_contact_phone: employee.emergency_contact_phone || '',
-        hire_date: employee.hire_date || new Date().toISOString().split('T')[0],
+        hire_date: employee.hire_date || (() => { const p = new Intl.DateTimeFormat('en-US', { timeZone: 'America/Los_Angeles', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date()); const g = (t) => p.find(x => x.type === t)?.value || ''; return `${g('year')}-${g('month')}-${g('day')}`; })(),
         employment_status: employee.employment_status || 'ACTIVE',
         department: employee.department || '',
         job_title: employee.job_title || '',
@@ -118,6 +125,7 @@ const EmployeeForm = ({ employee, onClose, onSuccess }) => {
   const handleSubmit = (e) => {
     e.preventDefault();
     setErrors({});
+    setPasswordError('');
 
     // Basic validation
     const requiredFields = ['first_name', 'last_name', 'email', 'employee_id', 'role'];
@@ -137,6 +145,18 @@ const EmployeeForm = ({ employee, onClose, onSuccess }) => {
       return;
     }
 
+    // Validate password fields in edit mode if either is filled
+    if (isEditing && (newPassword || confirmPassword)) {
+      if (newPassword.length < 8) {
+        setPasswordError('Password must be at least 8 characters.');
+        return;
+      }
+      if (newPassword !== confirmPassword) {
+        setPasswordError('Passwords do not match.');
+        return;
+      }
+    }
+
     // Prepare data for submission
     const submitData = { ...formData };
 
@@ -152,7 +172,27 @@ const EmployeeForm = ({ employee, onClose, onSuccess }) => {
       submitData.hourly_rate = parseFloat(submitData.hourly_rate);
     }
 
+    // Include new password if provided in edit mode
+    if (isEditing && newPassword) {
+      submitData.new_password = newPassword;
+      // Show confirmation modal before applying password change
+      setPendingSubmitData(submitData);
+      setShowConfirm(true);
+      return;
+    }
+
     mutation.mutate(submitData);
+  };
+
+  const handleConfirmSubmit = () => {
+    setShowConfirm(false);
+    mutation.mutate(pendingSubmitData);
+    setPendingSubmitData(null);
+  };
+
+  const handleCancelConfirm = () => {
+    setShowConfirm(false);
+    setPendingSubmitData(null);
   };
 
   const getFieldError = (fieldName) => {
@@ -559,6 +599,41 @@ const EmployeeForm = ({ employee, onClose, onSuccess }) => {
             </div>
           </div>
 
+          {/* Change Password — edit mode only */}
+          {isEditing && (
+            <div className="mt-6 pt-6 border-t">
+              <h4 className="text-md font-medium text-gray-900 mb-1">Change Password</h4>
+              <p className="text-sm text-gray-500 mb-4">Leave blank to keep the current password.</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">New Password</label>
+                  <input
+                    type="password"
+                    value={newPassword}
+                    onChange={(e) => { setNewPassword(e.target.value); setPasswordError(''); }}
+                    className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 ${passwordError ? 'border-red-300' : 'border-gray-300'}`}
+                    placeholder="Enter new password"
+                    autoComplete="new-password"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Confirm New Password</label>
+                  <input
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(e) => { setConfirmPassword(e.target.value); setPasswordError(''); }}
+                    className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 ${passwordError ? 'border-red-300' : 'border-gray-300'}`}
+                    placeholder="Confirm new password"
+                    autoComplete="new-password"
+                  />
+                </div>
+              </div>
+              {passwordError && (
+                <p className="mt-2 text-sm text-red-600">{passwordError}</p>
+              )}
+            </div>
+          )}
+
           {/* Form Actions */}
           <div className="mt-6 pt-6 border-t flex justify-end space-x-3">
             <button
@@ -578,6 +653,41 @@ const EmployeeForm = ({ employee, onClose, onSuccess }) => {
           </div>
         </form>
       </div>
+
+      {/* Password Change Confirmation Modal */}
+      {showConfirm && (
+        <div className="fixed inset-0 bg-gray-800 bg-opacity-60 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl p-6 max-w-sm w-full mx-4">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="flex-shrink-0 bg-yellow-100 rounded-full p-2">
+                <svg className="h-6 w-6 text-yellow-600" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900">Confirm Password Change</h3>
+            </div>
+            <p className="text-sm text-gray-600 mb-6">
+              You are about to change the password for <span className="font-medium text-gray-900">{employee?.user?.first_name} {employee?.user?.last_name}</span>. They will need to use the new password on their next login.
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={handleCancelConfirm}
+                className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmSubmit}
+                className="px-4 py-2 border border-transparent rounded-md text-sm font-medium text-white bg-yellow-600 hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500"
+              >
+                Yes, Change Password
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

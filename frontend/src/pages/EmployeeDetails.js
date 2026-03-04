@@ -97,7 +97,7 @@ const EmployeeDetails = () => {
 
   const timeLogs = timeLogsData?.data?.results || timeLogsData?.results || [];
   const breaks = breaksData?.data?.results || breaksData?.results || [];
-  const shifts = shiftsData?.data?.results || shiftsData?.results || [];
+  const shifts = Array.isArray(shiftsData?.data) ? shiftsData.data : (shiftsData?.data?.results || shiftsData?.results || []);
 
   // Merge time logs and breaks into a unified activity timeline
   const activityTimeline = [

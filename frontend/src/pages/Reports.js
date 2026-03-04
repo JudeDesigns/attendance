@@ -11,14 +11,25 @@ import {
   ExclamationTriangleIcon
 } from '@heroicons/react/24/outline';
 import { reportsAPI } from '../services/api';
+import { getPSTDateString } from '../utils/timezoneUtils';
+
+// Get PST date string for N days ago
+const getPSTDateStringDaysAgo = (daysAgo) => {
+  const d = new Date(Date.now() - daysAgo * 24 * 60 * 60 * 1000);
+  const p = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Los_Angeles', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).formatToParts(d);
+  const g = (t) => p.find(x => x.type === t)?.value || '';
+  return `${g('year')}-${g('month')}-${g('day')}`;
+};
 
 const Reports = () => {
   const queryClient = useQueryClient();
 
   // State management
   const [selectedReportType, setSelectedReportType] = useState('LATE_ARRIVAL');
-  const [startDate, setStartDate] = useState(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]); // 30 days ago
-  const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]); // Today
+  const [startDate, setStartDate] = useState(getPSTDateStringDaysAgo(30)); // 30 days ago in PST
+  const [endDate, setEndDate] = useState(getPSTDateString()); // Today in PST
   const [department, setDepartment] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
 

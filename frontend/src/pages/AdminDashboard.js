@@ -58,7 +58,7 @@ const AdminDashboard = () => {
   const employees = employeesData?.data?.results || [];
   const attendanceLogs = attendanceData?.data?.results || [];
   const locations = locationsData?.data?.results || locationsData?.results || [];
-  const shifts = shiftsData?.data?.results || [];
+  const shifts = Array.isArray(shiftsData?.data) ? shiftsData.data : (shiftsData?.data?.results || []);
 
   // Debug logging
   console.log('AdminDashboard - Selected date:', selectedDate);

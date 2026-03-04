@@ -147,13 +147,28 @@ export const parsePSTDateTime = (dtString) => {
     return new Date(dtString);
   }
 
-  // Naive string — extract components and append correct LA offset
-  const parts = dtString.match(/(\d{4})-(\d{2})-(\d{2})[\sT](\d{2}):(\d{2}):(\d{2})/);
+  // Naive string from backend — this represents America/Los_Angeles local time.
+  // Use toLocaleString round-trip to get the correct UTC offset for the specific date,
+  // handling DST transitions accurately (not just month-based approximation).
+  const parts = dtString.match(/(\d{4})-(\d{2})-(\d{2})[\sT](\d{2}):(\d{2}):?(\d{2})?/);
   if (!parts) return null;
-  const [, year, month, day, hour, minute, second] = parts;
-  // America/Los_Angeles: UTC-8 (PST) Nov–Mar, UTC-7 (PDT) Mar–Nov
-  const monthNum = parseInt(month);
-  const offset = (monthNum >= 3 && monthNum <= 10) ? '-07:00' : '-08:00';
+  const [, year, month, day, hour, minute, second = '00'] = parts;
+
+  // Create a Date assuming local time, then use Intl to find the correct LA offset
+  // Step 1: Create a rough Date object (may be off by an hour near DST boundaries)
+  const rough = new Date(`${year}-${month}-${day}T${hour}:${minute}:${second}`);
+  // Step 2: Get the actual LA time string for this rough date to determine DST
+  const laString = rough.toLocaleString('en-US', {
+    timeZone: 'America/Los_Angeles',
+    hour12: false,
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+    timeZoneName: 'shortOffset',
+  });
+  // Step 3: Extract the offset (e.g., "GMT-8" or "GMT-7")
+  const offsetMatch = laString.match(/GMT([+-]\d+)/);
+  const offsetHours = offsetMatch ? parseInt(offsetMatch[1]) : -8;
+  const offset = `${offsetHours < 0 ? '-' : '+'}${String(Math.abs(offsetHours)).padStart(2, '0')}:00`;
   return new Date(`${year}-${month}-${day}T${hour}:${minute}:${second}${offset}`);
 };
 

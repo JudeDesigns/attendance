@@ -1,9 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import { useQuery, useMutation, useQueryClient } from 'react-query';
+import React, { useState } from 'react';
+import { useQuery, useMutation } from 'react-query';
 import {
   EnvelopeIcon,
   DevicePhoneMobileIcon,
-  CogIcon,
   CheckCircleIcon,
   XCircleIcon,
   ExclamationTriangleIcon,
@@ -34,7 +33,7 @@ const NotificationSettings = () => {
   const [configId, setConfigId] = useState(null);
 
   // Fetch active email configuration
-  const { isLoading: isLoadingConfig } = useQuery(
+  useQuery(
     'emailConfig',
     async () => {
       try {

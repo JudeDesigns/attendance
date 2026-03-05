@@ -2,12 +2,11 @@ import React, { useState, useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
 import * as XLSX from 'xlsx';
 import { format, parse, addDays, startOfWeek } from 'date-fns';
-import { 
-  DocumentArrowUpIcon, 
-  XMarkIcon, 
+import {
+  DocumentArrowUpIcon,
+  XMarkIcon,
   CheckCircleIcon,
   ExclamationTriangleIcon,
-  ClockIcon 
 } from '@heroicons/react/24/outline';
 
 const SpreadsheetImporter = ({ onImport, onClose, employees = [] }) => {
@@ -269,6 +268,7 @@ const SpreadsheetImporter = ({ onImport, onClose, employees = [] }) => {
       setFile(file);
       processSpreadsheet(file);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({

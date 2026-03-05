@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery, useQueryClient, useMutation } from 'react-query';
 import { webhookAPI } from '../services/api';
-import { useAuth } from '../contexts/AuthContext';
+
 import { format } from 'date-fns';
 import {
   PlusIcon,
@@ -9,24 +9,21 @@ import {
   PencilIcon,
   PlayIcon,
   PauseIcon,
-  ExclamationTriangleIcon,
   CheckCircleIcon,
   XCircleIcon,
   ClockIcon,
   GlobeAltIcon,
-  CogIcon,
   ChartBarIcon,
   DocumentDuplicateIcon,
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 
 const WebhookManagement = () => {
-  const { user } = useAuth();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState('endpoints');
-  const [showCreateForm, setShowCreateForm] = useState(false);
-  const [selectedEndpoint, setSelectedEndpoint] = useState(null);
-  const [showTestModal, setShowTestModal] = useState(false);
+  const [, setShowCreateForm] = useState(false);
+  const [, setSelectedEndpoint] = useState(null);
+  const [, setShowTestModal] = useState(false);
 
   // Fetch webhook endpoints
   const { data: endpointsData, isLoading: endpointsLoading } = useQuery(
@@ -75,6 +72,7 @@ const WebhookManagement = () => {
   const events = eventsData?.data?.results || [];
 
   // Mutations
+  // eslint-disable-next-line no-unused-vars
   const createEndpointMutation = useMutation(webhookAPI.createEndpoint, {
     onSuccess: () => {
       queryClient.invalidateQueries(['webhook-endpoints']);
@@ -87,6 +85,7 @@ const WebhookManagement = () => {
     },
   });
 
+  // eslint-disable-next-line no-unused-vars
   const updateEndpointMutation = useMutation(
     ({ id, data }) => webhookAPI.updateEndpoint(id, data),
     {
@@ -112,6 +111,7 @@ const WebhookManagement = () => {
     },
   });
 
+  // eslint-disable-next-line no-unused-vars
   const testEndpointMutation = useMutation(
     ({ id, data }) => webhookAPI.testEndpoint(id, data),
     {
@@ -142,13 +142,7 @@ const WebhookManagement = () => {
     }
   );
 
-  const handleCreateEndpoint = (endpointData) => {
-    createEndpointMutation.mutate(endpointData);
-  };
 
-  const handleUpdateEndpoint = (id, endpointData) => {
-    updateEndpointMutation.mutate({ id, data: endpointData });
-  };
 
   const handleDeleteEndpoint = (id) => {
     if (window.confirm('Are you sure you want to delete this webhook endpoint?')) {
@@ -156,9 +150,7 @@ const WebhookManagement = () => {
     }
   };
 
-  const handleTestEndpoint = (endpoint, testData) => {
-    testEndpointMutation.mutate({ id: endpoint.id, data: testData });
-  };
+
 
   const handleToggleEndpoint = (endpoint) => {
     toggleEndpointMutation.mutate({

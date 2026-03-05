@@ -266,8 +266,8 @@ describe('Real-World Employee Workflows', () => {
     // Verify time log entry appears
     await waitFor(() => {
       expect(screen.getByText('Main Office')).toBeInTheDocument();
-      expect(screen.getByText('8.0')).toBeInTheDocument(); // Duration hours
     });
+    expect(screen.getByText('8.0')).toBeInTheDocument(); // Duration hours
 
     // Verify break information
     expect(screen.getByText(/lunch/i)).toBeInTheDocument();
@@ -443,9 +443,9 @@ describe('Real-World Admin Workflows', () => {
     // Verify statistics appear
     await waitFor(() => {
       expect(screen.getByText('25')).toBeInTheDocument(); // Total employees
-      expect(screen.getByText('18')).toBeInTheDocument(); // Clocked in
-      expect(screen.getByText('3')).toBeInTheDocument(); // On break
     });
+    expect(screen.getByText('18')).toBeInTheDocument(); // Clocked in
+    expect(screen.getByText('3')).toBeInTheDocument(); // On break
   });
 
   test('Admin generates reports', async () => {
@@ -599,7 +599,7 @@ describe('Error Handling and Edge Cases', () => {
     // Should show validation errors
     await waitFor(() => {
       expect(screen.getByText(/start date cannot be in the past/i)).toBeInTheDocument();
-      expect(screen.getByText(/insufficient leave balance/i)).toBeInTheDocument();
     });
+    expect(screen.getByText(/insufficient leave balance/i)).toBeInTheDocument();
   });
 });

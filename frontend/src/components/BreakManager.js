@@ -1,10 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import {
   ClockIcon,
   ExclamationTriangleIcon,
   CheckCircleIcon,
-  XCircleIcon
 } from '@heroicons/react/24/outline';
 import { attendanceAPI } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
@@ -19,7 +18,7 @@ const BreakManager = () => {
   const queryClient = useQueryClient();
 
   // Get break requirements - USER-SPECIFIC CACHE KEY
-  const { data: breakRequirements, refetch: refetchRequirements } = useQuery(
+  const { data: breakRequirements } = useQuery(
     ['breakRequirements', user?.employee_profile?.id],
     () => attendanceAPI.get('/breaks/break_requirements/'),
     {

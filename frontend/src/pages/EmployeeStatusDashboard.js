@@ -73,7 +73,7 @@ const EmployeeStatusDashboard = () => {
     return null;
   }
 
-  const employees = employeesData?.data?.results || employeesData?.results || [];
+  const employees = Array.isArray(employeesData?.data) ? employeesData.data : (employeesData?.data?.results || []);
   const attendanceLogs = attendanceData?.data?.results || attendanceData?.results || [];
   const currentlyActiveLogs = currentlyActiveData?.data?.results || currentlyActiveData?.results || [];
 

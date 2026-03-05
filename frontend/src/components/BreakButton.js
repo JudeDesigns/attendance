@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from 'react-query';
 import { ClockIcon, ExclamationTriangleIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
@@ -17,7 +17,6 @@ const BreakButton = ({ className = "", currentStatus }) => {
   // Get break requirements - USER-SPECIFIC CACHE KEY
   const {
     data: breakRequirements,
-    refetch: refetchBreakRequirements,
     isError: isBreakError,
     error: breakError
   } = useQuery(

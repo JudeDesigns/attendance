@@ -38,7 +38,7 @@ const NotificationBell = () => {
   });
 
   // Fetch notifications - USER-SPECIFIC CACHE KEY
-  const { data: notificationsData, isLoading, error } = useQuery(
+  const { data: notificationsData, isLoading } = useQuery(
     ['notifications', user?.id],
     () => notificationAPI.getMyNotifications({ limit: 10 }),
     {
@@ -66,7 +66,8 @@ const NotificationBell = () => {
       console.log('NotificationBell - Extracted notifications:', notifications);
       console.log('NotificationBell - Unread count:', apiUnreadCount);
     }
-  }, [notificationsData, notifications]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [notificationsData]);
 
   // Mark notification as read mutation
   const markAsReadMutation = useMutation(

@@ -55,7 +55,7 @@ const AdminDashboard = () => {
     }
   );
 
-  const employees = employeesData?.data?.results || [];
+  const employees = Array.isArray(employeesData?.data) ? employeesData.data : (employeesData?.data?.results || []);
   const attendanceLogs = attendanceData?.data?.results || [];
   const locations = locationsData?.data?.results || locationsData?.results || [];
   const shifts = Array.isArray(shiftsData?.data) ? shiftsData.data : (shiftsData?.data?.results || []);

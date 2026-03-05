@@ -137,7 +137,7 @@ const PushSubscriptionManager = ({ onSubscriptionChange }) => {
       });
 
       if (response.ok) {
-        const data = await response.json();
+        await response.json();
         setSubscription(pushSubscription);
         setIsSubscribed(true);
         toast.success('Push notifications enabled successfully!');

@@ -7,12 +7,9 @@ import {
   CheckCircleIcon,
   XCircleIcon,
   ClockIcon,
-  UserGroupIcon,
   CalendarIcon,
-  ExclamationTriangleIcon,
   EyeIcon,
   DocumentTextIcon,
-  FilterIcon,
   UserIcon,
   CalendarDaysIcon,
   ChatBubbleLeftEllipsisIcon,
@@ -24,7 +21,7 @@ const AdminLeaveManagement = () => {
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState('pending');
   const [selectedRequest, setSelectedRequest] = useState(null);
-  const [showApprovalModal, setShowApprovalModal] = useState(false);
+  const [, setShowApprovalModal] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectionReason, setRejectionReason] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
@@ -41,7 +38,7 @@ const AdminLeaveManagement = () => {
 
   // Fetch employees
   const { data: employeesData } = useQuery('employees', () => employeeAPI.list());
-  const employees = employeesData?.data?.results || [];
+  const employees = Array.isArray(employeesData?.data) ? employeesData.data : (employeesData?.data?.results || []);
 
   // Fetch leave types
   const { data: leaveTypesData } = useQuery('leaveTypes', () => schedulingAPI.getLeaveTypes());
@@ -246,19 +243,6 @@ const AdminLeaveManagement = () => {
         return 'bg-red-100 text-red-800';
       default:
         return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  const getPriorityColor = (priority) => {
-    switch (priority) {
-      case 'HIGH':
-        return 'text-red-600';
-      case 'MEDIUM':
-        return 'text-yellow-600';
-      case 'LOW':
-        return 'text-green-600';
-      default:
-        return 'text-gray-600';
     }
   };
 

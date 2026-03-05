@@ -165,7 +165,7 @@ const TimeTracking = () => {
             >
               <option value="me">My Logs</option>
               <option value="all">All Employees</option>
-              {(employeesData?.data?.results || employeesData?.results || []).map(employee => (
+              {(Array.isArray(employeesData?.data) ? employeesData.data : (employeesData?.data?.results || [])).map(employee => (
                 <option key={employee.id} value={employee.id}>
                   {employee.user.first_name} {employee.user.last_name}
                 </option>

@@ -14,7 +14,7 @@ const MobileForm = ({
 }) => {
   const [formData, setFormData] = useState(initialData);
   const [errors, setErrors] = useState({});
-  const [touched, setTouched] = useState({});
+  const [, setTouched] = useState({});
 
   const handleInputChange = (fieldName, value) => {
     setFormData(prev => ({
@@ -87,7 +87,6 @@ const MobileForm = ({
   const renderField = (field) => {
     const value = formData[field.name] || field.defaultValue || '';
     const error = errors[field.name];
-    const isTouched = touched[field.name];
 
     const baseInputClasses = `
       block w-full px-4 py-3 text-base border rounded-lg

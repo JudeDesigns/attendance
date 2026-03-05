@@ -17,7 +17,7 @@ const RecentActivity = ({ limit = 10 }) => {
   const [activities, setActivities] = useState([]);
 
   // WebSocket connection for real-time activity updates
-  const { lastMessage } = useWebSocket('/ws/notifications/', {
+  useWebSocket('/ws/notifications/', {
     onMessage: (message) => {
       if (message.type === 'attendance_update') {
         // Add new activity to the top of the list

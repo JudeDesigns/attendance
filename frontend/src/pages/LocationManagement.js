@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { useQuery, useQueryClient, useMutation } from 'react-query';
 import { locationAPI } from '../services/api';
-import { useAuth } from '../contexts/AuthContext';
+
 import { generateQRCode } from '../utils/helpers';
 import {
   PlusIcon,
@@ -10,16 +10,12 @@ import {
   QrCodeIcon,
   PrinterIcon,
   MapPinIcon,
-  EyeIcon,
-  DocumentDuplicateIcon,
   CheckCircleIcon,
-  XCircleIcon,
   ArrowDownTrayIcon,
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 
 const LocationManagement = () => {
-  const { user } = useAuth();
   const queryClient = useQueryClient();
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState(null);

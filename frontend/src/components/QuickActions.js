@@ -7,11 +7,10 @@ import {
   DocumentChartBarIcon as DocumentReportIcon,
   CalendarIcon,
   CogIcon,
-  ArrowDownTrayIcon as DownloadIcon,
   PlusIcon,
   UsersIcon
 } from '@heroicons/react/24/outline';
-import { attendanceAPI, employeeAPI, reportsAPI } from '../services/api';
+import { attendanceAPI, reportsAPI } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 
 const QuickActions = () => {
@@ -81,7 +80,7 @@ const QuickActions = () => {
       const endDate = pstDateParts(new Date());
       const startDate = pstDateParts(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000));
 
-      const response = await reportsAPI.generateReport({
+      await reportsAPI.generateReport({
         template_id: template.id,
         start_date: startDate,
         end_date: endDate,

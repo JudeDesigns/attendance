@@ -15,6 +15,7 @@ const useWebSocket = (url, options = {}) => {
 
       return removeListener;
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [options.onMessage, addMessageListener]);
 
   return {

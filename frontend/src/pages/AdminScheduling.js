@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient, useMutation } from 'react-query';
 import { schedulingAPI, employeeAPI } from '../services/api';
-import { useAuth } from '../contexts/AuthContext';
+
 import { format, addDays, startOfWeek, endOfWeek } from 'date-fns';
 import SpreadsheetImporter from '../components/SpreadsheetImporter';
 import {
@@ -22,7 +22,6 @@ import toast from 'react-hot-toast';
 import { getPSTDateString } from '../utils/timezoneUtils';
 
 const AdminScheduling = () => {
-  const { user } = useAuth();
   const queryClient = useQueryClient();
   const [searchParams] = useSearchParams();
   const [selectedDate, setSelectedDate] = useState(getPSTDateString());
@@ -61,7 +60,7 @@ const AdminScheduling = () => {
     return null;
   };
   const [selectedShift, setSelectedShift] = useState(null);
-  const [viewMode, setViewMode] = useState('week'); // 'week', 'month', 'employee'
+  const [, setViewMode] = useState('week'); // 'week', 'month', 'employee'
   const [selectedEmployee, setSelectedEmployee] = useState('all');
 
   // Handle URL parameters
@@ -75,7 +74,7 @@ const AdminScheduling = () => {
 
   // Fetch employees
   const { data: employeesData } = useQuery('employees', () => employeeAPI.list());
-  const employees = employeesData?.data?.results || [];
+  const employees = Array.isArray(employeesData?.data) ? employeesData.data : (employeesData?.data?.results || []);
 
   // Fetch shifts for selected period
   // CRITICAL FIX: Parse date string with 'T00:00:00' to avoid UTC midnight interpretation.

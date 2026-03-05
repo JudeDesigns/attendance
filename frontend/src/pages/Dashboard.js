@@ -1,13 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { attendanceAPI, employeeAPI } from '../services/api';
+import { attendanceAPI } from '../services/api';
 import { useQuery } from 'react-query';
 import {
   ClockIcon,
   CalendarIcon,
   ChartBarIcon,
-  ExclamationTriangleIcon as ExclamationIcon,
   PlayCircleIcon,
   StopCircleIcon,
 } from '@heroicons/react/24/outline';
@@ -18,7 +17,7 @@ import BreakButton from '../components/BreakButton';
 import { getPSTDateString, formatPSTDate } from '../utils/timezoneUtils';
 
 const Dashboard = () => {
-  const { user, isDriver, isAdmin } = useAuth();
+  const { user, isAdmin } = useAuth();
   const navigate = useNavigate();
   const [currentStatus, setCurrentStatus] = useState(null);
   const [clockLoading, setClockLoading] = useState(false);
@@ -32,7 +31,6 @@ const Dashboard = () => {
     data: statusData,
     refetch: refetchStatus,
     isLoading: isStatusLoading,
-    error: statusError
   } = useQuery(
     ['shiftStatus', user?.employee_profile?.id],
     () => attendanceAPI.shiftStatus(),

@@ -137,6 +137,7 @@ export const WebSocketProvider = ({ children }) => {
       console.error('WebSocketContext: Error creating connection:', error);
       setConnectionStatus('Error');
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token, broadcastMessage]);
 
   const disconnect = useCallback(() => {

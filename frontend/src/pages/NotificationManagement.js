@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery, useQueryClient, useMutation } from 'react-query';
 import { notificationAPI, employeeAPI } from '../services/api';
-import { useAuth } from '../contexts/AuthContext';
+
 import {
   BellIcon,
   PlusIcon,
@@ -34,22 +34,7 @@ const getNotificationTypeIcon = (type) => {
   }
 };
 
-const getStatusColor = (status) => {
-  switch (status) {
-    case 'SENT':
-    case 'DELIVERED':
-      return 'bg-green-100 text-green-800';
-    case 'PENDING':
-      return 'bg-yellow-100 text-yellow-800';
-    case 'FAILED':
-      return 'bg-red-100 text-red-800';
-    default:
-      return 'bg-gray-100 text-gray-800';
-  }
-};
-
 const NotificationManagement = () => {
-  const { user } = useAuth();
   const queryClient = useQueryClient();
   const [selectedTemplate, setSelectedTemplate] = useState(null);
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -66,7 +51,7 @@ const NotificationManagement = () => {
   );
 
   // Fetch notification logs
-  const { data: logsData, isLoading: logsLoading } = useQuery(
+  const { data: logsData } = useQuery(
     'notification-logs',
     () => notificationAPI.getLogs(),
     {
@@ -417,7 +402,7 @@ const LogsTab = () => {
   const activity = activityData?.data || {};
   const summary = activity.summary || {};
   const employees = activity.employees || [];
-  const employeeList = employeesData?.data?.results || employeesData?.data || [];
+  const employeeList = Array.isArray(employeesData?.data) ? employeesData.data : (employeesData?.data?.results || []);
 
   const toggleNotif = (id) => setExpandedNotifs(prev => ({ ...prev, [id]: !prev[id] }));
   const toggleEmployee = (id) => setExpandedEmployees(prev => ({ ...prev, [id]: !prev[id] }));

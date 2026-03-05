@@ -67,7 +67,7 @@ const ClockIn = () => {
   const canClockOut = shiftStatus.can_clock_out === true;
 
   // GPS status tracking
-  const [gpsStatus, setGpsStatus] = useState('pending'); // 'pending' | 'granted' | 'denied' | 'unavailable'
+  const [, setGpsStatus] = useState('pending'); // 'pending' | 'granted' | 'denied' | 'unavailable'
 
   // Request GPS coordinates
   const requestGPS = (silent = false) => {

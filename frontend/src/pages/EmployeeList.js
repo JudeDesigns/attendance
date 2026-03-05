@@ -13,8 +13,6 @@ import {
 } from '@heroicons/react/24/outline';
 import { employeeAPI } from '../services/api';
 import EmployeeForm from '../components/EmployeeForm';
-import ResponsiveTable from '../components/ResponsiveTable';
-import TouchButton from '../components/TouchButton';
 import Pagination from '../components/Pagination';
 import usePagination from '../hooks/usePagination';
 
@@ -70,7 +68,8 @@ const EmployeeList = () => {
   );
 
   // Filter employees based on search and filters
-  const filteredEmployees = (employeesData?.data?.results || employeesData?.results || [])?.filter(employee => {
+  const allEmployees = Array.isArray(employeesData?.data) ? employeesData.data : (employeesData?.data?.results || []);
+  const filteredEmployees = allEmployees.filter(employee => {
     const matchesSearch =
       employee.user.first_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       employee.user.last_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -305,8 +304,8 @@ const EmployeeList = () => {
       {/* Results Summary */}
       <div className="text-sm text-gray-600">
         Showing {paginatedEmployees.length} of {filteredEmployees.length} employees
-        {filteredEmployees.length !== (employeesData?.results?.length || 0) &&
-          ` (filtered from ${employeesData?.results?.length || 0} total)`
+        {filteredEmployees.length !== allEmployees.length &&
+          ` (filtered from ${allEmployees.length} total)`
         }
       </div>
 

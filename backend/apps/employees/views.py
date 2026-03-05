@@ -142,6 +142,7 @@ class EmployeeViewSet(viewsets.ModelViewSet):
     Implements role-based access control and audit logging.
     """
     queryset = Employee.objects.select_related('user', 'role').all()
+    pagination_class = None  # Return ALL employees - frontend needs the full list
     permission_classes = [permissions.IsAuthenticated]
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_fields = ['employment_status', 'role']

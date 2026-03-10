@@ -226,8 +226,12 @@ class TimeLogViewSet(viewsets.ModelViewSet):
             f"via {time_log.clock_in_method}"
         )
 
-        # Send automated notification
-        notification_service.send_clock_in_notification(employee, time_log)
+        # Send automated notification AFTER the transaction commits
+        # so it doesn't block the HTTP response (notifications involve
+        # network I/O to email/push providers which can take seconds).
+        transaction.on_commit(
+            lambda: notification_service.send_clock_in_notification(employee, time_log)
+        )
 
         response_serializer = TimeLogSerializer(time_log)
         return Response(response_serializer.data, status=status.HTTP_201_CREATED)
@@ -300,13 +304,11 @@ class TimeLogViewSet(viewsets.ModelViewSet):
             f"via {time_log.clock_out_method} - Duration: {time_log.duration_hours}h"
         )
 
-        # Send automated notifications
-        notification_service.send_clock_out_notification(employee, time_log)
-
-        # Check for overtime and send alert if needed
+        # Send notifications AFTER the transaction commits (non-blocking)
         duration_hours = time_log.duration_hours or 0.0
+        transaction.on_commit(lambda: notification_service.send_clock_out_notification(employee, time_log))
         if duration_hours > 8:  # Standard 8-hour workday
-            notification_service.send_overtime_alert(employee, duration_hours)
+            transaction.on_commit(lambda: notification_service.send_overtime_alert(employee, duration_hours))
 
         response_serializer = TimeLogSerializer(time_log)
         return Response(response_serializer.data)
@@ -388,13 +390,11 @@ class TimeLogViewSet(viewsets.ModelViewSet):
                 time_log.notes = f"{time_log.notes}\n{notes}" if time_log.notes else notes
             time_log.save()
             logger.info(f"QR Clock-out: {employee.employee_id} at {location.name}")
-            # Send automated notifications
-            notification_service.send_clock_out_notification(employee, time_log)
-
-            # Check for overtime
+            # Send notifications AFTER the transaction commits (non-blocking)
             duration_hours = time_log.duration_hours or 0.0
+            transaction.on_commit(lambda: notification_service.send_clock_out_notification(employee, time_log))
             if duration_hours > 8:
-                notification_service.send_overtime_alert(employee, duration_hours)
+                transaction.on_commit(lambda: notification_service.send_overtime_alert(employee, duration_hours))
 
             message = 'Successfully clocked out'
         
@@ -496,11 +496,18 @@ class TimeLogViewSet(viewsets.ModelViewSet):
 
         from apps.scheduling.models import Shift
 
-        # Get current and upcoming shifts
+        # Get current and upcoming shifts — reuse results to avoid
+        # redundant DB queries (get_clockin_eligible_shift internally
+        # calls get_current_shift again, so we inline the logic).
         current_shift = Shift.get_current_shift(employee)
         upcoming_shift = Shift.get_upcoming_shift(employee, within_minutes=60)
-        clockin_eligible_shift = Shift.get_clockin_eligible_shift(employee)
-        # Note: clockout_eligible_shift removed - always allow clock-out if clocked in
+        # Inline the logic of get_clockin_eligible_shift to avoid
+        # calling get_current_shift a second time:
+        if current_shift:
+            clockin_eligible_shift = current_shift
+        else:
+            upcoming_15 = Shift.get_upcoming_shift(employee, within_minutes=15)
+            clockin_eligible_shift = upcoming_15 if (upcoming_15 and upcoming_15.allows_clock_in) else None
 
         # Check current clock-in status
         active_log = TimeLog.objects.filter(

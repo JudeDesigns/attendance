@@ -96,10 +96,17 @@ class Shift(models.Model):
         """Get the current active shift for an employee"""
         now = timezone.now()
 
-        # Get all published shifts for the employee
+        # Only check shifts that could plausibly be active right now:
+        # - Regular shifts: start_time <= now <= end_time
+        # - Overnight shifts: started yesterday or today
+        # We use a 24-hour window to cover both cases without loading
+        # every historical shift into Python.
+        window_start = now - timedelta(hours=24)
         shifts = cls.objects.filter(
             employee=employee,
-            is_published=True
+            is_published=True,
+            start_time__gte=window_start,
+            start_time__lte=now + timedelta(hours=1),  # small buffer for clock skew
         )
 
         # Check each shift to see if it's currently active

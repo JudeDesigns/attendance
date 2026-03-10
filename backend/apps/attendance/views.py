@@ -5,7 +5,8 @@ from rest_framework import viewsets, status, permissions
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.utils import timezone
-from django.db.models import Sum, Avg, Count, Q, F
+from django.db.models import Sum, Avg, Count, Q, F, ExpressionWrapper, DurationField
+from django.db.models.functions import TruncDate
 from django.db import transaction
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter, OrderingFilter
@@ -637,82 +638,116 @@ class TimeLogViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated])
     def statistics(self, request):
-        """Get attendance statistics"""
+        """Get attendance statistics — optimized with DB-level aggregation"""
         today = timezone.localdate()
 
-        # Today's stats
-        today_clocked_in = TimeLog.objects.filter(
-            clock_in_time__date=today,
-            status='CLOCKED_IN'
-        ).count()
+        # ── Today's counts (2 queries → 1 query) ──
+        today_counts = TimeLog.objects.filter(
+            clock_in_time__date=today
+        ).aggregate(
+            clocked_in=Count('id', filter=Q(status='CLOCKED_IN')),
+            clocked_out=Count('id', filter=Q(status='CLOCKED_OUT'))
+        )
+        today_clocked_in = today_counts['clocked_in']
+        today_clocked_out = today_counts['clocked_out']
 
-        today_clocked_out = TimeLog.objects.filter(
-            clock_in_time__date=today,
-            status='CLOCKED_OUT'
-        ).count()
+        # Helper: duration annotation for DB-level summation
+        duration_expr = ExpressionWrapper(
+            F('clock_out_time') - F('clock_in_time'),
+            output_field=DurationField()
+        )
 
-        # This week's stats
+        # ── This week aggregate (1 query instead of materializing all logs) ──
         week_start = today - timedelta(days=today.weekday())
-        week_logs = TimeLog.objects.filter(
+        week_agg = TimeLog.objects.filter(
             clock_in_time__date__gte=week_start,
             status='CLOCKED_OUT'
+        ).annotate(dur=duration_expr).aggregate(
+            total_duration=Sum('dur'),
+            total_logs=Count('id')
         )
+        week_td = week_agg['total_duration']
+        week_total_hours = round(week_td.total_seconds() / 3600, 2) if week_td else 0
 
-        week_total_minutes = sum([log.duration_minutes for log in week_logs if log.duration_minutes])
-        week_total_hours = round(week_total_minutes / 60, 2) if week_total_minutes else 0
-
-        # This month's stats
+        # ── This month aggregate (1 query) ──
         month_start = today.replace(day=1)
-        month_logs = TimeLog.objects.filter(
+        month_agg = TimeLog.objects.filter(
             clock_in_time__date__gte=month_start,
             status='CLOCKED_OUT'
+        ).annotate(dur=duration_expr).aggregate(
+            total_duration=Sum('dur'),
+            total_logs=Count('id')
         )
+        month_td = month_agg['total_duration']
+        month_total_hours = round(month_td.total_seconds() / 3600, 2) if month_td else 0
 
-        month_total_minutes = sum([log.duration_minutes for log in month_logs if log.duration_minutes])
-        month_total_hours = round(month_total_minutes / 60, 2) if month_total_minutes else 0
-
-        # Weekly breakdown for charts (last 7 days)
-        weekly_breakdown = []
-        for i in range(7):
-            day = today - timedelta(days=6-i)  # Start from 6 days ago to today
-            day_logs = TimeLog.objects.filter(
-                clock_in_time__date=day,
+        # ── Weekly breakdown (7-day loop → 1 query with GROUP BY date) ──
+        seven_days_ago = today - timedelta(days=6)
+        daily_agg = (
+            TimeLog.objects.filter(
+                clock_in_time__date__gte=seven_days_ago,
                 status='CLOCKED_OUT'
             )
-            day_minutes = sum([log.duration_minutes for log in day_logs if log.duration_minutes])
-            day_hours = round(day_minutes / 60, 2) if day_minutes else 0
+            .annotate(log_date=TruncDate('clock_in_time'), dur=duration_expr)
+            .values('log_date')
+            .annotate(total_duration=Sum('dur'), log_count=Count('id'))
+            .order_by('log_date')
+        )
+        # Build a lookup: date → {hours, logs}
+        daily_map = {
+            row['log_date']: {
+                'hours': round(row['total_duration'].total_seconds() / 3600, 2) if row['total_duration'] else 0,
+                'logs': row['log_count']
+            }
+            for row in daily_agg
+        }
+        weekly_breakdown = []
+        for i in range(7):
+            day = today - timedelta(days=6 - i)
+            entry = daily_map.get(day, {'hours': 0, 'logs': 0})
             weekly_breakdown.append({
                 'date': day.strftime('%Y-%m-%d'),
                 'day_name': day.strftime('%a'),
-                'hours': day_hours,
-                'logs': day_logs.count()
+                'hours': entry['hours'],
+                'logs': entry['logs']
             })
 
-        # Monthly breakdown (last 4 weeks)
-        monthly_breakdown = []
-        for i in range(4):
-            # Calculate start and end of each week
-            # Start from current week and go backwards
-            week_end_date = today - timedelta(days=today.weekday()) + timedelta(days=6) - timedelta(weeks=i)
-            week_start_date = week_end_date - timedelta(days=6)
-            
-            week_logs_period = TimeLog.objects.filter(
-                clock_in_time__date__gte=week_start_date,
-                clock_in_time__date__lte=week_end_date,
+        # ── Monthly breakdown — 4 weeks (4-query loop → 1 query, Python bucketing) ──
+        four_weeks_ago = today - timedelta(days=today.weekday()) - timedelta(weeks=3)
+        month_daily_agg = (
+            TimeLog.objects.filter(
+                clock_in_time__date__gte=four_weeks_ago,
                 status='CLOCKED_OUT'
             )
-            
-            period_minutes = sum([log.duration_minutes for log in week_logs_period if log.duration_minutes])
-            period_hours = round(period_minutes / 60, 2) if period_minutes else 0
-            
+            .annotate(log_date=TruncDate('clock_in_time'), dur=duration_expr)
+            .values('log_date')
+            .annotate(total_duration=Sum('dur'), log_count=Count('id'))
+        )
+        month_daily_map = {
+            row['log_date']: row for row in month_daily_agg
+        }
+        monthly_breakdown = []
+        for i in range(4):
+            week_end_date = today - timedelta(days=today.weekday()) + timedelta(days=6) - timedelta(weeks=i)
+            week_start_date = week_end_date - timedelta(days=6)
+            # Sum from the daily map for this week range
+            period_seconds = 0
+            period_logs = 0
+            d = week_start_date
+            while d <= week_end_date:
+                row = month_daily_map.get(d)
+                if row:
+                    if row['total_duration']:
+                        period_seconds += row['total_duration'].total_seconds()
+                    period_logs += row['log_count']
+                d += timedelta(days=1)
             monthly_breakdown.append({
                 'week_start': week_start_date.strftime('%Y-%m-%d'),
                 'week_end': week_end_date.strftime('%Y-%m-%d'),
                 'label': f"{week_start_date.strftime('%d %b')} - {week_end_date.strftime('%d %b')}",
-                'hours': period_hours,
-                'logs': week_logs_period.count()
+                'hours': round(period_seconds / 3600, 2) if period_seconds else 0,
+                'logs': period_logs
             })
-        
         # Reverse to show oldest to newest
         monthly_breakdown.reverse()
 
@@ -723,11 +758,11 @@ class TimeLogViewSet(viewsets.ModelViewSet):
                 'total': today_clocked_in + today_clocked_out
             },
             'this_week': {
-                'total_logs': week_logs.count(),
+                'total_logs': week_agg['total_logs'],
                 'total_hours': week_total_hours
             },
             'this_month': {
-                'total_logs': month_logs.count(),
+                'total_logs': month_agg['total_logs'],
                 'total_hours': month_total_hours
             },
             'weekly_breakdown': weekly_breakdown,
@@ -908,6 +943,113 @@ class TimeLogViewSet(viewsets.ModelViewSet):
         logger.info(f"Detailed timesheet exported by admin user {request.user.username}")
         return response
 
+    @action(detail=True, methods=['patch'], permission_classes=[IsAdminUser])
+    @transaction.atomic
+    def admin_edit(self, request, pk=None):
+        """
+        Admin endpoint to edit a time log's clock-in/out times and its breaks.
+        Accepts:
+          clock_in_time, clock_out_time, notes  (all optional)
+          breaks: [ { id, start_time, end_time, break_number, delete }, ... ]  (optional)
+        All changes are wrapped in a transaction — if any part fails, nothing is saved.
+        """
+        time_log = self.get_object()
+        from dateutil.parser import parse as dt_parse
+        import pytz
+
+        la_tz = pytz.timezone('America/Los_Angeles')
+        changed = []
+
+        # --- Validate & stage clock-in / clock-out ---
+        for field in ('clock_in_time', 'clock_out_time'):
+            raw = request.data.get(field)
+            if raw is not None:
+                try:
+                    parsed = dt_parse(raw)
+                    if parsed.tzinfo is None:
+                        from django.utils.timezone import make_aware
+                        parsed = make_aware(parsed, la_tz)
+                    setattr(time_log, field, parsed)
+                    changed.append(field)
+                except (ValueError, TypeError) as e:
+                    return Response({'detail': f'Invalid {field}: {e}'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if 'notes' in request.data:
+            admin_note = f"\n[{timezone.now().strftime('%Y-%m-%d %H:%M')}] ADMIN EDIT by {request.user.username}"
+            time_log.notes = (time_log.notes or "") + admin_note
+            if request.data['notes']:
+                time_log.notes += f": {request.data['notes']}"
+            changed.append('notes')
+
+        # Validate clock-in < clock-out
+        if time_log.clock_out_time and time_log.clock_in_time:
+            if time_log.clock_out_time <= time_log.clock_in_time:
+                return Response({'detail': 'Clock-out must be after clock-in'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # --- Validate & stage break edits (before saving anything) ---
+        breaks_to_save = []
+        breaks_to_delete = []
+        breaks_data = request.data.get('breaks', [])
+
+        for b_data in breaks_data:
+            break_id = b_data.get('id')
+            if not break_id:
+                continue
+            try:
+                brk = Break.objects.get(id=break_id, time_log=time_log)
+            except Break.DoesNotExist:
+                continue
+
+            if b_data.get('delete'):
+                breaks_to_delete.append(brk)
+                changed.append(f'deleted break {break_id}')
+                continue
+
+            for bf in ('start_time', 'end_time'):
+                raw = b_data.get(bf)
+                if raw is not None:
+                    try:
+                        parsed = dt_parse(raw)
+                        if parsed.tzinfo is None:
+                            from django.utils.timezone import make_aware
+                            parsed = make_aware(parsed, la_tz)
+                        setattr(brk, bf, parsed)
+                    except (ValueError, TypeError) as e:
+                        return Response({'detail': f'Invalid break {bf}: {e}'}, status=status.HTTP_400_BAD_REQUEST)
+
+            # Validate break times are within shift bounds
+            if brk.start_time and time_log.clock_in_time and brk.start_time < time_log.clock_in_time:
+                return Response({'detail': f'Break start time cannot be before clock-in'}, status=status.HTTP_400_BAD_REQUEST)
+            if brk.end_time and time_log.clock_out_time and brk.end_time > time_log.clock_out_time:
+                return Response({'detail': f'Break end time cannot be after clock-out'}, status=status.HTTP_400_BAD_REQUEST)
+            if brk.start_time and brk.end_time and brk.end_time <= brk.start_time:
+                return Response({'detail': f'Break end time must be after break start time'}, status=status.HTTP_400_BAD_REQUEST)
+
+            if 'break_number' in b_data:
+                brk.break_number = b_data['break_number']
+                brk.break_type = 'LUNCH' if b_data['break_number'] == 2 else 'SHORT'
+
+            breaks_to_save.append(brk)
+            changed.append(f'edited break {break_id}')
+
+        # --- All validation passed — now persist everything ---
+        time_log.save()
+
+        for brk in breaks_to_delete:
+            brk.delete()
+
+        for brk in breaks_to_save:
+            brk.save()
+
+        logger.info(f"Admin {request.user.username} edited time log {time_log.id}: {changed}")
+
+        serializer = TimeLogSerializer(time_log)
+        return Response({
+            'message': 'Time log updated successfully',
+            'changes': changed,
+            'time_log': serializer.data,
+        })
+
 
 class BreakViewSet(viewsets.ModelViewSet):
     """
@@ -997,21 +1139,51 @@ class BreakViewSet(viewsets.ModelViewSet):
         # Get the active time log from context
         active_time_log = serializer.context['active_time_log']
 
+        # Determine the next break number from compliance manager
+        from .break_compliance import BreakComplianceManager
+        compliance = BreakComplianceManager()
+        reqs = compliance.get_break_requirements(employee, active_time_log)
+
+        # Guard: reject if all 3 breaks have been taken/waived
+        if reqs.get('has_met_max_breaks'):
+            return Response(
+                {'detail': 'All 3 breaks have already been taken or waived for this shift.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        break_number = reqs.get('break_number')
+
+        # Fallback: if compliance didn't assign a break_number (e.g. manual break
+        # before the 2-hour trigger), assign the next available slot so every break
+        # gets a number and the 3-break cap works correctly.
+        if break_number is None:
+            taken = set(reqs.get('breaks_taken', []))
+            for candidate in [1, 2, 3]:
+                if candidate not in taken:
+                    break_number = candidate
+                    break
+
+        # Map break_number to correct break_type automatically
+        break_type = serializer.validated_data['break_type']
+        if break_number:
+            break_type = 'LUNCH' if break_number == 2 else 'SHORT'
+
         # Create break
         break_instance = Break.objects.create(
             time_log=active_time_log,
-            break_type=serializer.validated_data['break_type'],
+            break_type=break_type,
+            break_number=break_number,
             start_time=timezone.now(),
             notes=serializer.validated_data.get('notes', '')
         )
 
         logger.info(
-            f"Break started: {employee.employee_id} - {break_instance.get_break_type_display()} "
-            f"at {break_instance.start_time}"
+            f"Break started: {employee.employee_id} - {break_instance.display_name} "
+            f"(#{break_number}) at {break_instance.start_time}"
         )
 
         # Create notification
-        message = f"Employee {employee.user.get_full_name()} started a {break_instance.get_break_type_display()} at {break_instance.start_time.strftime('%Y-%m-%d %H:%M:%S')}"
+        message = f"Employee {employee.user.get_full_name()} started {break_instance.display_name} at {break_instance.start_time.strftime('%Y-%m-%d %H:%M:%S')}"
         create_attendance_notification(employee, 'break_started', message, active_time_log)
 
         response_serializer = BreakSerializer(break_instance)
@@ -1407,4 +1579,5 @@ class BreakViewSet(viewsets.ModelViewSet):
             'clockout_time': clockout_time,
             'duration_hours': active_log.duration_hours
         })
+
 

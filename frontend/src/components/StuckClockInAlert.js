@@ -35,7 +35,7 @@ const StuckClockInAlert = ({ isAdmin = false }) => {
     {
       onSuccess: () => {
         queryClient.invalidateQueries('stuckClockIns');
-        queryClient.invalidateQueries('timeLogsList');
+        queryClient.invalidateQueries('timeLogs');
         setForceClockoutModal(false);
         setSelectedEmployee(null);
         setClockoutTime('');

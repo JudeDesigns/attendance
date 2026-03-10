@@ -103,44 +103,38 @@ const BreakButton = ({ className = "", currentStatus }) => {
   let buttonIcon = ClockIcon;
   let isDisabled = false;
 
-  // If we've worked enough hours but can't take a manual break and no breaks are required,
-  // it likely means the max breaks for the shift have been taken/waived.
-  const hasMetMaxBreaks = !requiresBreak && !canTakeManualBreak && (breakRequirements?.data?.hours_worked >= 1.0);
+  const hasMetMaxBreaks = breakRequirements?.data?.has_met_max_breaks || (!requiresBreak && !canTakeManualBreak && (breakRequirements?.data?.hours_worked >= 1.0));
+  const breakName = breakRequirements?.data?.break_name;
+  const maxMinutes = breakRequirements?.data?.max_minutes;
 
   if (!isCurrentlyClockedIn) {
     buttonClass += "bg-gray-300 text-gray-500 cursor-not-allowed hidden md:flex";
     buttonText = "Clock In First";
     isDisabled = true;
   } else if (hasActiveBreak) {
-    // Currently on break
     buttonClass += "bg-green-600 text-white shadow-lg";
     buttonText = "On Break";
     buttonIcon = CheckCircleIcon;
     isDisabled = true;
   } else if (requiresBreak) {
     if (isOverdue) {
-      // Overdue break - urgent
       buttonClass += "bg-red-600 text-white shadow-lg animate-pulse";
-      buttonText = "Break Overdue!";
+      buttonText = `${breakName || 'Break'} Overdue!`;
       buttonIcon = ExclamationTriangleIcon;
     } else {
-      // Break time reached - active
       buttonClass += "bg-blue-600 text-white shadow-lg hover:bg-blue-700 hover:scale-105";
-      buttonText = "Take Break Now";
+      buttonText = `Take ${breakName || 'Break'}`;
     }
   } else if (canTakeManualBreak) {
-    // Manual break available - enabled but different styling
     buttonClass += "bg-gray-500 text-white shadow-md hover:bg-gray-600 hover:scale-105";
     buttonText = "Take Break";
     isDisabled = false;
   } else if (hasMetMaxBreaks) {
-    // Shift break requirements have been fulfilled
     buttonClass += "bg-emerald-500 text-white shadow-md opacity-80 cursor-default";
     buttonText = "All Breaks Completed";
     buttonIcon = CheckCircleIcon;
     isDisabled = true;
   } else {
-    // Break time not reached yet - blurred/disabled
     buttonClass += "bg-gray-300 text-gray-500 cursor-not-allowed opacity-50 blur-sm";
     buttonText = "Break Not Available";
     isDisabled = true;
@@ -161,7 +155,7 @@ const BreakButton = ({ className = "", currentStatus }) => {
               : hasActiveBreak
                 ? "You are currently on break"
                 : requiresBreak
-                  ? `Take your ${breakRequirements.data.break_type.toLowerCase()} break`
+                  ? `Take your ${breakName || 'break'}${maxMinutes ? ` (${maxMinutes} min max)` : ''}`
                   : canTakeManualBreak
                     ? "Take a voluntary break"
                     : hasMetMaxBreaks

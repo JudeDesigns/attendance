@@ -315,10 +315,10 @@ class ReportsViewSet(viewsets.ViewSet):
         if request.query_params.get('employee_ids'):
             filters['employee_ids'] = request.query_params.get('employee_ids').split(',')
         
-        # Generate report
+        # Generate report (grouped by employee with summaries)
         generator = get_report_generator('DETAILED_TIMESHEET')(start_date, end_date, filters)
-        data = generator.get_data()
-        
+        data = generator.get_grouped_data()
+
         return Response(data)
     
     @action(detail=False, methods=['get'], permission_classes=[permissions.IsAdminUser])

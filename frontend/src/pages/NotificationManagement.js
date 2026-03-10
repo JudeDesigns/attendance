@@ -55,7 +55,7 @@ const NotificationManagement = () => {
     'notification-logs',
     () => notificationAPI.getLogs(),
     {
-      refetchInterval: 15000,
+      refetchInterval: 60000,
     }
   );
 

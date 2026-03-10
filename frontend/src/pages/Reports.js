@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import {
   DocumentChartBarIcon as DocumentReportIcon,
@@ -8,9 +8,12 @@ import {
   ChartBarIcon,
   ClockIcon,
   UserGroupIcon,
-  ExclamationTriangleIcon
+  ExclamationTriangleIcon,
+  EyeIcon,
 } from '@heroicons/react/24/outline';
+
 import { reportsAPI } from '../services/api';
+import TimesheetModal from '../components/TimesheetModal';
 import { getPSTDateString } from '../utils/timezoneUtils';
 
 // Get PST date string for N days ago
@@ -32,6 +35,9 @@ const Reports = () => {
   const [endDate, setEndDate] = useState(getPSTDateString()); // Today in PST
   const [department, setDepartment] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
+  const [timesheetData, setTimesheetData] = useState(null);
+  const [isLoadingTimesheet, setIsLoadingTimesheet] = useState(false);
+  const [showTimesheetPreview, setShowTimesheetPreview] = useState(false);
 
   // Fetch report templates
   const { data: templatesData, isLoading: templatesLoading } = useQuery(
@@ -144,6 +150,26 @@ const Reports = () => {
       window.URL.revokeObjectURL(url);
     } catch (error) {
       alert('Failed to download report: ' + error.message);
+    }
+  };
+
+  const handlePreviewTimesheet = async () => {
+    if (!startDate || !endDate) {
+      alert('Please select start and end dates');
+      return;
+    }
+    setIsLoadingTimesheet(true);
+    setShowTimesheetPreview(true);
+    try {
+      const params = { start_date: startDate, end_date: endDate };
+      if (department) params.department = department;
+      const response = await reportsAPI.getDetailedTimesheet(params);
+      setTimesheetData(response.data);
+    } catch (error) {
+      alert('Failed to load timesheet: ' + error.message);
+      setShowTimesheetPreview(false);
+    } finally {
+      setIsLoadingTimesheet(false);
     }
   };
 
@@ -263,24 +289,38 @@ const Reports = () => {
             </div>
           </div>
 
-          {/* Generate Button */}
-          <button
-            onClick={handleGenerateReport}
-            disabled={isGenerating || generateReportMutation.isLoading}
-            className="w-full bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {isGenerating || generateReportMutation.isLoading ? (
-              <div className="flex items-center justify-center">
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                Generating Report...
-              </div>
-            ) : (
-              <div className="flex items-center justify-center">
-                <DocumentReportIcon className="h-5 w-5 mr-2" />
-                Generate Report
-              </div>
+          {/* Action Buttons */}
+          <div className="flex gap-3">
+            <button
+              onClick={handleGenerateReport}
+              disabled={isGenerating || generateReportMutation.isLoading}
+              className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isGenerating || generateReportMutation.isLoading ? (
+                <div className="flex items-center justify-center">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Generating...
+                </div>
+              ) : (
+                <div className="flex items-center justify-center">
+                  <DownloadIcon className="h-5 w-5 mr-2" />
+                  Export CSV
+                </div>
+              )}
+            </button>
+            {selectedReportType === 'DETAILED_TIMESHEET' && (
+              <button
+                onClick={handlePreviewTimesheet}
+                disabled={isLoadingTimesheet}
+                className="flex-1 bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <div className="flex items-center justify-center">
+                  <EyeIcon className="h-5 w-5 mr-2" />
+                  {isLoadingTimesheet ? 'Loading...' : 'Preview Timesheet'}
+                </div>
+              </button>
             )}
-          </button>
+          </div>
         </div>
 
         {/* Recent Reports */}
@@ -337,6 +377,16 @@ const Reports = () => {
           )}
         </div>
       </div>
+
+      {/* Detailed Timesheet Modal */}
+      <TimesheetModal
+        visible={showTimesheetPreview}
+        onClose={() => { setShowTimesheetPreview(false); setTimesheetData(null); }}
+        title={`Detailed Timesheet Report — ${startDate} to ${endDate}`}
+        timesheetData={timesheetData}
+        isLoading={isLoadingTimesheet}
+        csvFilename={`detailed_timesheet_${startDate}_to_${endDate}.csv`}
+      />
     </div>
   );
 };

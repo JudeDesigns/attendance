@@ -25,7 +25,7 @@ const ClockIn = () => {
     () => attendanceAPI.currentStatus(),
     {
       enabled: !!user?.employee_profile?.id,
-      refetchInterval: 10000,
+      refetchInterval: 30000,
     }
   );
 

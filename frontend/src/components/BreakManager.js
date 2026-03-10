@@ -128,6 +128,9 @@ const BreakManager = () => {
   };
 
   // Show break reminder if required
+  const breakName = breakRequirements?.data?.break_name;
+  const maxMinutes = breakRequirements?.data?.max_minutes;
+
   if (breakRequirements?.data?.requires_break && !activeBreakData?.data?.has_active_break) {
     return (
       <div className="glass-status-warning p-4 mb-4 glass-fade-in">
@@ -135,11 +138,18 @@ const BreakManager = () => {
           <ExclamationTriangleIcon className="h-6 w-6 text-orange-600 mt-1 mr-3" />
           <div className="flex-1">
             <h3 className="text-lg font-medium glass-text-primary mb-2">
-              {breakRequirements.data.is_overdue ? 'Break Overdue!' : 'Break Reminder'}
+              {breakRequirements.data.is_overdue
+                ? `${breakName || 'Break'} Overdue!`
+                : `${breakName || 'Break'} Reminder`}
             </h3>
-            <p className="glass-text-secondary mb-4">
-              You've worked {breakRequirements.data.hours_worked} hours. {breakRequirements.data.reason}
+            <p className="glass-text-secondary mb-2">
+              You&apos;ve worked {breakRequirements.data.hours_worked} hours. {breakRequirements.data.reason}
             </p>
+            {maxMinutes && (
+              <p className="text-xs text-gray-500 mb-4">
+                Max duration: {maxMinutes} minutes
+              </p>
+            )}
 
             <div className="flex flex-wrap gap-2">
               <button
@@ -148,14 +158,14 @@ const BreakManager = () => {
                 disabled={startBreakMutation.isLoading}
               >
                 <ClockIcon className="h-4 w-4 mr-2" />
-                Take Break Now
+                Take {breakName || 'Break'}
               </button>
               
               <button
                 onClick={() => setShowWaiverModal(true)}
                 className="uber-button-secondary"
               >
-                Waive Break
+                Waive {breakName || 'Break'}
               </button>
 
               <button
@@ -249,7 +259,7 @@ const BreakManager = () => {
             <CheckCircleIcon className="h-6 w-6 text-green-600 mr-3" />
             <div>
               <h3 className="text-lg font-medium glass-text-primary">
-                On {breakData.break_type.replace('_', ' ')} Break
+                On {breakData.display_name || breakData.break_type.replace('_', ' ')} Break
               </h3>
               <p className="glass-text-secondary">
                 Started at {new Date(breakData.start_time).toLocaleTimeString()}

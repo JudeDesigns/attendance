@@ -109,6 +109,9 @@ export const attendanceAPI = {
   patch: (endpoint, data) => api.patch(`/attendance${endpoint}`, data),
 
   exportEmployee: (params) => api.get('/attendance/time-logs/export/', { params, responseType: 'blob' }),
+
+  // Admin edit time log
+  adminEditTimeLog: (id, data) => api.patch(`/attendance/time-logs/${id}/admin_edit/`, data),
 };
 
 // Scheduling API
@@ -204,6 +207,7 @@ export const reportsAPI = {
   getOvertime: (params) => api.get('/reports/overtime/', { params }),
   getDepartmentSummary: (params) => api.get('/reports/department_summary/', { params }),
   getAttendanceSummary: (params) => api.get('/reports/attendance_summary/', { params }),
+  getDetailedTimesheet: (params) => api.get('/reports/detailed_timesheet/', { params }),
 
   // Report statistics
   getStats: () => api.get('/reports/stats/'),

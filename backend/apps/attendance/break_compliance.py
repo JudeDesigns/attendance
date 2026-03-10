@@ -25,12 +25,20 @@ class BreakComplianceManager:
         """Legacy method name - use get_break_requirements instead"""
         return self.get_break_requirements(employee, time_log)
 
+    # Break schedule: break_number → (trigger_hours, overdue_hours, break_type, display_name)
+    BREAK_SCHEDULE = {
+        1: {'trigger': 2.0, 'overdue': 2.5, 'type': 'SHORT', 'name': 'Short Break 1', 'max_min': 10},
+        2: {'trigger': 4.0, 'overdue': 5.0, 'type': 'LUNCH', 'name': 'Long Break', 'max_min_employee': 60, 'max_min_driver': 30},
+        3: {'trigger': 6.0, 'overdue': 6.5, 'type': 'SHORT', 'name': 'Short Break 2', 'max_min': 10},
+    }
+
     def get_break_requirements(self, employee, time_log=None):
         """
-        Check if employee needs a break based on work hours
-        Returns dict with break requirement info
+        3-break sequential system:
+          Break 1 (Short Break 1): 10 min max — triggered at 2h worked
+          Break 2 (Long Break):    1h employees / 30m drivers — triggered at 4h worked
+          Break 3 (Short Break 2): 10 min max — triggered at 6h worked
         """
-        # If no time_log provided, get the current active one
         if not time_log:
             from .models import TimeLog
             time_log = TimeLog.objects.filter(
@@ -51,53 +59,63 @@ class BreakComplianceManager:
                 'can_take_manual_break': False,
                 'reason': 'No clock-in time recorded'
             }
-        
-        # Calculate hours worked so far
+
         current_time = timezone.now()
         hours_worked = (current_time - time_log.clock_in_time).total_seconds() / 3600
-        
-        # Count breaks
-        existing_lunch_breaks = Break.objects.filter(
-            time_log=time_log,
-            break_type='LUNCH'
-        ).count()
-        
-        short_breaks = Break.objects.filter(
-            time_log=time_log,
-            break_type='SHORT'
-        ).count()
 
-        # Check if they have met the maximum breaks for a standard shift (1 short, 1 lunch)
-        has_taken_max_breaks = (short_breaks >= 1) and (existing_lunch_breaks >= 1)
+        # Get completed break numbers (including waived)
+        taken_breaks = set(
+            Break.objects.filter(time_log=time_log, break_number__isnull=False)
+            .values_list('break_number', flat=True)
+        )
 
-        # Break requirements based on hours worked
+        # Also count legacy breaks (no break_number) by order for backward compat
+        legacy_breaks = Break.objects.filter(
+            time_log=time_log, break_number__isnull=True
+        ).order_by('start_time')
+        next_legacy_slot = len(taken_breaks) + 1
+        for lb in legacy_breaks:
+            if next_legacy_slot <= 3:
+                taken_breaks.add(next_legacy_slot)
+                next_legacy_slot += 1
+
+        all_done = taken_breaks >= {1, 2, 3}
+
+        # Determine which break to prompt next
+        is_driver = employee.is_driver
+
         requirements = {
             'requires_break': False,
             'break_type': None,
+            'break_number': None,
+            'break_name': None,
+            'max_minutes': None,
             'hours_worked': round(hours_worked, 2),
             'reason': '',
             'is_overdue': False,
-            'can_take_manual_break': (hours_worked >= 1.0) and not has_taken_max_breaks
+            'can_take_manual_break': (hours_worked >= 1.0) and not all_done,
+            'has_met_max_breaks': all_done,
+            'breaks_taken': sorted(taken_breaks),
         }
-        
-        # Short break recommended after 2 hours (FIXED: was 3 hours)
-        if hours_worked >= 2.0 and short_breaks == 0:
-            requirements.update({
-                'requires_break': True,
-                'break_type': 'SHORT',
-                'reason': 'Short break recommended after 2 hours of work',
-                'is_overdue': hours_worked >= 2.5  # Overdue after 2.5 hours
-            })
 
-        # Lunch break required after 4 hours (FIXED: was 6 hours)
-        elif hours_worked >= 4.0 and existing_lunch_breaks == 0:
-            requirements.update({
-                'requires_break': True,
-                'break_type': 'LUNCH',
-                'reason': 'Lunch break required after 4 hours of work',
-                'is_overdue': hours_worked >= 5.0  # Overdue after 5 hours
-            })
-        
+        # Walk through the schedule in order
+        for bnum in [1, 2, 3]:
+            if bnum in taken_breaks:
+                continue  # already taken/waived
+            sched = self.BREAK_SCHEDULE[bnum]
+            if hours_worked >= sched['trigger']:
+                max_min = sched.get('max_min') or (sched['max_min_driver'] if is_driver else sched['max_min_employee'])
+                requirements.update({
+                    'requires_break': True,
+                    'break_type': sched['type'],
+                    'break_number': bnum,
+                    'break_name': sched['name'],
+                    'max_minutes': max_min,
+                    'reason': f"{sched['name']} — {'required' if bnum == 2 else 'recommended'} after {sched['trigger']:.0f} hours of work",
+                    'is_overdue': hours_worked >= sched['overdue'],
+                })
+                break  # only prompt the next one in sequence
+
         return requirements
     
     def send_break_reminder(self, employee, time_log, break_requirements):
@@ -148,32 +166,32 @@ class BreakComplianceManager:
         """Record that employee waived their break"""
         try:
             with transaction.atomic():
-                # Determine which break type is currently required
                 requirements = self.get_break_requirements(employee, time_log)
                 break_type_to_waive = requirements.get('break_type') or 'SHORT'
+                break_number = requirements.get('break_number')
 
-                # Create a waived break record
                 break_waiver = Break.objects.create(
                     time_log=time_log,
                     break_type=break_type_to_waive,
+                    break_number=break_number,
                     start_time=timezone.now(),
-                    end_time=timezone.now(),  # Immediately ended
+                    end_time=timezone.now(),
                     notes=f"WAIVED: {waiver_reason}"
                 )
-                
-                # If using the enhanced model with compliance fields
+
                 if hasattr(break_waiver, 'was_waived'):
                     break_waiver.was_waived = True
                     break_waiver.waiver_reason = waiver_reason
-                    break_waiver.is_compliant = True  # Waiver makes it compliant
+                    break_waiver.is_compliant = True
                     break_waiver.save()
-                
+
                 logger.info(
-                    f"Break waiver recorded for {employee.employee_id}: {waiver_reason}"
+                    f"Break waiver recorded for {employee.employee_id}: "
+                    f"Break #{break_number} - {waiver_reason}"
                 )
-                
+
                 return break_waiver
-                
+
         except Exception as e:
             logger.error(f"Error recording break waiver for {employee.employee_id}: {str(e)}")
             return None

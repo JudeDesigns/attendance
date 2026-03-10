@@ -244,9 +244,28 @@ class Break(models.Model):
         ('PERSONAL', 'Personal Break'),
     ]
 
+    BREAK_NUMBER_CHOICES = [
+        (1, 'Short Break 1'),
+        (2, 'Long Break'),
+        (3, 'Short Break 2'),
+    ]
+
+    # Max durations in minutes per break number (role-specific for break 2)
+    BREAK_MAX_MINUTES = {
+        1: 10,   # Short Break 1: 10 min max
+        2: 60,   # Long Break: 60 min for employees (30 for drivers, checked at runtime)
+        3: 10,   # Short Break 2: 10 min max
+    }
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     time_log = models.ForeignKey(TimeLog, on_delete=models.CASCADE, related_name='breaks')
     break_type = models.CharField(max_length=20, choices=BREAK_TYPE_CHOICES)
+    break_number = models.PositiveSmallIntegerField(
+        choices=BREAK_NUMBER_CHOICES,
+        null=True,
+        blank=True,
+        help_text="Sequential break slot: 1=Short Break 1, 2=Long Break, 3=Short Break 2"
+    )
     start_time = models.DateTimeField()
     end_time = models.DateTimeField(null=True, blank=True)
     notes = models.TextField(blank=True)
@@ -296,8 +315,20 @@ class Break(models.Model):
         """Check if break is currently active (not ended)"""
         return self.end_time is None
 
+    @property
+    def display_name(self):
+        """Human-readable break name based on break_number"""
+        names = {1: 'Short Break 1', 2: 'Long Break', 3: 'Short Break 2'}
+        return names.get(self.break_number, self.get_break_type_display())
+
+    def get_max_minutes(self, employee=None):
+        """Get max allowed minutes for this break, considering employee role"""
+        if self.break_number == 2 and employee and employee.is_driver:
+            return 30
+        return self.BREAK_MAX_MINUTES.get(self.break_number, 60)
+
     def __str__(self):
-        return f"{self.time_log.employee.employee_id} - {self.get_break_type_display()} - {self.start_time.date()}"
+        return f"{self.time_log.employee.employee_id} - {self.display_name} - {self.start_time.date()}"
 
     class Meta:
         ordering = ['-start_time']

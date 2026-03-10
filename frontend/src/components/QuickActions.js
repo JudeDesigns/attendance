@@ -47,8 +47,10 @@ const QuickActions = () => {
     },
     {
       onSuccess: () => {
-        queryClient.invalidateQueries('currentTimeLog');
+        queryClient.invalidateQueries('shiftStatus');
+        queryClient.invalidateQueries('currentAttendanceStatus');
         queryClient.invalidateQueries('attendanceStats');
+        queryClient.invalidateQueries('timeLogs');
       },
       onError: (error) => {
         alert('Clock action failed: ' + error.message);

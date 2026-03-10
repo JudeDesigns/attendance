@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
-import { useQuery } from 'react-query';
+import { useQuery, useQueryClient } from 'react-query';
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns';
 import {
   ArrowLeftIcon,
@@ -9,16 +9,28 @@ import {
   ArrowDownTrayIcon,
   ChartBarIcon,
   ExclamationTriangleIcon,
+  PencilSquareIcon,
 } from '@heroicons/react/24/outline';
-import { attendanceAPI, employeeAPI, schedulingAPI } from '../services/api';
+import toast from 'react-hot-toast';
+import { attendanceAPI, employeeAPI, schedulingAPI, reportsAPI } from '../services/api';
 import { getPSTDate } from '../utils/timezoneUtils';
+import TimesheetModal from '../components/TimesheetModal';
+import { useAuth } from '../contexts/AuthContext';
 
 const EmployeeDetails = () => {
   const { employeeId } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
+  const { isAdmin } = useAuth();
+  const queryClient = useQueryClient();
   const [dateRange, setDateRange] = useState('week');
-  const [selectedDate, setSelectedDate] = useState(getPSTDate()); // Use PST date instead of local date
+  const [selectedDate, setSelectedDate] = useState(getPSTDate());
+  const [showTimesheetPreview, setShowTimesheetPreview] = useState(false);
+  const [timesheetData, setTimesheetData] = useState(null);
+  const [isLoadingTimesheet, setIsLoadingTimesheet] = useState(false);
+  const [editingLog, setEditingLog] = useState(null);
+  const [editForm, setEditForm] = useState({});
+  const [editSaving, setEditSaving] = useState(false);
 
   // Get employee data from navigation state or fetch it
   const employeeFromState = location.state?.employee;
@@ -171,6 +183,56 @@ const EmployeeDetails = () => {
     return m > 0 ? `${h}h ${m}m` : `${h}h`;
   };
 
+  // --- Edit Time Log handlers ---
+  const openEditModal = (log) => {
+    // Get breaks for this time log from the breaks array
+    const logBreaks = breaks.filter(b => b.time_log === log.id);
+    const form = {
+      clock_in_time: log.clock_in_time ? format(new Date(log.clock_in_time), "yyyy-MM-dd'T'HH:mm") : '',
+      clock_out_time: log.clock_out_time ? format(new Date(log.clock_out_time), "yyyy-MM-dd'T'HH:mm") : '',
+      notes: '',
+      breaks: logBreaks.map(b => ({
+        id: b.id,
+        start_time: b.start_time ? format(new Date(b.start_time), "yyyy-MM-dd'T'HH:mm") : '',
+        end_time: b.end_time ? format(new Date(b.end_time), "yyyy-MM-dd'T'HH:mm") : '',
+        break_number: b.break_number || null,
+        display_name: b.display_name || b.break_type,
+        delete: false,
+      })),
+    };
+    setEditForm(form);
+    setEditingLog(log);
+  };
+
+  const handleEditSave = async () => {
+    if (!editingLog) return;
+    setEditSaving(true);
+    try {
+      const payload = {};
+      if (editForm.clock_in_time) payload.clock_in_time = editForm.clock_in_time;
+      if (editForm.clock_out_time) payload.clock_out_time = editForm.clock_out_time;
+      if (editForm.notes) payload.notes = editForm.notes;
+      if (editForm.breaks?.length) {
+        payload.breaks = editForm.breaks.map(b => ({
+          id: b.id,
+          start_time: b.start_time || undefined,
+          end_time: b.end_time || undefined,
+          break_number: b.break_number || undefined,
+          delete: b.delete || false,
+        }));
+      }
+      await attendanceAPI.adminEditTimeLog(editingLog.id, payload);
+      toast.success('Time log updated successfully');
+      setEditingLog(null);
+      queryClient.invalidateQueries(['employee-time-logs', employeeId]);
+      queryClient.invalidateQueries(['employee-breaks', employeeId]);
+    } catch (err) {
+      toast.error(err?.response?.data?.detail || 'Failed to update time log');
+    } finally {
+      setEditSaving(false);
+    }
+  };
+
   const handleExportData = async () => {
     try {
       // This would call an export API endpoint
@@ -193,6 +255,24 @@ const EmployeeDetails = () => {
     } catch (error) {
       console.error('Export failed:', error);
       alert('Export failed. Please try again.');
+    }
+  };
+
+  const handlePreviewTimesheet = async () => {
+    setShowTimesheetPreview(true);
+    setIsLoadingTimesheet(true);
+    try {
+      const res = await reportsAPI.getDetailedTimesheet({
+        start_date: start,
+        end_date: end,
+        employee_ids: employee?.employee_id,
+      });
+      setTimesheetData(res.data || res);
+    } catch (error) {
+      console.error('Failed to load timesheet:', error);
+      setTimesheetData([]);
+    } finally {
+      setIsLoadingTimesheet(false);
     }
   };
 
@@ -250,6 +330,13 @@ const EmployeeDetails = () => {
             >
               <CalendarIcon className="h-4 w-4 mr-2" />
               Schedule Shift
+            </button>
+            <button
+              onClick={handlePreviewTimesheet}
+              className="inline-flex items-center px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500"
+            >
+              <ChartBarIcon className="h-4 w-4 mr-2" />
+              Preview Timesheet
             </button>
             <button
               onClick={handleExportData}
@@ -699,6 +786,15 @@ const EmployeeDetails = () => {
                                       In Progress
                                     </span>
                                   )}
+                                  {isAdmin && (
+                                    <button
+                                      onClick={() => openEditModal(activity.data)}
+                                      className="ml-2 p-1 text-gray-400 hover:text-blue-600 transition-colors"
+                                      title="Edit Time Log"
+                                    >
+                                      <PencilSquareIcon className="w-4 h-4" />
+                                    </button>
+                                  )}
                                 </div>
                               </div>
                               {activity.data.notes && (
@@ -771,6 +867,142 @@ const EmployeeDetails = () => {
           )}
         </div>
       </div>
+
+      {/* Edit Time Log Modal */}
+      {editingLog && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4" style={{ zIndex: 9999 }}>
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-gray-900">Edit Time Log</h3>
+              <button onClick={() => setEditingLog(null)} className="text-gray-400 hover:text-gray-600 text-xl font-bold">&times;</button>
+            </div>
+
+            {/* Body */}
+            <div className="px-6 py-4 space-y-4">
+              {/* Clock In */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Clock In</label>
+                <input
+                  type="datetime-local"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  value={editForm.clock_in_time || ''}
+                  onChange={(e) => setEditForm(f => ({ ...f, clock_in_time: e.target.value }))}
+                />
+              </div>
+
+              {/* Clock Out */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Clock Out</label>
+                <input
+                  type="datetime-local"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  value={editForm.clock_out_time || ''}
+                  onChange={(e) => setEditForm(f => ({ ...f, clock_out_time: e.target.value }))}
+                />
+              </div>
+
+              {/* Breaks */}
+              {editForm.breaks?.length > 0 && (
+                <div>
+                  <h4 className="text-sm font-semibold text-gray-800 mb-2">Breaks</h4>
+                  <div className="space-y-3">
+                    {editForm.breaks.map((brk, idx) => (
+                      <div key={brk.id} className={`p-3 rounded-lg border ${brk.delete ? 'bg-red-50 border-red-200 opacity-60' : 'bg-gray-50 border-gray-200'}`}>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-sm font-medium text-gray-700">
+                            {brk.display_name || `Break ${brk.break_number || idx + 1}`}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const updated = [...editForm.breaks];
+                              updated[idx] = { ...updated[idx], delete: !updated[idx].delete };
+                              setEditForm(f => ({ ...f, breaks: updated }));
+                            }}
+                            className={`text-xs px-2 py-1 rounded ${brk.delete ? 'bg-gray-200 text-gray-600' : 'bg-red-100 text-red-600 hover:bg-red-200'}`}
+                          >
+                            {brk.delete ? 'Undo Delete' : 'Delete'}
+                          </button>
+                        </div>
+                        {!brk.delete && (
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <label className="block text-xs text-gray-500 mb-1">Start</label>
+                              <input
+                                type="datetime-local"
+                                className="w-full border border-gray-300 rounded px-2 py-1.5 text-xs focus:ring-2 focus:ring-blue-500"
+                                value={brk.start_time || ''}
+                                onChange={(e) => {
+                                  const updated = [...editForm.breaks];
+                                  updated[idx] = { ...updated[idx], start_time: e.target.value };
+                                  setEditForm(f => ({ ...f, breaks: updated }));
+                                }}
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs text-gray-500 mb-1">End</label>
+                              <input
+                                type="datetime-local"
+                                className="w-full border border-gray-300 rounded px-2 py-1.5 text-xs focus:ring-2 focus:ring-blue-500"
+                                value={brk.end_time || ''}
+                                onChange={(e) => {
+                                  const updated = [...editForm.breaks];
+                                  updated[idx] = { ...updated[idx], end_time: e.target.value };
+                                  setEditForm(f => ({ ...f, breaks: updated }));
+                                }}
+                              />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Notes */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Admin Notes</label>
+                <textarea
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  rows={2}
+                  placeholder="Reason for editing..."
+                  value={editForm.notes || ''}
+                  onChange={(e) => setEditForm(f => ({ ...f, notes: e.target.value }))}
+                />
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-4 border-t border-gray-200 flex justify-end space-x-3">
+              <button
+                onClick={() => setEditingLog(null)}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleEditSave}
+                disabled={editSaving}
+                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors disabled:opacity-50"
+              >
+                {editSaving ? 'Saving...' : 'Save Changes'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Detailed Timesheet Modal */}
+      <TimesheetModal
+        visible={showTimesheetPreview}
+        onClose={() => { setShowTimesheetPreview(false); setTimesheetData(null); }}
+        title={`Timesheet — ${employee.user.first_name} ${employee.user.last_name} — ${start} to ${end}`}
+        timesheetData={timesheetData}
+        isLoading={isLoadingTimesheet}
+        csvFilename={`${employee.user.first_name}_${employee.user.last_name}_timesheet_${start}_to_${end}.csv`}
+      />
     </div>
   );
 };

@@ -47,7 +47,7 @@ const DashboardStats = () => {
     () => attendanceAPI.statistics(),
     {
       enabled: !!user?.id,
-      refetchInterval: 30000, // Refetch every 30 seconds for near real-time updates
+      refetchInterval: 60000, // Refetch every 60 seconds
       onSuccess: () => {
         setLastUpdated(new Date());
       }

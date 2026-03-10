@@ -466,7 +466,7 @@ const AdminScheduling = () => {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky left-0 z-10 bg-gray-50">
                     Employee
                   </th>
                   {weekDays.map((day) => (
@@ -484,7 +484,7 @@ const AdminScheduling = () => {
                   .filter(emp => selectedEmployee === 'all' || emp.id === selectedEmployee)
                   .map((employee) => (
                     <tr key={employee.id}>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="px-6 py-4 whitespace-nowrap sticky left-0 z-10 bg-white">
                         <div className="flex items-center">
                           <div className="flex-shrink-0 h-10 w-10">
                             <div className="h-10 w-10 rounded-full bg-gray-300 flex items-center justify-center">

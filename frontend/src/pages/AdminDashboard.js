@@ -36,7 +36,8 @@ const AdminDashboard = () => {
       });
     },
     {
-      refetchInterval: 30000, // Refresh every 30 seconds
+      refetchInterval: 60000,
+      staleTime: 30000,
     }
   );
 
@@ -70,8 +71,8 @@ const AdminDashboard = () => {
   const currentlyClockedIn = attendanceLogs.filter(log => !log.clock_out_time).length;
   // Use actual scheduled shifts instead of attendance logs
   const completedShifts = shifts.filter(shift => {
-    const shiftDate = new Date(shift.date);
-    const today = new Date(selectedDate);
+    const shiftDate = new Date(shift.date + 'T00:00:00');
+    const today = new Date(selectedDate + 'T00:00:00');
     return shiftDate.toDateString() === today.toDateString();
   }).length;
   const overtimeShifts = attendanceLogs.filter(log => log.duration_hours > 8).length;
@@ -214,7 +215,7 @@ const AdminDashboard = () => {
       <div className="glass-card glass-slide-up">
         <div className="px-4 py-5 sm:p-6">
           <h3 className="text-lg leading-6 font-medium glass-text-primary mb-4">
-            Current Employee Status ({format(new Date(selectedDate), 'MMM d, yyyy')})
+            Current Employee Status ({format(new Date(selectedDate + 'T00:00:00'), 'MMM d, yyyy')})
           </h3>
 
           {attendanceLogs.length === 0 ? (

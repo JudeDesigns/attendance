@@ -46,7 +46,8 @@ const NotificationManagement = () => {
     'notification-templates',
     () => notificationAPI.getTemplates(),
     {
-      refetchInterval: 30000,
+      refetchInterval: 120000,
+      staleTime: 60000,
     }
   );
 
@@ -55,7 +56,8 @@ const NotificationManagement = () => {
     'notification-logs',
     () => notificationAPI.getLogs(),
     {
-      refetchInterval: 60000,
+      refetchInterval: 120000,
+      staleTime: 60000,
     }
   );
 
@@ -64,7 +66,8 @@ const NotificationManagement = () => {
     'notification-stats',
     () => notificationAPI.getStats(),
     {
-      refetchInterval: 60000,
+      refetchInterval: 120000,
+      staleTime: 60000,
     }
   );
 
@@ -389,7 +392,7 @@ const LogsTab = () => {
   const { data: activityData, isLoading } = useQuery(
     ['activity-feed', filters],
     () => notificationAPI.getActivityFeed(filters),
-    { refetchInterval: 30000, keepPreviousData: true }
+    { refetchInterval: 120000, staleTime: 60000, keepPreviousData: true }
   );
 
   // Fetch employees for filter dropdown

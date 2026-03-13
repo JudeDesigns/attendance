@@ -20,7 +20,7 @@ import {
 const TimesheetModal = ({ visible, onClose, title, timesheetData, isLoading, csvFilename }) => {
   const handleExportCSV = useCallback(() => {
     if (!timesheetData || timesheetData.length === 0) return;
-    const headers = ['Employee Name','Date','Day','Start Time','End Time','Total Hours','Break 1 In','Break 1 Out','Break 1 Total','Break 2 In','Break 2 Out','Break 2 Total','Break 3 In','Break 3 Out','Break 3 Total','Total Break','Finally Hours','8 Hours','Over 8','Over 12','Hourly Rate'];
+    const headers = ['Employee Name','Date','Day','Start Time','End Time','Total Hours','Break 1 In','Break 1 Out','Break 1 Total','Break 2 In','Break 2 Out','Break 2 Total','Break 3 In','Break 3 Out','Break 3 Total','Total Break','Total Without Break','Finally Hours','8 Hours','Over 8','Over 12','Hourly Rate'];
     const csvRows = [headers.join(',')];
     timesheetData.forEach(emp => {
       emp.rows.forEach(row => {
@@ -71,7 +71,17 @@ const TimesheetModal = ({ visible, onClose, title, timesheetData, isLoading, csv
             </div>
           ) : timesheetData && timesheetData.length > 0 ? (
             <div className="space-y-8">
-              {timesheetData.map((emp, empIdx) => (
+              {timesheetData.map((emp, empIdx) => {
+                const payLines = [
+                  { label: emp.name, value: '', bold: true },
+                  { label: 'Total 8 Hrs', value: emp.summary?.total_8_hrs_pay != null ? emp.summary.total_8_hrs_pay.toFixed(2) : '' },
+                  { label: 'Total Over 8', value: emp.summary?.total_over_8_pay != null ? emp.summary.total_over_8_pay.toFixed(2) : '' },
+                  { label: 'Total Over 12', value: emp.summary?.total_over_12_pay != null ? emp.summary.total_over_12_pay.toFixed(2) : '' },
+                  { label: 'Total Payment', value: emp.summary?.total_payment != null ? emp.summary.total_payment.toFixed(2) : '', bold: true },
+                  { label: 'Check', value: '' },
+                  { label: 'Cash', value: '' },
+                ];
+                return (
                 <div key={empIdx} className="border border-gray-300 rounded-lg overflow-hidden">
                   {/* Employee Header */}
                   <div className="bg-gray-800 text-white px-4 py-2 flex items-center justify-between">
@@ -81,28 +91,40 @@ const TimesheetModal = ({ visible, onClose, title, timesheetData, isLoading, csv
                     )}
                   </div>
                   <div className="overflow-x-auto">
-                    <table className="w-full text-xs border-collapse min-w-[1400px]">
+                    <table className="w-full text-xs border-collapse min-w-[1800px]">
                       <thead>
+                        {/* Group header row */}
+                        <tr>
+                          <th colSpan={5} className="bg-gray-800 text-white px-2 py-1 border border-gray-400"></th>
+                          <th colSpan={3} className="bg-[#f5e6c8] text-gray-800 px-2 py-1 text-center font-semibold border border-gray-400">Break 1 (not deducted)</th>
+                          <th colSpan={3} className="bg-[#ea580c] text-white px-2 py-1 text-center font-semibold border border-gray-400">Break 2 (deducted)</th>
+                          <th colSpan={3} className="bg-[#f5e6c8] text-gray-800 px-2 py-1 text-center font-semibold border border-gray-400">Break 3 (not deducted)</th>
+                          <th colSpan={6} className="bg-[#1e293b] text-white px-2 py-1 text-center font-semibold border border-gray-400">Total Hours</th>
+                          <th colSpan={2} className="bg-[#065f46] text-white px-2 py-1 text-center font-semibold border border-gray-400">Hourly Rate</th>
+                        </tr>
+                        {/* Column header row */}
                         <tr>
                           <th className="bg-[#1a2744] text-white px-2 py-1.5 text-left font-semibold border border-gray-400">Date</th>
                           <th className="bg-[#1a2744] text-white px-2 py-1.5 text-left font-semibold border border-gray-400">Day</th>
                           <th className="bg-[#2d6a4f] text-white px-2 py-1.5 text-center font-semibold border border-gray-400">Start Time</th>
                           <th className="bg-[#2d6a4f] text-white px-2 py-1.5 text-center font-semibold border border-gray-400">End Time</th>
                           <th className="bg-[#dc2626] text-white px-2 py-1.5 text-center font-semibold border border-gray-400">Total Hours</th>
-                          <th className="bg-[#f5e6c8] text-gray-800 px-2 py-1.5 text-center font-semibold border border-gray-400">Brk 1 In</th>
-                          <th className="bg-[#f5e6c8] text-gray-800 px-2 py-1.5 text-center font-semibold border border-gray-400">Brk 1 Out</th>
-                          <th className="bg-[#f5e6c8] text-gray-800 px-2 py-1.5 text-center font-semibold border border-gray-400">Brk 1 Ttl</th>
-                          <th className="bg-[#ea580c] text-white px-2 py-1.5 text-center font-semibold border border-gray-400">Brk 2 In</th>
-                          <th className="bg-[#ea580c] text-white px-2 py-1.5 text-center font-semibold border border-gray-400">Brk 2 Out</th>
-                          <th className="bg-[#ea580c] text-white px-2 py-1.5 text-center font-semibold border border-gray-400">Brk 2 Ttl</th>
-                          <th className="bg-[#f5e6c8] text-gray-800 px-2 py-1.5 text-center font-semibold border border-gray-400">Brk 3 In</th>
-                          <th className="bg-[#f5e6c8] text-gray-800 px-2 py-1.5 text-center font-semibold border border-gray-400">Brk 3 Out</th>
-                          <th className="bg-[#f5e6c8] text-gray-800 px-2 py-1.5 text-center font-semibold border border-gray-400">Brk 3 Ttl</th>
+                          <th className="bg-[#f5e6c8] text-gray-800 px-2 py-1.5 text-center font-semibold border border-gray-400">Break In</th>
+                          <th className="bg-[#f5e6c8] text-gray-800 px-2 py-1.5 text-center font-semibold border border-gray-400">Break Out</th>
+                          <th className="bg-[#f5e6c8] text-gray-800 px-2 py-1.5 text-center font-semibold border border-gray-400">Total Break</th>
+                          <th className="bg-[#ea580c] text-white px-2 py-1.5 text-center font-semibold border border-gray-400">Break In</th>
+                          <th className="bg-[#ea580c] text-white px-2 py-1.5 text-center font-semibold border border-gray-400">Break Out</th>
+                          <th className="bg-[#ea580c] text-white px-2 py-1.5 text-center font-semibold border border-gray-400">Total Break</th>
+                          <th className="bg-[#f5e6c8] text-gray-800 px-2 py-1.5 text-center font-semibold border border-gray-400">Start Time</th>
+                          <th className="bg-[#f5e6c8] text-gray-800 px-2 py-1.5 text-center font-semibold border border-gray-400">End Time</th>
+                          <th className="bg-[#f5e6c8] text-gray-800 px-2 py-1.5 text-center font-semibold border border-gray-400">Total Break</th>
                           <th className="bg-[#dc2626] text-white px-2 py-1.5 text-center font-semibold border border-gray-400">Total Break</th>
+                          <th className="bg-[#dc2626] text-white px-2 py-1.5 text-center font-semibold border border-gray-400">Total W/O Break</th>
                           <th className="bg-[#1e293b] text-white px-2 py-1.5 text-center font-semibold border border-gray-400">Finally Hrs</th>
                           <th className="bg-[#1e293b] text-white px-2 py-1.5 text-center font-semibold border border-gray-400">8 Hours</th>
                           <th className="bg-[#1e293b] text-white px-2 py-1.5 text-center font-semibold border border-gray-400">Over 8</th>
                           <th className="bg-[#1e293b] text-white px-2 py-1.5 text-center font-semibold border border-gray-400">Over 12</th>
+                          <th colSpan={2} className="bg-[#065f46] text-white px-2 py-1.5 text-center font-semibold border border-gray-400"></th>
                         </tr>
                       </thead>
                       <tbody>
@@ -123,54 +145,35 @@ const TimesheetModal = ({ visible, onClose, title, timesheetData, isLoading, csv
                             <td className="bg-[#fef9e7] px-2 py-1 border border-gray-300 text-center">{row['Break 3 Out']}</td>
                             <td className="bg-[#fef9e7] px-2 py-1 border border-gray-300 text-center">{row['Break 3 Total']}</td>
                             <td className="bg-[#f8d7da] px-2 py-1 border border-gray-300 text-center font-medium">{row['Total Break']}</td>
+                            <td className="bg-[#f8d7da] px-2 py-1 border border-gray-300 text-center">{row['Total Without Break']}</td>
                             <td className="bg-[#e2e8f0] px-2 py-1 border border-gray-300 text-center font-bold">{row['Finally Hours']}</td>
                             <td className="bg-[#e2e8f0] px-2 py-1 border border-gray-300 text-center">{row['8 Hours']}</td>
                             <td className="bg-[#e2e8f0] px-2 py-1 border border-gray-300 text-center">{row['over 8']}</td>
                             <td className="bg-[#e2e8f0] px-2 py-1 border border-gray-300 text-center">{row['over 12']}</td>
+                            <td className={`bg-[#ecfdf5] px-2 py-1 border border-gray-300 text-right text-[11px] whitespace-nowrap ${rowIdx < payLines.length && payLines[rowIdx].bold ? 'font-bold' : ''}`}>
+                              {rowIdx < payLines.length ? payLines[rowIdx].label : ''}
+                            </td>
+                            <td className={`bg-[#ecfdf5] px-2 py-1 border border-gray-300 text-center ${rowIdx < payLines.length && payLines[rowIdx].bold ? 'font-bold' : ''}`}>
+                              {rowIdx < payLines.length ? payLines[rowIdx].value : ''}
+                            </td>
                           </tr>
                         ))}
                         {/* Totals Row */}
                         <tr className="font-bold">
                           <td colSpan={5} className="bg-gray-700 text-white px-2 py-1.5 border border-gray-400 text-right">TOTALS:</td>
-                          <td colSpan={10} className="bg-gray-200 px-2 py-1.5 border border-gray-400"></td>
-                          <td className="bg-gray-800 text-white px-2 py-1.5 border border-gray-400 text-center">{emp.summary.total_finally_hours}</td>
-                          <td className="bg-gray-800 text-white px-2 py-1.5 border border-gray-400 text-center">{emp.summary.total_8_hours}</td>
-                          <td className="bg-gray-800 text-white px-2 py-1.5 border border-gray-400 text-center">{emp.summary.total_over_8}</td>
-                          <td className="bg-gray-800 text-white px-2 py-1.5 border border-gray-400 text-center">{emp.summary.total_over_12}</td>
+                          <td colSpan={11} className="bg-gray-200 px-2 py-1.5 border border-gray-400"></td>
+                          <td className="bg-gray-800 text-white px-2 py-1.5 border border-gray-400 text-center">{emp.summary?.total_finally_hours}</td>
+                          <td className="bg-gray-800 text-white px-2 py-1.5 border border-gray-400 text-center">{emp.summary?.total_8_hours}</td>
+                          <td className="bg-gray-800 text-white px-2 py-1.5 border border-gray-400 text-center">{emp.summary?.total_over_8}</td>
+                          <td className="bg-gray-800 text-white px-2 py-1.5 border border-gray-400 text-center">{emp.summary?.total_over_12}</td>
+                          <td colSpan={2} className="bg-gray-200 px-2 py-1.5 border border-gray-400"></td>
                         </tr>
                       </tbody>
                     </table>
                   </div>
-
-                  {/* Pay Summary */}
-                  {emp.hourly_rate != null && (
-                    <div className="bg-gray-100 px-4 py-3 border-t border-gray-300">
-                      <div className="grid grid-cols-2 md:grid-cols-5 gap-3 text-xs">
-                        <div className="bg-white rounded p-2 border">
-                          <div className="text-gray-500 mb-1">Hourly Rate</div>
-                          <div className="font-bold text-gray-900">${Number(emp.hourly_rate).toFixed(2)}</div>
-                        </div>
-                        <div className="bg-white rounded p-2 border">
-                          <div className="text-gray-500 mb-1">8 Hrs Pay (1.0x)</div>
-                          <div className="font-bold text-green-700">${emp.summary.total_8_hrs_pay != null ? emp.summary.total_8_hrs_pay.toFixed(2) : '—'}</div>
-                        </div>
-                        <div className="bg-white rounded p-2 border">
-                          <div className="text-gray-500 mb-1">Over 8 Pay (1.5x)</div>
-                          <div className="font-bold text-orange-600">${emp.summary.total_over_8_pay != null ? emp.summary.total_over_8_pay.toFixed(2) : '—'}</div>
-                        </div>
-                        <div className="bg-white rounded p-2 border">
-                          <div className="text-gray-500 mb-1">Over 12 Pay (2.0x)</div>
-                          <div className="font-bold text-red-600">${emp.summary.total_over_12_pay != null ? emp.summary.total_over_12_pay.toFixed(2) : '—'}</div>
-                        </div>
-                        <div className="bg-blue-50 rounded p-2 border border-blue-200">
-                          <div className="text-blue-600 mb-1 font-semibold">Total Payment</div>
-                          <div className="font-bold text-blue-800 text-sm">${emp.summary.total_payment != null ? emp.summary.total_payment.toFixed(2) : '—'}</div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
                 </div>
-              ))}
+                );
+              })}
             </div>
           ) : (
             <div className="text-center py-10 text-gray-500">

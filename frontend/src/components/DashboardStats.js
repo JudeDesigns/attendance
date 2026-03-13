@@ -47,7 +47,8 @@ const DashboardStats = () => {
     () => attendanceAPI.statistics(),
     {
       enabled: !!user?.id,
-      refetchInterval: 60000, // Refetch every 60 seconds
+      refetchInterval: 60000,
+      staleTime: 30000,
       onSuccess: () => {
         setLastUpdated(new Date());
       }
@@ -60,7 +61,8 @@ const DashboardStats = () => {
     () => employeeAPI.statistics(),
     {
       enabled: !!user?.id,
-      refetchInterval: 300000, // Refetch every 5 minutes
+      refetchInterval: 300000,
+      staleTime: 120000,
     }
   );
 

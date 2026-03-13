@@ -30,7 +30,8 @@ const WebhookManagement = () => {
     'webhook-endpoints',
     () => webhookAPI.getEndpoints(),
     {
-      refetchInterval: 30000,
+      refetchInterval: 120000,
+      staleTime: 60000,
     }
   );
 
@@ -41,7 +42,8 @@ const WebhookManagement = () => {
     'webhook-stats',
     () => webhookAPI.getStats(),
     {
-      refetchInterval: 60000,
+      refetchInterval: 120000,
+      staleTime: 60000,
     }
   );
 
@@ -53,7 +55,8 @@ const WebhookManagement = () => {
     () => webhookAPI.getDeliveries(),
     {
       enabled: activeTab === 'deliveries',
-      refetchInterval: 30000,
+      refetchInterval: 120000,
+      staleTime: 60000,
     }
   );
 
@@ -65,7 +68,8 @@ const WebhookManagement = () => {
     () => webhookAPI.getEvents(),
     {
       enabled: activeTab === 'events',
-      refetchInterval: 30000,
+      refetchInterval: 120000,
+      staleTime: 60000,
     }
   );
 

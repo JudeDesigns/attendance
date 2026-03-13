@@ -25,7 +25,8 @@ const ClockIn = () => {
     () => attendanceAPI.currentStatus(),
     {
       enabled: !!user?.employee_profile?.id,
-      refetchInterval: 30000,
+      refetchInterval: 60000,
+      staleTime: 30000,
     }
   );
 
@@ -35,7 +36,8 @@ const ClockIn = () => {
     () => attendanceAPI.qrEnforcementStatus(),
     {
       enabled: !!user?.employee_profile?.id,
-      refetchInterval: 30000,
+      refetchInterval: 120000,
+      staleTime: 60000,
     }
   );
 
@@ -45,7 +47,8 @@ const ClockIn = () => {
     () => attendanceAPI.shiftStatus(),
     {
       enabled: !!user?.employee_profile?.id,
-      refetchInterval: 30000,
+      refetchInterval: 60000,
+      staleTime: 30000,
     }
   );
 

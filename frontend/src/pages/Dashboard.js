@@ -36,7 +36,8 @@ const Dashboard = () => {
     () => attendanceAPI.shiftStatus(),
     {
       enabled: !!user?.employee_profile?.id,
-      refetchInterval: 30000,
+      refetchInterval: 60000,
+      staleTime: 30000,
       retry: 3,
     }
   );
@@ -44,7 +45,7 @@ const Dashboard = () => {
   const { data: qrEnforcementData } = useQuery(
     ['qrEnforcementStatus', user?.employee_profile?.id],
     () => attendanceAPI.qrEnforcementStatus(),
-    { enabled: !!user?.employee_profile?.id, refetchInterval: 30000 }
+    { enabled: !!user?.employee_profile?.id, refetchInterval: 120000, staleTime: 60000 }
   );
 
   const { data: timeLogsData } = useQuery(

@@ -43,7 +43,8 @@ const NotificationBell = () => {
     () => notificationAPI.getMyNotifications({ limit: 10 }),
     {
       enabled: !!user?.id,
-      refetchInterval: 30000, // Refetch every 30 seconds as fallback
+      refetchInterval: 60000,
+      staleTime: 30000,
       onError: (error) => {
         console.error('NotificationBell - API Error:', error);
       }

@@ -39,7 +39,8 @@ const RecentActivity = ({ limit = 10 }) => {
     () => attendanceAPI.list({ limit: 20, ordering: '-created_at' }),
     {
       enabled: !!user?.id,
-      refetchInterval: 60000, // Refetch every minute
+      refetchInterval: 60000,
+      staleTime: 30000,
     }
   );
 
@@ -50,6 +51,7 @@ const RecentActivity = ({ limit = 10 }) => {
     {
       enabled: !!user?.id,
       refetchInterval: 60000,
+      staleTime: 30000,
     }
   );
 

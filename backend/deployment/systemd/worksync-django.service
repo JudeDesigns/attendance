@@ -11,7 +11,8 @@ WorkingDirectory=/opt/worksync/backend
 Environment=DJANGO_SETTINGS_MODULE=worksync.settings_production
 EnvironmentFile=/opt/worksync/backend/.env.production
 ExecStart=/opt/worksync/backend/venv/bin/gunicorn \
-    --workers 3 \
+    --workers 5 \
+    --threads 2 \
     --bind 127.0.0.1:8000 \
     --timeout 120 \
     --max-requests 1000 \

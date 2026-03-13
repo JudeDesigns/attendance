@@ -50,7 +50,8 @@ const EmployeeStatusDashboard = () => {
     },
     {
       enabled: isAdmin, // Only fetch if admin
-      refetchInterval: isAdmin ? 30000 : false, // Refresh every 30 seconds if admin
+      refetchInterval: isAdmin ? 60000 : false,
+      staleTime: 30000,
     }
   );
 
@@ -63,7 +64,8 @@ const EmployeeStatusDashboard = () => {
     }),
     {
       enabled: isAdmin,
-      refetchInterval: isAdmin ? 30000 : false,
+      refetchInterval: isAdmin ? 60000 : false,
+      staleTime: 30000,
     }
   );
 

@@ -63,6 +63,7 @@ export const authAPI = {
   refresh: (refreshToken) => api.post('/auth/refresh/', { refresh: refreshToken }),
   verify: (token) => api.post('/auth/verify/', { token }),
   profile: () => api.get('/auth/profile/'),
+  changePassword: (data) => api.post('/auth/change-password/', data),
 };
 
 // Employee API

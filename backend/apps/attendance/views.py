@@ -282,21 +282,32 @@ class TimeLogViewSet(viewsets.ModelViewSet):
         if serializer.validated_data.get('location_id'):
             location = Location.objects.get(id=serializer.validated_data['location_id'])
         
+        # Auto-end any active breaks before clocking out
+        clock_out_time = timezone.now()
+        active_breaks = Break.objects.filter(
+            time_log=time_log,
+            end_time__isnull=True
+        )
+        ended_breaks_count = active_breaks.count()
+        if ended_breaks_count > 0:
+            active_breaks.update(end_time=clock_out_time, notes='Auto-ended on clock-out')
+            logger.info(f"Auto-ended {ended_breaks_count} active break(s) on clock-out for {employee.employee_id}")
+
         # Update time log
-        time_log.clock_out_time = timezone.now()
+        time_log.clock_out_time = clock_out_time
         time_log.clock_out_location = location
         time_log.clock_out_method = serializer.validated_data.get('method', 'PORTAL')
         time_log.clock_out_latitude = serializer.validated_data.get('latitude')
         time_log.clock_out_longitude = serializer.validated_data.get('longitude')
         time_log.status = 'CLOCKED_OUT'
-        
+
         # Append notes if provided
         if serializer.validated_data.get('notes'):
             if time_log.notes:
                 time_log.notes += f"\n{serializer.validated_data['notes']}"
             else:
                 time_log.notes = serializer.validated_data['notes']
-        
+
         time_log.save()
         
         logger.info(
@@ -380,7 +391,19 @@ class TimeLogViewSet(viewsets.ModelViewSet):
         else:
             # Update existing time log
             time_log = serializer.validated_data['active_log']
-            time_log.clock_out_time = timezone.now()
+            qr_clock_out_time = timezone.now()
+
+            # Auto-end any active breaks before clocking out
+            active_breaks = Break.objects.filter(
+                time_log=time_log,
+                end_time__isnull=True
+            )
+            ended_breaks_count = active_breaks.count()
+            if ended_breaks_count > 0:
+                active_breaks.update(end_time=qr_clock_out_time, notes='Auto-ended on clock-out')
+                logger.info(f"Auto-ended {ended_breaks_count} active break(s) on QR clock-out for {employee.employee_id}")
+
+            time_log.clock_out_time = qr_clock_out_time
             time_log.clock_out_location = location
             time_log.clock_out_method = 'QR_CODE'
             time_log.clock_out_latitude = serializer.validated_data.get('latitude')
@@ -840,6 +863,12 @@ class TimeLogViewSet(viewsets.ModelViewSet):
         ]
         writer.writerow(headers)
 
+        # Accumulators for totals row
+        sum_finally_hours = 0.0
+        sum_reg_hours = 0.0
+        sum_over_8 = 0.0
+        sum_over_12 = 0.0
+
         for log in queryset.order_by('clock_in_time'):
             # Convert main times to user's timezone
             clock_in = convert_to_user_timezone(log.clock_in_time, log.employee.user) if log.clock_in_time else None
@@ -931,6 +960,12 @@ class TimeLogViewSet(viewsets.ModelViewSet):
                 over_8 = 0.0
                 over_12 = 0.0
 
+            # Accumulate totals
+            sum_finally_hours += finally_hours_decimal
+            sum_reg_hours += reg_hours
+            sum_over_8 += over_8
+            sum_over_12 += over_12
+
             # Construct Row
             row = [
                 date_str,
@@ -946,6 +981,18 @@ class TimeLogViewSet(viewsets.ModelViewSet):
                 f"{over_12:.2f}"
             ]
             writer.writerow(row)
+
+        # Write totals row
+        totals_row = [
+            'TOTALS', '', '', '', '',
+            '', '', '', '', '', '', '', '', '',  # 9 break columns empty
+            '',
+            f"{sum_finally_hours:.2f}",
+            f"{sum_reg_hours:.2f}",
+            f"{sum_over_8:.2f}",
+            f"{sum_over_12:.2f}"
+        ]
+        writer.writerow(totals_row)
 
         logger.info(f"Detailed timesheet exported by admin user {request.user.username}")
         return response
@@ -1568,6 +1615,16 @@ class BreakViewSet(viewsets.ModelViewSet):
 
         # Perform force clock-out
         with transaction.atomic():
+            # Auto-end any active breaks
+            active_breaks = Break.objects.filter(
+                time_log=active_log,
+                end_time__isnull=True
+            )
+            ended_breaks_count = active_breaks.count()
+            if ended_breaks_count > 0:
+                active_breaks.update(end_time=clockout_time, notes='Auto-ended on admin force clock-out')
+                logger.info(f"Auto-ended {ended_breaks_count} active break(s) on force clock-out for {employee.employee_id}")
+
             active_log.clock_out_time = clockout_time
             active_log.clock_out_method = 'ADMIN'
             active_log.status = 'CLOCKED_OUT'

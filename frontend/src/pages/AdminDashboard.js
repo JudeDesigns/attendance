@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { employeeAPI, attendanceAPI, locationAPI, schedulingAPI } from '../services/api';
-import { useQuery } from 'react-query';
+import { useQuery, useQueryClient } from 'react-query';
 import { format } from 'date-fns';
 import { formatDurationCompact } from '../utils/helpers';
 import DashboardStats from '../components/DashboardStats';
@@ -15,11 +15,15 @@ import {
   ChartBarIcon,
   ExclamationTriangleIcon,
   MapPinIcon as LocationMarkerIcon,
+  ArrowRightStartOnRectangleIcon,
 } from '@heroicons/react/24/outline';
 import { getPSTDateString } from '../utils/timezoneUtils';
 
 const AdminDashboard = () => {
   const [selectedDate, setSelectedDate] = useState(getPSTDateString());
+  const [forceClockoutTarget, setForceClockoutTarget] = useState(null); // { employee_id, employee_name }
+  const [forceClockoutLoading, setForceClockoutLoading] = useState(false);
+  const queryClient = useQueryClient();
 
   // Get all employees
   const { data: employeesData } = useQuery('employees', () => employeeAPI.list());
@@ -86,7 +90,22 @@ const AdminDashboard = () => {
     goToPage: goToAttendancePage
   } = usePagination(attendanceLogs, 10);
 
-
+  const handleForceClockout = async () => {
+    if (!forceClockoutTarget) return;
+    setForceClockoutLoading(true);
+    try {
+      await attendanceAPI.forceClockout({
+        employee_id: forceClockoutTarget.employee_id,
+        reason: 'Admin force clock-out from dashboard',
+      });
+      queryClient.invalidateQueries(['attendance', selectedDate]);
+      setForceClockoutTarget(null);
+    } catch (err) {
+      alert(err?.response?.data?.detail || 'Failed to force clock-out');
+    } finally {
+      setForceClockoutLoading(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -249,6 +268,9 @@ const AdminDashboard = () => {
                     <th className="glass-table-cell text-left text-xs font-medium glass-text-secondary uppercase tracking-wider">
                       Method
                     </th>
+                    <th className="glass-table-cell text-left text-xs font-medium glass-text-secondary uppercase tracking-wider">
+                      Actions
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -285,6 +307,17 @@ const AdminDashboard = () => {
                       </td>
                       <td className="glass-table-cell whitespace-nowrap text-sm glass-text-secondary">
                         {log.clock_in_method}
+                      </td>
+                      <td className="glass-table-cell whitespace-nowrap">
+                        {!log.clock_out_time && (
+                          <button
+                            onClick={() => setForceClockoutTarget({ employee_id: log.employee_id, employee_name: log.employee_name })}
+                            className="inline-flex items-center px-2.5 py-1.5 text-xs font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
+                          >
+                            <ArrowRightStartOnRectangleIcon className="h-3.5 w-3.5 mr-1" />
+                            Clock Out
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -377,6 +410,35 @@ const AdminDashboard = () => {
           <RecentActivity limit={8} />
         </div>
       </div>
+
+      {/* Force Clock-Out Confirmation Modal */}
+      {forceClockoutTarget && (
+        <div className="fixed inset-0 flex items-center justify-center z-50">
+          <div className="absolute inset-0 bg-black bg-opacity-50" onClick={() => setForceClockoutTarget(null)} />
+          <div className="relative bg-white rounded-lg shadow-xl p-6 max-w-sm w-full mx-4">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Force Clock-Out</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Are you sure you want to clock out <strong>{forceClockoutTarget.employee_name}</strong>? This will end their current session and any active breaks.
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setForceClockoutTarget(null)}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 focus:outline-none"
+                disabled={forceClockoutLoading}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleForceClockout}
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
+                disabled={forceClockoutLoading}
+              >
+                {forceClockoutLoading ? 'Clocking Out...' : 'Confirm Clock-Out'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

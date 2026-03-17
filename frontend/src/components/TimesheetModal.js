@@ -30,6 +30,30 @@ const TimesheetModal = ({ visible, onClose, title, timesheetData, isLoading, csv
           return `"${String(val).replace(/"/g, '""')}"`;
         }).join(','));
       });
+      // Add totals row per employee
+      if (emp.summary) {
+        const totalsRow = headers.map(h => {
+          if (h === 'Employee Name') return `"TOTALS - ${emp.name}"`;
+          if (h === 'Finally Hours') return `"${emp.summary.total_finally_hours ?? ''}"`;
+          if (h === '8 Hours') return `"${emp.summary.total_8_hours ?? ''}"`;
+          if (h === 'Over 8') return `"${emp.summary.total_over_8 ?? ''}"`;
+          if (h === 'Over 12') return `"${emp.summary.total_over_12 ?? ''}"`;
+          return '""';
+        }).join(',');
+        csvRows.push(totalsRow);
+        // Add pay summary row
+        const payRow = headers.map(h => {
+          if (h === 'Employee Name') return `"PAY SUMMARY - ${emp.name}"`;
+          if (h === '8 Hours') return `"${emp.summary.total_8_hrs_pay != null ? emp.summary.total_8_hrs_pay.toFixed(2) : ''}"`;
+          if (h === 'Over 8') return `"${emp.summary.total_over_8_pay != null ? emp.summary.total_over_8_pay.toFixed(2) : ''}"`;
+          if (h === 'Over 12') return `"${emp.summary.total_over_12_pay != null ? emp.summary.total_over_12_pay.toFixed(2) : ''}"`;
+          if (h === 'Hourly Rate') return `"${emp.summary.total_payment != null ? emp.summary.total_payment.toFixed(2) : ''}"`;
+          return '""';
+        }).join(',');
+        csvRows.push(payRow);
+      }
+      // Blank separator row between employees
+      csvRows.push('');
     });
     const blob = new Blob([csvRows.join('\n')], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);

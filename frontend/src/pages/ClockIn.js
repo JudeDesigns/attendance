@@ -197,6 +197,10 @@ const ClockIn = () => {
 
   const handleQRScan = async (qrData) => {
     // SECURITY UPDATE: Use server-side validation for QR codes
+    if (!qrData || !qrData.trim()) {
+      toast.error('Could not read QR code. Please ensure the QR code is clear and try again.');
+      return;
+    }
     setLoading(true);
     try {
       // Re-request GPS before each QR scan to ensure fresh coordinates

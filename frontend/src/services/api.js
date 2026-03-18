@@ -109,7 +109,7 @@ export const attendanceAPI = {
   post: (endpoint, data) => api.post(`/attendance${endpoint}`, data),
   patch: (endpoint, data) => api.patch(`/attendance${endpoint}`, data),
 
-  forceClockout: (data) => api.post('/attendance/time-logs/force_clockout/', data),
+  forceClockout: (data) => api.post('/attendance/breaks/force_clockout/', data),
   exportEmployee: (params) => api.get('/attendance/time-logs/export/', { params, responseType: 'blob' }),
 
   // Admin edit time log

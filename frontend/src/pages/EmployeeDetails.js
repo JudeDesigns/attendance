@@ -84,7 +84,9 @@ const EmployeeDetails = () => {
       employee: employeeId,
       start_date: start,
       end_date: end,
-    })
+      page_size: 500,
+    }),
+    { staleTime: 5 * 60 * 1000, refetchOnWindowFocus: false }
   );
 
   // Get breaks for this employee
@@ -94,7 +96,9 @@ const EmployeeDetails = () => {
       employee: employeeId,
       start_date: `${start}T00:00:00`,
       end_date: `${end}T23:59:59`,
-    })
+      page_size: 500,
+    }),
+    { staleTime: 5 * 60 * 1000, refetchOnWindowFocus: false }
   );
 
   // Get scheduled shifts for this employee
@@ -104,7 +108,8 @@ const EmployeeDetails = () => {
       employee: employeeId,
       start_date: start,
       end_date: end,
-    })
+    }),
+    { staleTime: 5 * 60 * 1000, refetchOnWindowFocus: false }
   );
 
   const timeLogs = timeLogsData?.data?.results || timeLogsData?.results || [];
@@ -130,19 +135,9 @@ const EmployeeDetails = () => {
     ),
   }));
 
-  // Collect orphan breaks (time_log not in current view — rare edge case)
-  const knownLogIds = new Set(timeLogs.map(l => l.id));
-  const orphanBreaks = breaks.filter(b => !knownLogIds.has(b.time_log));
-
-  const activityTimeline = [
-    ...timeLogEntries,
-    ...orphanBreaks.map(b => ({
-      type: 'break',
-      id: b.id,
-      timestamp: b.start_time,
-      data: b,
-    })),
-  ].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+  // Only show breaks that belong to a TimeLog in the current view — drop orphans
+  const activityTimeline = [...timeLogEntries]
+    .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 
   // Group by date for display
   const activitiesByDate = activityTimeline.reduce((groups, activity) => {
@@ -294,7 +289,7 @@ const EmployeeDetails = () => {
     if (status === 'CLOCKED_IN') {
       return (
         <span className="glass-status-success inline-flex items-center">
-          <div className="w-2 h-2 bg-green-400 rounded-full mr-1 animate-pulse"></div>
+          <div className="w-2 h-2 bg-green-400 rounded-full mr-1"></div>
           Clocked In
         </span>
       );
@@ -797,7 +792,7 @@ const EmployeeDetails = () => {
                                       </span>
                                     ) : (
                                       <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                        <div className="w-2 h-2 bg-blue-400 rounded-full mr-1.5 animate-pulse"></div>
+                                        <div className="w-2 h-2 bg-blue-400 rounded-full mr-1.5"></div>
                                         In Progress
                                       </span>
                                     )}
@@ -861,7 +856,7 @@ const EmployeeDetails = () => {
                                         </span>
                                       ) : (
                                         <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-orange-50 text-orange-700">
-                                          <div className="w-1.5 h-1.5 bg-orange-400 rounded-full mr-1 animate-pulse"></div>
+                                          <div className="w-1.5 h-1.5 bg-orange-400 rounded-full mr-1"></div>
                                           Active
                                         </span>
                                       )}
@@ -871,42 +866,6 @@ const EmployeeDetails = () => {
 
                               </div>
                             )}
-                          </div>
-                        ) : (
-                          // Orphan Break Card (break without matching TimeLog in view)
-                          <div className="flex items-start space-x-4">
-                            <div className="flex-shrink-0">
-                              <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
-                                <svg className="w-5 h-5 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
-                              </div>
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center justify-between">
-                                <div>
-                                  <p className="text-sm font-medium text-gray-900">Break</p>
-                                  <p className="text-sm text-gray-500 mt-1">
-                                    {format(new Date(activity.data.start_time), 'h:mm a')}
-                                    {' → '}
-                                    {activity.data.end_time
-                                      ? format(new Date(activity.data.end_time), 'h:mm a')
-                                      : <span className="text-orange-600 font-medium">On Break</span>
-                                    }
-                                  </p>
-                                </div>
-                                <div className="flex items-center space-x-3">
-                                  {activity.data.duration_minutes && (
-                                    <span className="text-sm font-medium text-gray-700">
-                                      {formatBreakDuration(activity.data.duration_minutes)}
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-                              {activity.data.notes && (
-                                <p className="text-xs text-gray-500 mt-2 italic">{activity.data.notes}</p>
-                              )}
-                            </div>
                           </div>
                         )}
                       </div>

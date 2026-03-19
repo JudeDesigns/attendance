@@ -228,7 +228,7 @@ const EmployeeStatusDashboard = () => {
     if (status === 'CLOCKED_IN') {
       return (
         <span className="glass-status-success inline-flex items-center">
-          <div className="w-2 h-2 bg-green-400 rounded-full mr-1 animate-pulse"></div>
+          <div className="w-2 h-2 bg-green-400 rounded-full mr-1"></div>
           Clocked In
         </span>
       );

@@ -753,7 +753,7 @@ const EmployeeDetails = () => {
                         key={`${activity.type}-${activity.id}`}
                         className="px-4 py-4 hover:bg-gray-50 transition-colors"
                       >
-                        {activity.type === 'timelog' ? (
+                        {activity.type === 'timelog' && (
                           // Time Log Card with nested breaks
                           <div>
                             <div className="flex items-start space-x-4">

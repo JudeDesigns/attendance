@@ -10,6 +10,7 @@ from django.db.models.functions import TruncDate
 from django.db import transaction
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter, OrderingFilter
+from rest_framework.pagination import PageNumberPagination
 from datetime import datetime, timedelta
 from .models import TimeLog, Break
 from apps.employees.models import Employee, Location
@@ -58,6 +59,12 @@ class IsOwnerOrAdmin(permissions.BasePermission):
         return False
 
 
+class FlexiblePageNumberPagination(PageNumberPagination):
+    """Custom pagination that allows the client to control page_size via query param."""
+    page_size_query_param = 'page_size'
+    max_page_size = 1000
+
+
 class TimeLogViewSet(viewsets.ModelViewSet):
     """
     ViewSet for managing time logs with comprehensive security and validation
@@ -66,6 +73,7 @@ class TimeLogViewSet(viewsets.ModelViewSet):
         'employee__user', 'employee__role',
         'clock_in_location', 'clock_out_location'
     ).all()
+    pagination_class = FlexiblePageNumberPagination
     permission_classes = [permissions.IsAuthenticated]
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_fields = ['status', 'employee', 'clock_in_method']
@@ -1113,6 +1121,7 @@ class BreakViewSet(viewsets.ModelViewSet):
         'time_log__employee__user', 'time_log__employee__role'
     ).all()
     serializer_class = BreakSerializer
+    pagination_class = FlexiblePageNumberPagination
     permission_classes = [permissions.IsAuthenticated]
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_fields = ['break_type', 'time_log__employee']

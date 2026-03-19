@@ -93,7 +93,7 @@ const EmployeeDetails = () => {
   const { data: breaksData, isLoading: breaksLoading } = useQuery(
     ['employee-breaks', employeeId, start, end],
     () => attendanceAPI.breaks({
-      employee: employeeId,
+      time_log__employee: employeeId,
       start_date: `${start}T00:00:00`,
       end_date: `${end}T23:59:59`,
       page_size: 500,

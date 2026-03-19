@@ -170,6 +170,23 @@ class BreakComplianceManager:
                 break_type_to_waive = requirements.get('break_type') or 'SHORT'
                 break_number = requirements.get('break_number')
 
+                # Guard: if all breaks are already taken/waived, reject the duplicate
+                if requirements.get('has_met_max_breaks'):
+                    logger.warning(
+                        f"Duplicate waiver attempt by {employee.employee_id} "
+                        f"on TimeLog {time_log.id} — all breaks already taken/waived"
+                    )
+                    return None
+
+                # Guard: if this specific break_number already exists on this TimeLog, skip
+                if break_number and Break.objects.filter(
+                    time_log=time_log, break_number=break_number
+                ).exists():
+                    logger.warning(
+                        f"Duplicate waiver for break #{break_number} on TimeLog {time_log.id}"
+                    )
+                    return None
+
                 break_waiver = Break.objects.create(
                     time_log=time_log,
                     break_type=break_type_to_waive,

@@ -111,33 +111,47 @@ const EmployeeDetails = () => {
   const breaks = breaksData?.data?.results || breaksData?.results || [];
   const shifts = Array.isArray(shiftsData?.data) ? shiftsData.data : (shiftsData?.data?.results || shiftsData?.results || []);
 
-  // Merge time logs and breaks into a unified activity timeline
-  const activityTimeline = [
-    ...timeLogs.map(log => ({
-      type: 'timelog',
-      id: log.id,
-      timestamp: log.clock_in_time,
-      data: log
-    })),
-    ...breaks.map(breakItem => ({
-      type: 'break',
-      id: breakItem.id,
-      timestamp: breakItem.start_time,
-      data: breakItem
-    }))
-  ].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)); // Sort by most recent first
+  // Group breaks by their parent TimeLog ID
+  const breaksByTimeLog = breaks.reduce((map, breakItem) => {
+    const tlId = breakItem.time_log;
+    if (!map[tlId]) map[tlId] = [];
+    map[tlId].push(breakItem);
+    return map;
+  }, {});
 
-  // Group activities by date for better organization
+  // Build timeline: each TimeLog is a parent entry with its breaks nested
+  const timeLogEntries = timeLogs.map(log => ({
+    type: 'timelog',
+    id: log.id,
+    timestamp: log.clock_in_time,
+    data: log,
+    breaks: (breaksByTimeLog[log.id] || []).sort(
+      (a, b) => new Date(a.start_time) - new Date(b.start_time)
+    ),
+  }));
+
+  // Collect orphan breaks (time_log not in current view — rare edge case)
+  const knownLogIds = new Set(timeLogs.map(l => l.id));
+  const orphanBreaks = breaks.filter(b => !knownLogIds.has(b.time_log));
+
+  const activityTimeline = [
+    ...timeLogEntries,
+    ...orphanBreaks.map(b => ({
+      type: 'break',
+      id: b.id,
+      timestamp: b.start_time,
+      data: b,
+    })),
+  ].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+  // Group by date for display
   const activitiesByDate = activityTimeline.reduce((groups, activity) => {
     const date = format(new Date(activity.timestamp), 'yyyy-MM-dd');
-    if (!groups[date]) {
-      groups[date] = [];
-    }
+    if (!groups[date]) groups[date] = [];
     groups[date].push(activity);
     return groups;
   }, {});
 
-  // Convert to array and sort by date (most recent first)
   const groupedActivities = Object.entries(activitiesByDate)
     .map(([date, activities]) => ({ date, activities }))
     .sort((a, b) => new Date(b.date) - new Date(a.date));
@@ -745,69 +759,122 @@ const EmployeeDetails = () => {
                         className="px-4 py-4 hover:bg-gray-50 transition-colors"
                       >
                         {activity.type === 'timelog' ? (
-                          // Time Log Card
-                          <div className="flex items-start space-x-4">
-                            {/* Icon */}
-                            <div className="flex-shrink-0">
-                              <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                                <ClockIcon className="w-5 h-5 text-blue-600" />
+                          // Time Log Card with nested breaks
+                          <div>
+                            <div className="flex items-start space-x-4">
+                              {/* Icon */}
+                              <div className="flex-shrink-0">
+                                <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                                  <ClockIcon className="w-5 h-5 text-blue-600" />
+                                </div>
+                              </div>
+
+                              {/* Content */}
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center justify-between">
+                                  <div>
+                                    <p className="text-sm font-medium text-gray-900">
+                                      Work Shift
+                                    </p>
+                                    <p className="text-sm text-gray-500 mt-1">
+                                      {format(new Date(activity.data.clock_in_time), 'h:mm a')}
+                                      {' → '}
+                                      {activity.data.clock_out_time
+                                        ? format(new Date(activity.data.clock_out_time), 'h:mm a')
+                                        : <span className="text-green-600 font-medium">Active</span>
+                                      }
+                                    </p>
+                                  </div>
+                                  <div className="flex items-center space-x-3">
+                                    {activity.data.duration_hours && (
+                                      <span className={`text-sm font-medium ${activity.data.duration_hours > 8 ? 'text-orange-600' : 'text-gray-700'}`}>
+                                        {formatDuration(activity.data.duration_hours)}
+                                      </span>
+                                    )}
+                                    {activity.data.clock_out_time ? (
+                                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                        Completed
+                                      </span>
+                                    ) : (
+                                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                        <div className="w-2 h-2 bg-blue-400 rounded-full mr-1.5 animate-pulse"></div>
+                                        In Progress
+                                      </span>
+                                    )}
+                                    {isAdmin && (
+                                      <button
+                                        onClick={() => openEditModal(activity.data)}
+                                        className="ml-2 p-1 text-gray-400 hover:text-blue-600 transition-colors"
+                                        title="Edit Time Log"
+                                      >
+                                        <PencilSquareIcon className="w-4 h-4" />
+                                      </button>
+                                    )}
+                                  </div>
+                                </div>
+                                {activity.data.notes && (
+                                  <p className="text-xs text-gray-500 mt-2 italic">
+                                    {activity.data.notes}
+                                  </p>
+                                )}
                               </div>
                             </div>
 
-                            {/* Content */}
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center justify-between">
-                                <div>
-                                  <p className="text-sm font-medium text-gray-900">
-                                    Work Shift
-                                  </p>
-                                  <p className="text-sm text-gray-500 mt-1">
-                                    {format(new Date(activity.data.clock_in_time), 'h:mm a')}
-                                    {' → '}
-                                    {activity.data.clock_out_time
-                                      ? format(new Date(activity.data.clock_out_time), 'h:mm a')
-                                      : <span className="text-green-600 font-medium">Active</span>
-                                    }
-                                  </p>
-                                </div>
-                                <div className="flex items-center space-x-3">
-                                  {activity.data.duration_hours && (
-                                    <span className={`text-sm font-medium ${activity.data.duration_hours > 8 ? 'text-orange-600' : 'text-gray-700'}`}>
-                                      {formatDuration(activity.data.duration_hours)}
-                                    </span>
-                                  )}
-                                  {activity.data.clock_out_time ? (
-                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                      Completed
-                                    </span>
-                                  ) : (
-                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                      <div className="w-2 h-2 bg-blue-400 rounded-full mr-1.5 animate-pulse"></div>
-                                      In Progress
-                                    </span>
-                                  )}
-                                  {isAdmin && (
-                                    <button
-                                      onClick={() => openEditModal(activity.data)}
-                                      className="ml-2 p-1 text-gray-400 hover:text-blue-600 transition-colors"
-                                      title="Edit Time Log"
-                                    >
-                                      <PencilSquareIcon className="w-4 h-4" />
-                                    </button>
-                                  )}
-                                </div>
-                              </div>
-                              {activity.data.notes && (
-                                <p className="text-xs text-gray-500 mt-2 italic">
-                                  {activity.data.notes}
+                            {/* Nested breaks for this shift */}
+                            {activity.breaks && activity.breaks.length > 0 && (
+                              <div className="ml-14 mt-3 border-l-2 border-purple-200 pl-4 space-y-2">
+                                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                                  Breaks ({activity.breaks.length})
                                 </p>
-                              )}
-                            </div>
+                                {activity.breaks.map((brk) => (
+                                  <div key={brk.id} className="flex items-center justify-between py-1.5">
+                                    <div className="flex items-center space-x-2">
+                                      <div className="w-6 h-6 bg-purple-50 rounded flex items-center justify-center">
+                                        <svg className="w-3.5 h-3.5 text-purple-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                      </div>
+                                      <span className="text-xs text-gray-600">
+                                        {brk.display_name || brk.break_type || 'Break'}
+                                        {brk.notes && brk.notes.startsWith('WAIVED') && (
+                                          <span className="ml-1 text-yellow-600 font-medium">(Waived)</span>
+                                        )}
+                                      </span>
+                                      <span className="text-xs text-gray-500">
+                                        {format(new Date(brk.start_time), 'h:mm a')}
+                                        {' → '}
+                                        {brk.end_time
+                                          ? format(new Date(brk.end_time), 'h:mm a')
+                                          : <span className="text-orange-600 font-medium">On Break</span>
+                                        }
+                                      </span>
+                                    </div>
+                                    <div className="flex items-center space-x-2">
+                                      {brk.duration_minutes ? (
+                                        <span className="text-xs font-medium text-gray-600">
+                                          {formatBreakDuration(brk.duration_minutes)}
+                                        </span>
+                                      ) : null}
+                                      {brk.end_time ? (
+                                        <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-purple-50 text-purple-700">
+                                          Done
+                                        </span>
+                                      ) : (
+                                        <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-orange-50 text-orange-700">
+                                          <div className="w-1.5 h-1.5 bg-orange-400 rounded-full mr-1 animate-pulse"></div>
+                                          Active
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                ))}
+
+                              </div>
+                            )}
                           </div>
                         ) : (
-                          // Break Card
+                          // Orphan Break Card (break without matching TimeLog in view)
                           <div className="flex items-start space-x-4">
-                            {/* Icon */}
                             <div className="flex-shrink-0">
                               <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
                                 <svg className="w-5 h-5 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -815,14 +882,10 @@ const EmployeeDetails = () => {
                                 </svg>
                               </div>
                             </div>
-
-                            {/* Content */}
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center justify-between">
                                 <div>
-                                  <p className="text-sm font-medium text-gray-900">
-                                    Break
-                                  </p>
+                                  <p className="text-sm font-medium text-gray-900">Break</p>
                                   <p className="text-sm text-gray-500 mt-1">
                                     {format(new Date(activity.data.start_time), 'h:mm a')}
                                     {' → '}
@@ -838,22 +901,10 @@ const EmployeeDetails = () => {
                                       {formatBreakDuration(activity.data.duration_minutes)}
                                     </span>
                                   )}
-                                  {activity.data.end_time ? (
-                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                                      Completed
-                                    </span>
-                                  ) : (
-                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
-                                      <div className="w-2 h-2 bg-orange-400 rounded-full mr-1.5 animate-pulse"></div>
-                                      On Break
-                                    </span>
-                                  )}
                                 </div>
                               </div>
                               {activity.data.notes && (
-                                <p className="text-xs text-gray-500 mt-2 italic">
-                                  {activity.data.notes}
-                                </p>
+                                <p className="text-xs text-gray-500 mt-2 italic">{activity.data.notes}</p>
                               )}
                             </div>
                           </div>

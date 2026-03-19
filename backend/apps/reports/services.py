@@ -349,15 +349,30 @@ class AttendanceSummaryReportGenerator(ReportGenerator):
 class DetailedTimesheetReportGenerator(ReportGenerator):
     """Generate detailed timesheet report matching user requirements"""
 
+    @staticmethod
+    def _to_la(dt):
+        """Convert a datetime to America/Los_Angeles; return None if dt is None."""
+        if dt is None:
+            return None
+        import pytz
+        la_tz = pytz.timezone('America/Los_Angeles')
+        if timezone.is_naive(dt):
+            return la_tz.localize(dt)
+        return dt.astimezone(la_tz)
+
     def _build_row(self, log):
         """Build a single timesheet row from a TimeLog entry"""
-        date = log.clock_in_time.date()
-        day_name = date.strftime('%A')
-        start_time = log.clock_in_time.strftime('%H:%M')
-        end_time = log.clock_out_time.strftime('%H:%M') if log.clock_out_time else ''
+        clock_in_la = self._to_la(log.clock_in_time)
+        clock_out_la = self._to_la(log.clock_out_time)
 
-        # Calculate total duration
-        total_duration = log.clock_out_time - log.clock_in_time
+        date = clock_in_la.date()
+        day_name = date.strftime('%A')
+        start_time = clock_in_la.strftime('%H:%M')
+        end_time = clock_out_la.strftime('%H:%M') if clock_out_la else ''
+
+        # Calculate total duration (use current time for active sessions)
+        effective_end = clock_out_la or self._to_la(timezone.now())
+        total_duration = effective_end - clock_in_la
         total_hours_decimal = total_duration.total_seconds() / 3600
 
         # Format total hours as "Xh Ym"
@@ -374,8 +389,10 @@ class DetailedTimesheetReportGenerator(ReportGenerator):
             prefix = f"break_{i+1}"
             if i < len(breaks):
                 b = breaks[i]
-                b_start = b.start_time.strftime('%H:%M')
-                b_end = b.end_time.strftime('%H:%M') if b.end_time else ''
+                b_start_la = self._to_la(b.start_time)
+                b_end_la = self._to_la(b.end_time)
+                b_start = b_start_la.strftime('%H:%M') if b_start_la else ''
+                b_end = b_end_la.strftime('%H:%M') if b_end_la else ''
 
                 b_duration_str = ''
                 if b.end_time:
@@ -445,11 +462,11 @@ class DetailedTimesheetReportGenerator(ReportGenerator):
         }
 
     def _get_time_logs(self):
-        """Get filtered time logs queryset"""
+        """Get filtered time logs queryset (includes active sessions)"""
         time_logs = TimeLog.objects.filter(
             clock_in_time__date__gte=self.start_date,
             clock_in_time__date__lte=self.end_date,
-            status='CLOCKED_OUT'
+            status__in=['CLOCKED_OUT', 'CLOCKED_IN']
         ).select_related('employee__user').prefetch_related('breaks')
 
         if 'department' in self.filters:

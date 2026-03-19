@@ -1426,8 +1426,8 @@ class BreakViewSet(viewsets.ModelViewSet):
             }, status=status.HTTP_201_CREATED)
         else:
             return Response(
-                {'detail': 'Failed to record break waiver'},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                {'detail': 'Break has already been waived or all breaks are already taken for this shift.'},
+                status=status.HTTP_400_BAD_REQUEST
             )
 
     @action(detail=False, methods=['post'], permission_classes=[permissions.IsAuthenticated])

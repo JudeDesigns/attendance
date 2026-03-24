@@ -21,6 +21,7 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const [currentStatus, setCurrentStatus] = useState(null);
   const [clockLoading, setClockLoading] = useState(false);
+  const [showClockOutConfirm, setShowClockOutConfirm] = useState(false);
 
   // Redirect admin users to admin dashboard
   useEffect(() => {
@@ -136,7 +137,7 @@ const Dashboard = () => {
     }
   };
 
-  const quickClockOut = async () => {
+  const quickClockOut = () => {
     if (!shiftStatus?.can_clock_out) {
       toast.error('No active shift found to clock out from.');
       return;
@@ -146,6 +147,11 @@ const Dashboard = () => {
       navigate('/clock-in');
       return;
     }
+    setShowClockOutConfirm(true);
+  };
+
+  const confirmClockOut = async () => {
+    setShowClockOutConfirm(false);
     setClockLoading(true);
     try {
       const gpsData = await getGPS();
@@ -353,6 +359,31 @@ const Dashboard = () => {
         )}
       </div>
 
+      {/* Clock-out confirmation dialog */}
+      {showClockOutConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-2xl shadow-xl p-6 mx-4 max-w-sm w-full">
+            <h3 className="text-lg font-bold text-gray-900">Clock Out?</h3>
+            <p className="mt-2 text-sm text-gray-600">
+              Are you sure you want to clock out? Your current session will end.
+            </p>
+            <div className="mt-5 flex gap-3">
+              <button
+                onClick={() => setShowClockOutConfirm(false)}
+                className="flex-1 py-2.5 rounded-xl border border-gray-300 text-gray-700 font-semibold hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmClockOut}
+                className="flex-1 py-2.5 rounded-xl bg-red-500 text-white font-semibold hover:bg-red-600 transition-colors"
+              >
+                Clock Out
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

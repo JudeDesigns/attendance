@@ -118,7 +118,7 @@ const BreakButton = ({ className = "", currentStatus }) => {
     isDisabled = true;
   } else if (requiresBreak) {
     if (isOverdue) {
-      buttonClass += "bg-red-600 text-white shadow-lg animate-pulse";
+      buttonClass += "bg-red-600 text-white shadow-lg";
       buttonText = `${breakName || 'Break'} Overdue!`;
       buttonIcon = ExclamationTriangleIcon;
     } else {

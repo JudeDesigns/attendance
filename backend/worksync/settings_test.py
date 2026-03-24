@@ -1,7 +1,7 @@
 """
 Test settings for WorkSync project
 """
-from .settings_simple import *
+from .settings import *
 
 # Use main URLs for testing
 ROOT_URLCONF = 'worksync.urls'

@@ -264,7 +264,7 @@ const TimeTracking = () => {
       <div className="glass-card glass-slide-up">
         <div className="px-3 py-4 sm:px-4 sm:py-5 md:p-6">
           <h3 className="text-base md:text-lg leading-6 font-medium glass-text-primary mb-3 md:mb-4">
-            Time Logs ({format(new Date(start), 'MMM d')} - {format(new Date(end), 'MMM d, yyyy')})
+            Time Logs ({format(new Date(start + 'T12:00:00'), 'MMM d')} - {format(new Date(end + 'T12:00:00'), 'MMM d, yyyy')})
           </h3>
 
           {timeLogs.length === 0 ? (

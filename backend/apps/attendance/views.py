@@ -161,17 +161,13 @@ class TimeLogViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_403_FORBIDDEN
             )
 
-        # Check if employee has a scheduled shift that allows clock-in
+        # Check if employee has a scheduled shift (for logging purposes)
         from apps.scheduling.models import Shift
         eligible_shift = Shift.get_clockin_eligible_shift(employee)
         if not eligible_shift:
-            return Response(
-                {
-                    'detail': 'No scheduled shift found for clock-in. You can only clock in during scheduled shifts or within 15 minutes before shift start.',
-                    'requires_shift': True,
-                    'current_time': timezone.now().isoformat(),
-                },
-                status=status.HTTP_403_FORBIDDEN
+            logger.info(
+                f"Unscheduled clock-in: {employee.employee_id} at {timezone.now()} — "
+                f"no eligible shift found"
             )
 
         # Check QR code enforcement
@@ -358,18 +354,14 @@ class TimeLogViewSet(viewsets.ModelViewSet):
         location = serializer.validated_data['location']
         notes = serializer.validated_data.get('notes', '')
 
-        # Validate shift requirements for both clock in and clock out
+        # Check shift status for logging purposes
         from apps.scheduling.models import Shift
         if action_type == 'clock_in':
             eligible_shift = Shift.get_clockin_eligible_shift(employee)
             if not eligible_shift:
-                return Response(
-                    {
-                        'detail': 'No scheduled shift found for clock-in. You can only clock in during scheduled shifts or within 15 minutes before shift start.',
-                        'requires_shift': True,
-                        'current_time': timezone.now().isoformat(),
-                    },
-                    status=status.HTTP_403_FORBIDDEN
+                logger.info(
+                    f"Unscheduled QR clock-in: {employee.employee_id} at {timezone.now()} — "
+                    f"no eligible shift found"
                 )
         else:  # clock_out
             # CRITICAL FIX: Always allow QR clock-out if employee is clocked in
@@ -549,9 +541,10 @@ class TimeLogViewSet(viewsets.ModelViewSet):
         data = {
             'current_shift': None,
             'upcoming_shift': None,
-            'can_clock_in': bool(clockin_eligible_shift and not active_log),
+            'can_clock_in': not bool(active_log),  # Allow clock-in as long as not already clocked in
             'can_clock_out': bool(active_log),  # CRITICAL FIX: Always allow clock-out if clocked in
             'is_clocked_in': bool(active_log),
+            'is_unscheduled': not bool(clockin_eligible_shift),  # Flag for frontend warning
             'clock_in_time': active_log.clock_in_time if active_log else None,
             'clock_in_location': active_log.clock_in_location.name if active_log and active_log.clock_in_location else None,
             'duration_minutes': int((timezone.now() - active_log.clock_in_time).total_seconds() / 60) if active_log else None,

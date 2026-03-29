@@ -95,6 +95,15 @@ CACHES = {
     }
 }
 
+# Silence system checks that don't apply to testing
+SILENCED_SYSTEM_CHECKS = [
+    'django_ratelimit.E003',
+    'django_ratelimit.W001',
+    'axes.W003',
+    'axes.W004',
+    'staticfiles.W004',
+]
+
 # Email backend for testing
 EMAIL_BACKEND = 'django.core.mail.backends.locmem.EmailBackend'
 

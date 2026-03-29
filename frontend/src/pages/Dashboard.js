@@ -114,9 +114,11 @@ const Dashboard = () => {
     } catch { return {}; }
   };
 
+  const [showUnscheduledConfirm, setShowUnscheduledConfirm] = useState(false);
+
   const quickClockIn = async () => {
     if (!shiftStatus?.can_clock_in) {
-      toast.error('No scheduled shift. You can only clock in within 15 min of your shift start.');
+      toast.error('You are already clocked in.');
       return;
     }
     if (qrEnforcement?.requires_qr_for_clock_in) {
@@ -124,6 +126,16 @@ const Dashboard = () => {
       navigate('/clock-in');
       return;
     }
+    // Show confirmation dialog for unscheduled clock-ins
+    if (shiftStatus?.is_unscheduled) {
+      setShowUnscheduledConfirm(true);
+      return;
+    }
+    await performQuickClockIn();
+  };
+
+  const performQuickClockIn = async () => {
+    setShowUnscheduledConfirm(false);
     setClockLoading(true);
     try {
       const gpsData = await getGPS();
@@ -379,6 +391,35 @@ const Dashboard = () => {
                 className="flex-1 py-2.5 rounded-xl bg-red-500 text-white font-semibold hover:bg-red-600 transition-colors"
               >
                 Clock Out
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Unscheduled clock-in confirmation dialog */}
+      {showUnscheduledConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-2xl shadow-xl p-6 mx-4 max-w-sm w-full">
+            <h3 className="text-lg font-bold text-amber-700">No Shift Scheduled</h3>
+            <p className="mt-2 text-sm text-gray-600">
+              You don't have a scheduled shift right now. This session will be recorded as <span className="font-semibold">unscheduled</span>.
+            </p>
+            <p className="mt-1 text-xs text-gray-500">
+              Do you want to proceed?
+            </p>
+            <div className="mt-5 flex gap-3">
+              <button
+                onClick={() => setShowUnscheduledConfirm(false)}
+                className="flex-1 py-2.5 rounded-xl border border-gray-300 text-gray-700 font-semibold hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={performQuickClockIn}
+                className="flex-1 py-2.5 rounded-xl bg-amber-500 text-white font-semibold hover:bg-amber-600 transition-colors"
+              >
+                Clock In
               </button>
             </div>
           </div>

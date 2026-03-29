@@ -149,8 +149,6 @@ const ClockIn = () => {
       if (errorData?.requires_qr) {
         toast.error('You must use location QR code for clock-in');
         setActiveMethod('qr');
-      } else if (errorData?.requires_shift) {
-        toast.error('No scheduled shift found. You can only clock in during scheduled shifts or within 15 minutes before shift start.');
       } else {
         toast.error(errorData?.detail || errorData?.message || 'Clock-in failed');
       }
@@ -300,13 +298,13 @@ const ClockIn = () => {
           ? 'bg-green-50 border-green-200'
           : shiftStatus.upcoming_shift
             ? 'bg-amber-50 border-amber-200'
-            : 'bg-red-50 border-red-200'
+            : 'bg-amber-50 border-amber-200'
           }`}>
           {shiftStatus.current_shift
             ? <CheckCircleIcon className="h-5 w-5 text-green-500 flex-shrink-0" />
             : shiftStatus.upcoming_shift
               ? <ClockIcon className="h-5 w-5 text-amber-500 flex-shrink-0" />
-              : <XCircleIcon className="h-5 w-5 text-red-400 flex-shrink-0" />}
+              : <ClockIcon className="h-5 w-5 text-amber-500 flex-shrink-0" />}
           <div className="text-sm">
             {shiftStatus.current_shift ? (
               <>
@@ -328,8 +326,8 @@ const ClockIn = () => {
               </>
             ) : (
               <>
-                <p className="font-semibold text-red-800">No scheduled shift</p>
-                <p className="text-red-700 text-xs">Clock-in only available within 15 min of shift start</p>
+                <p className="font-semibold text-amber-800">No scheduled shift</p>
+                <p className="text-amber-700 text-xs">You can still clock in — this session will be recorded as unscheduled</p>
               </>
             )}
           </div>

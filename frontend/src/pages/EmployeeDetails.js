@@ -149,7 +149,7 @@ const EmployeeDetails = () => {
 
   const groupedActivities = Object.entries(activitiesByDate)
     .map(([date, activities]) => ({ date, activities }))
-    .sort((a, b) => new Date(b.date) - new Date(a.date));
+    .sort((a, b) => new Date(b.date + 'T00:00:00') - new Date(a.date + 'T00:00:00'));
 
   // Calculate statistics
   const totalHours = timeLogs.reduce((sum, log) => sum + (log.duration_hours || 0), 0);
@@ -451,7 +451,7 @@ const EmployeeDetails = () => {
           <input
             type="date"
             value={format(selectedDate, 'yyyy-MM-dd')}
-            onChange={(e) => setSelectedDate(new Date(e.target.value))}
+            onChange={(e) => setSelectedDate(new Date(e.target.value + 'T00:00:00'))}
             className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
           />
         </div>
@@ -738,7 +738,7 @@ const EmployeeDetails = () => {
                   <div className="bg-gray-50 px-4 py-3 border-b border-gray-200">
                     <div className="flex items-center justify-between">
                       <h4 className="text-sm font-semibold text-gray-900">
-                        {format(new Date(date), 'EEEE, MMMM d, yyyy')}
+                        {format(new Date(date + 'T12:00:00'), 'EEEE, MMMM d, yyyy')}
                       </h4>
                       <span className="text-xs text-gray-500">
                         {activities.length} {activities.length === 1 ? 'entry' : 'entries'}

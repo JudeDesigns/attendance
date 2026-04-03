@@ -6,7 +6,6 @@ import {
   CheckCircleIcon,
   XCircleIcon,
   ExclamationTriangleIcon,
-  CurrencyDollarIcon,
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 import { notificationAPI } from '../services/api';
@@ -32,65 +31,6 @@ const NotificationSettings = () => {
   const [testPhone, setTestPhone] = useState('');
   const [activeTab, setActiveTab] = useState('email');
   const [configId, setConfigId] = useState(null);
-
-  const [companySettings, setCompanySettings] = useState({
-    regular_rate_multiplier: '1.00',
-    overtime_8_multiplier: '1.50',
-    overtime_12_multiplier: '2.00',
-    overtime_alert_email: '',
-    stuck_clockin_alert_email: '',
-    missed_clockout_hours: '2.0',
-  });
-
-  // Fetch company settings
-  useQuery(
-    'companySettings',
-    async () => {
-      try {
-        const response = await notificationAPI.getCompanySettings();
-        return response.data;
-      } catch (error) {
-        if (error.response?.status === 404) return null;
-        throw error;
-      }
-    },
-    {
-      onSuccess: (data) => {
-        if (data) {
-          setCompanySettings({
-            regular_rate_multiplier: data.regular_rate_multiplier || '1.00',
-            overtime_8_multiplier: data.overtime_8_multiplier || '1.50',
-            overtime_12_multiplier: data.overtime_12_multiplier || '2.00',
-            overtime_alert_email: data.overtime_alert_email || '',
-            stuck_clockin_alert_email: data.stuck_clockin_alert_email || '',
-            missed_clockout_hours: data.missed_clockout_hours || '2.0',
-          });
-        }
-      },
-      retry: false,
-    }
-  );
-
-  // Save company settings
-  const saveCompanySettingsMutation = useMutation(
-    async (data) => notificationAPI.updateCompanySettings(data),
-    {
-      onSuccess: () => {
-        toast.success('Payroll & alert settings saved successfully!');
-      },
-      onError: (error) => {
-        toast.error(error.response?.data?.detail || 'Failed to save settings');
-      }
-    }
-  );
-
-  const handleCompanySettingsChange = (field, value) => {
-    setCompanySettings(prev => ({ ...prev, [field]: value }));
-  };
-
-  const saveCompanySettings = () => {
-    saveCompanySettingsMutation.mutate(companySettings);
-  };
 
   // Fetch active email configuration
   useQuery(
@@ -312,16 +252,6 @@ const NotificationSettings = () => {
               <DevicePhoneMobileIcon className="h-5 w-5 inline mr-2" />
               Push Notifications
             </button>
-            <button
-              onClick={() => setActiveTab('payroll')}
-              className={`py-4 px-6 text-sm font-medium border-b-2 ${activeTab === 'payroll'
-                ? 'border-indigo-500 text-indigo-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
-            >
-              <CurrencyDollarIcon className="h-5 w-5 inline mr-2" />
-              Payroll &amp; Alerts
-            </button>
           </nav>
         </div>
 
@@ -533,132 +463,6 @@ const NotificationSettings = () => {
 
           {activeTab === 'push' && (
             <PushSubscriptionManager />
-          )}
-
-          {activeTab === 'payroll' && (
-            <div className="space-y-6">
-              {/* Overtime Rate Multipliers */}
-              <div>
-                <h3 className="text-lg font-medium text-gray-900 mb-1">Overtime Rate Multipliers</h3>
-                <p className="text-sm text-gray-500 mb-4">
-                  Configure the pay multipliers used when calculating overtime in CSV exports.
-                  For example, 1.50 means time-and-a-half.
-                </p>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Regular Hours (≤8h) Multiplier
-                    </label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={companySettings.regular_rate_multiplier}
-                      onChange={(e) => handleCompanySettingsChange('regular_rate_multiplier', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    />
-                    <p className="text-xs text-gray-400 mt-1">Default: 1.00 (standard rate)</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Over 8 Hours Multiplier
-                    </label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={companySettings.overtime_8_multiplier}
-                      onChange={(e) => handleCompanySettingsChange('overtime_8_multiplier', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    />
-                    <p className="text-xs text-gray-400 mt-1">Default: 1.50 (time-and-a-half)</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Over 12 Hours Multiplier
-                    </label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={companySettings.overtime_12_multiplier}
-                      onChange={(e) => handleCompanySettingsChange('overtime_12_multiplier', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    />
-                    <p className="text-xs text-gray-400 mt-1">Default: 2.00 (double time)</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Alert Email Recipients */}
-              <div className="border-t border-gray-200 pt-6">
-                <h3 className="text-lg font-medium text-gray-900 mb-1">Alert Email Recipients</h3>
-                <p className="text-sm text-gray-500 mb-4">
-                  Set the email addresses that should receive specific alerts. Leave blank to only notify admin users.
-                </p>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Overtime Alert Email
-                    </label>
-                    <input
-                      type="email"
-                      value={companySettings.overtime_alert_email}
-                      onChange={(e) => handleCompanySettingsChange('overtime_alert_email', e.target.value)}
-                      placeholder="manager@company.com"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    />
-                    <p className="text-xs text-gray-400 mt-1">Receives an email when any employee works overtime</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Stuck Clock-In Alert Email
-                    </label>
-                    <input
-                      type="email"
-                      value={companySettings.stuck_clockin_alert_email}
-                      onChange={(e) => handleCompanySettingsChange('stuck_clockin_alert_email', e.target.value)}
-                      placeholder="supervisor@company.com"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    />
-                    <p className="text-xs text-gray-400 mt-1">Receives an email when an employee stays clocked in too long</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Missed Clock-Out Threshold */}
-              <div className="border-t border-gray-200 pt-6">
-                <h3 className="text-lg font-medium text-gray-900 mb-1">Missed Clock-Out Detection</h3>
-                <p className="text-sm text-gray-500 mb-4">
-                  How long after a shift ends (in hours) before sending an alert that the employee hasn&apos;t clocked out.
-                </p>
-                <div className="max-w-xs">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Hours After Shift End
-                  </label>
-                  <input
-                    type="number"
-                    step="0.5"
-                    min="0.5"
-                    max="24"
-                    value={companySettings.missed_clockout_hours}
-                    onChange={(e) => handleCompanySettingsChange('missed_clockout_hours', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  />
-                  <p className="text-xs text-gray-400 mt-1">Default: 2.0 hours</p>
-                </div>
-              </div>
-
-              <div className="flex justify-end space-x-3 pt-4">
-                <button
-                  onClick={saveCompanySettings}
-                  disabled={saveCompanySettingsMutation.isLoading}
-                  className="bg-indigo-600 text-white px-6 py-2 rounded-md hover:bg-indigo-700 disabled:opacity-50"
-                >
-                  {saveCompanySettingsMutation.isLoading ? 'Saving...' : 'Save Payroll & Alert Settings'}
-                </button>
-              </div>
-            </div>
           )}
         </div>
       </div>

@@ -40,7 +40,7 @@ class NotificationLogSerializer(serializers.ModelSerializer):
 
 class NotificationTemplateSerializer(serializers.ModelSerializer):
     """Notification template serializer"""
-    
+
     class Meta:
         model = NotificationTemplate
         fields = [
@@ -49,7 +49,7 @@ class NotificationTemplateSerializer(serializers.ModelSerializer):
             'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
-    
+
     def validate_message_template(self, value):
         """Validate message template has valid placeholders"""
         # Basic validation for common placeholders
@@ -58,14 +58,14 @@ class NotificationTemplateSerializer(serializers.ModelSerializer):
             '{clock_in_time}', '{clock_out_time}', '{duration}',
             '{break_type}', '{date}', '{time}'
         ]
-        
+
         # This is a simple validation - in production you might want more sophisticated template validation
         return value
 
 
 class WebhookSubscriptionSerializer(serializers.ModelSerializer):
     """Webhook subscription serializer"""
-    
+
     class Meta:
         model = WebhookSubscription
         fields = [
@@ -76,7 +76,7 @@ class WebhookSubscriptionSerializer(serializers.ModelSerializer):
         extra_kwargs = {
             'secret_key': {'write_only': True}
         }
-    
+
     def validate_event_type(self, value):
         """Validate event type"""
         valid_events = [choice[0] for choice in WebhookSubscription.EVENT_TYPE_CHOICES]
@@ -90,7 +90,7 @@ class WebhookDeliverySerializer(serializers.ModelSerializer):
     subscription_url = serializers.CharField(source='subscription.target_url', read_only=True)
     subscription_event = serializers.CharField(source='subscription.event_type', read_only=True)
     can_retry = serializers.BooleanField(read_only=True)
-    
+
     class Meta:
         model = WebhookDelivery
         fields = [
@@ -110,11 +110,11 @@ class NotificationStatsSerializer(serializers.Serializer):
     sent_notifications = serializers.IntegerField(read_only=True)
     failed_notifications = serializers.IntegerField(read_only=True)
     delivered_notifications = serializers.IntegerField(read_only=True)
-    
+
     total_webhooks = serializers.IntegerField(read_only=True)
     active_webhooks = serializers.IntegerField(read_only=True)
     failed_webhook_deliveries = serializers.IntegerField(read_only=True)
-    
+
     by_type = serializers.DictField(read_only=True)
     recent_activity = serializers.ListField(read_only=True)
 
@@ -132,28 +132,28 @@ class SendNotificationSerializer(serializers.Serializer):
     subject = serializers.CharField(max_length=200, required=False, allow_blank=True)
     message = serializers.CharField(help_text="Notification message")
     template_id = serializers.UUIDField(required=False, allow_null=True, help_text="Optional template to use")
-    
+
     def validate_recipient_ids(self, value):
         """Validate all recipient IDs exist and are active employees"""
         if not value:
             raise serializers.ValidationError("At least one recipient is required")
-        
+
         existing_employees = Employee.objects.filter(
             id__in=value,
             employment_status='ACTIVE'
         ).values_list('id', flat=True)
-        
+
         missing_ids = set(value) - set(existing_employees)
         if missing_ids:
             raise serializers.ValidationError(f"Invalid or inactive employee IDs: {list(missing_ids)}")
-        
+
         return value
-    
+
     def validate(self, data):
         """Cross-field validation"""
         notification_type = data.get('notification_type')
         template_id = data.get('template_id')
-        
+
         # If template is provided, validate it matches the notification type
         if template_id:
             try:
@@ -166,11 +166,11 @@ class SendNotificationSerializer(serializers.Serializer):
                 data['template'] = template
             except NotificationTemplate.DoesNotExist:
                 raise serializers.ValidationError("Invalid or inactive template ID")
-        
+
         # Validate required fields based on notification type
         if notification_type == 'EMAIL' and not data.get('subject'):
             raise serializers.ValidationError("Subject is required for email notifications")
-        
+
         return data
 
 
@@ -198,7 +198,7 @@ class WebhookTestSerializer(serializers.Serializer):
 
 class EmailConfigurationSerializer(serializers.ModelSerializer):
     """Serializer for email configuration"""
-    
+
     class Meta:
         from .models import EmailConfiguration
         model = EmailConfiguration
@@ -211,3 +211,18 @@ class EmailConfigurationSerializer(serializers.ModelSerializer):
         extra_kwargs = {
             'email_host_password': {'write_only': True}
         }
+
+
+
+class CompanySettingsSerializer(serializers.ModelSerializer):
+    """Serializer for company-wide settings (overtime rates, alert emails)"""
+
+    class Meta:
+        from .models import CompanySettings
+        model = CompanySettings
+        fields = [
+            'id', 'regular_rate_multiplier', 'overtime_8_multiplier', 'overtime_12_multiplier',
+            'overtime_alert_email', 'stuck_clockin_alert_email', 'missed_clockout_hours',
+            'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']

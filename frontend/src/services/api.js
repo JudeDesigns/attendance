@@ -250,6 +250,10 @@ export const notificationAPI = {
   createEmailConfig: (data) => api.post('/notifications/email-config/', data),
   updateEmailConfig: (id, data) => api.put(`/notifications/email-config/${id}/`, data),
   testEmailConfig: (id, data) => api.post(`/notifications/email-config/${id}/test/`, data),
+
+  // Company Settings (overtime rates, alert emails)
+  getCompanySettings: () => api.get('/notifications/company-settings/current/'),
+  updateCompanySettings: (data) => api.put('/notifications/company-settings/update/', data),
 };
 
 // Webhook API

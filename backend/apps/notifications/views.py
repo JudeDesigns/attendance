@@ -10,14 +10,14 @@ from django.db import transaction
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter, OrderingFilter
 from datetime import datetime, timedelta
-from .models import NotificationLog, NotificationTemplate, WebhookSubscription, WebhookDelivery, EmailConfiguration
+from .models import NotificationLog, NotificationTemplate, WebhookSubscription, WebhookDelivery, EmailConfiguration, CompanySettings
 from apps.employees.models import Employee
 from .serializers import (
     NotificationLogSerializer, NotificationTemplateSerializer,
     WebhookSubscriptionSerializer, WebhookDeliverySerializer,
     NotificationStatsSerializer, SendNotificationSerializer,
     MarkNotificationReadSerializer, WebhookTestSerializer,
-    EmailConfigurationSerializer
+    EmailConfigurationSerializer, CompanySettingsSerializer
 )
 # from .tasks import send_webhook_notification, send_sms_notification
 import logging
@@ -60,11 +60,11 @@ class NotificationLogViewSet(viewsets.ModelViewSet):
     def get_permissions(self):
         """Set permissions based on action"""
         return [permissions.IsAuthenticated()]
-    
+
     def get_queryset(self):
         """Filter queryset based on user permissions"""
         queryset = super().get_queryset()
-        
+
         # Non-admin users can only see their own notifications
         if not self.request.user.is_staff:
             try:
@@ -72,9 +72,9 @@ class NotificationLogViewSet(viewsets.ModelViewSet):
                 queryset = queryset.filter(recipient=employee)
             except Employee.DoesNotExist:
                 queryset = queryset.none()
-        
+
         return queryset
-    
+
     @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated])
     def my_notifications(self, request):
         """Get current user's notifications"""
@@ -85,26 +85,26 @@ class NotificationLogViewSet(viewsets.ModelViewSet):
                 {'detail': 'Employee profile not found'},
                 status=status.HTTP_404_NOT_FOUND
             )
-        
+
         # Get query parameters
         unread_only = request.query_params.get('unread_only', 'false').lower() == 'true'
         limit = int(request.query_params.get('limit', 50))
-        
+
         queryset = NotificationLog.objects.filter(recipient=employee)
-        
+
         if unread_only:
             # For this example, we'll consider 'PENDING' and 'SENT' as unread
             queryset = queryset.filter(status__in=['PENDING', 'SENT'])
-        
+
         notifications = queryset.order_by('-created_at')[:limit]
         serializer = NotificationLogSerializer(notifications, many=True)
-        
+
         return Response({
             'notifications': serializer.data,
             'unread_count': queryset.filter(status__in=['PENDING', 'SENT']).count(),
             'total_count': queryset.count()
         })
-    
+
     @action(detail=False, methods=['post'], permission_classes=[permissions.IsAuthenticated])
     def mark_as_read(self, request):
         """Mark notifications as read (delivered)"""
@@ -115,17 +115,17 @@ class NotificationLogViewSet(viewsets.ModelViewSet):
                 {'detail': 'Employee profile not found'},
                 status=status.HTTP_404_NOT_FOUND
             )
-        
+
         serializer = MarkNotificationReadSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        
+
         notification_ids = serializer.validated_data.get('notification_ids', [])
-        
+
         queryset = NotificationLog.objects.filter(recipient=employee)
-        
+
         if notification_ids:
             queryset = queryset.filter(id__in=notification_ids)
-        
+
         # Update notifications to delivered status
         updated_count = queryset.filter(
             status__in=['PENDING', 'SENT']
@@ -133,12 +133,12 @@ class NotificationLogViewSet(viewsets.ModelViewSet):
             status='DELIVERED',
             delivered_at=timezone.now()
         )
-        
+
         return Response({
             'message': f'Marked {updated_count} notifications as read',
             'updated_count': updated_count
         })
-    
+
     @action(detail=False, methods=['post'], permission_classes=[permissions.IsAuthenticated])
     def mark_all_as_read(self, request):
         """Mark all notifications as read for current user"""
@@ -194,7 +194,7 @@ class NotificationLogViewSet(viewsets.ModelViewSet):
         # Get date range from query params
         days = int(request.query_params.get('days', 30))
         start_date = timezone.now() - timedelta(days=days)
-        
+
         # Basic stats
         total_notifications = NotificationLog.objects.filter(created_at__gte=start_date).count()
         pending_notifications = NotificationLog.objects.filter(
@@ -209,28 +209,28 @@ class NotificationLogViewSet(viewsets.ModelViewSet):
         delivered_notifications = NotificationLog.objects.filter(
             created_at__gte=start_date, status='DELIVERED'
         ).count()
-        
+
         # Webhook stats
         total_webhooks = WebhookSubscription.objects.count()
         active_webhooks = WebhookSubscription.objects.filter(is_active=True).count()
         failed_webhook_deliveries = WebhookDelivery.objects.filter(
             created_at__gte=start_date, status='FAILED'
         ).count()
-        
+
         # By type breakdown
         by_type = NotificationLog.objects.filter(
             created_at__gte=start_date
         ).values('notification_type').annotate(
             count=Count('id')
         ).order_by('-count')
-        
+
         # Recent activity (last 10 notifications)
         recent_activity = NotificationLog.objects.select_related(
             'recipient__user'
         ).order_by('-created_at')[:10]
-        
+
         recent_serializer = NotificationLogSerializer(recent_activity, many=True)
-        
+
         stats_data = {
             'total_notifications': total_notifications,
             'pending_notifications': pending_notifications,
@@ -243,7 +243,7 @@ class NotificationLogViewSet(viewsets.ModelViewSet):
             'by_type': {item['notification_type']: item['count'] for item in by_type},
             'recent_activity': recent_serializer.data
         }
-        
+
         serializer = NotificationStatsSerializer(stats_data)
         return Response(serializer.data)
 
@@ -360,7 +360,7 @@ class NotificationTemplateViewSet(viewsets.ModelViewSet):
     search_fields = ['name', 'message_template']
     ordering_fields = ['name', 'created_at']
     ordering = ['name']
-    
+
     def perform_create(self, serializer):
         """Create template with audit logging"""
         template = serializer.save()
@@ -368,7 +368,7 @@ class NotificationTemplateViewSet(viewsets.ModelViewSet):
             f"Notification template created: {template.name} "
             f"by user {self.request.user.username}"
         )
-    
+
     def perform_update(self, serializer):
         """Update template with audit logging"""
         template = serializer.save()
@@ -376,7 +376,7 @@ class NotificationTemplateViewSet(viewsets.ModelViewSet):
             f"Notification template updated: {template.name} "
             f"by user {self.request.user.username}"
         )
-    
+
     def perform_destroy(self, instance):
         """Delete template with audit logging"""
         logger.warning(
@@ -646,7 +646,7 @@ class NotificationManagementViewSet(viewsets.GenericViewSet):
         # Get date range from query params
         days = int(request.query_params.get('days', 30))
         start_date = timezone.now() - timedelta(days=days)
-        
+
         # Basic stats
         total_notifications = NotificationLog.objects.filter(created_at__gte=start_date).count()
         pending_notifications = NotificationLog.objects.filter(
@@ -661,28 +661,28 @@ class NotificationManagementViewSet(viewsets.GenericViewSet):
         delivered_notifications = NotificationLog.objects.filter(
             created_at__gte=start_date, status='DELIVERED'
         ).count()
-        
+
         # Webhook stats
         total_webhooks = WebhookSubscription.objects.count()
         active_webhooks = WebhookSubscription.objects.filter(is_active=True).count()
         failed_webhook_deliveries = WebhookDelivery.objects.filter(
             created_at__gte=start_date, status='FAILED'
         ).count()
-        
+
         # By type breakdown
         by_type = NotificationLog.objects.filter(
             created_at__gte=start_date
         ).values('notification_type').annotate(
             count=Count('id')
         ).order_by('-count')
-        
+
         # Recent activity (last 10 notifications)
         recent_activity = NotificationLog.objects.select_related(
             'recipient__user'
         ).order_by('-created_at')[:10]
-        
+
         recent_serializer = NotificationLogSerializer(recent_activity, many=True)
-        
+
         stats_data = {
             'total_notifications': total_notifications,
             'pending_notifications': pending_notifications,
@@ -695,7 +695,7 @@ class NotificationManagementViewSet(viewsets.GenericViewSet):
             'by_type': {item['notification_type']: item['count'] for item in by_type},
             'recent_activity': recent_serializer.data
         }
-        
+
         serializer = NotificationStatsSerializer(stats_data)
         return Response(serializer.data)
 
@@ -703,11 +703,11 @@ class EmailConfigurationViewSet(viewsets.ModelViewSet):
     """
     ViewSet for managing email configuration
     """
-    
+
     queryset = EmailConfiguration.objects.all()
     serializer_class = EmailConfigurationSerializer
     permission_classes = [IsAdminUser]
-    
+
     def get_queryset(self):
         # Only allow seeing the active configuration or all if admin
         return EmailConfiguration.objects.all().order_by('-is_active', '-created_at')
@@ -719,12 +719,12 @@ class EmailConfigurationViewSet(viewsets.ModelViewSet):
             config = EmailConfiguration.objects.filter(is_active=True).first()
             if not config:
                 return Response({'detail': 'No active email configuration found'}, status=status.HTTP_404_NOT_FOUND)
-            
+
             serializer = self.get_serializer(config)
             return Response(serializer.data)
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-    
+
     @action(detail=True, methods=['post'])
     def test(self, request, pk=None):
         """Test email configuration"""
@@ -752,7 +752,7 @@ class EmailConfigurationViewSet(viewsets.ModelViewSet):
         if not recipient:
             logger.error("No recipient provided")
             return Response({'error': 'Recipient email is required'}, status=status.HTTP_400_BAD_REQUEST)
-            
+
         try:
             # Use the unified email queue system
             from apps.notifications.email_queue import EmailQueue
@@ -761,7 +761,37 @@ class EmailConfigurationViewSet(viewsets.ModelViewSet):
             email_id = EmailQueue.queue_test_email(recipient)
 
             # Return success immediately - email will be sent by cron job
-            
+
             return Response({'message': 'Test email sent successfully'})
         except Exception as e:
             return Response({'error': f'Failed to send test email: {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
+
+
+
+class CompanySettingsViewSet(viewsets.GenericViewSet):
+    """
+    ViewSet for company-wide settings (overtime rates, alert emails).
+    Singleton — always operates on the single settings instance.
+    """
+    serializer_class = CompanySettingsSerializer
+    permission_classes = [IsAdminUser]
+
+    def get_object(self):
+        return CompanySettings.get_settings()
+
+    @action(detail=False, methods=['get'], url_path='current')
+    def current(self, request):
+        """Get current company settings"""
+        settings_obj = self.get_object()
+        serializer = self.get_serializer(settings_obj)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=['put', 'patch'], url_path='update')
+    def update_settings(self, request):
+        """Update company settings"""
+        settings_obj = self.get_object()
+        serializer = self.get_serializer(settings_obj, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        logger.info(f"Company settings updated by user {request.user.username}")
+        return Response(serializer.data)

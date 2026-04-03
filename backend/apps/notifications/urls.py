@@ -6,7 +6,8 @@ from rest_framework.routers import DefaultRouter
 from .views import (
     NotificationLogViewSet, NotificationTemplateViewSet,
     WebhookSubscriptionViewSet, WebhookDeliveryViewSet,
-    NotificationManagementViewSet, EmailConfigurationViewSet
+    NotificationManagementViewSet, EmailConfigurationViewSet,
+    CompanySettingsViewSet
 )
 from . import push_views
 
@@ -19,6 +20,7 @@ router.register(r'webhooks', WebhookSubscriptionViewSet, basename='webhooksubscr
 router.register(r'webhook-deliveries', WebhookDeliveryViewSet, basename='webhookdelivery')
 router.register(r'management', NotificationManagementViewSet, basename='notificationmanagement')
 router.register(r'email-config', EmailConfigurationViewSet, basename='emailconfiguration')
+router.register(r'company-settings', CompanySettingsViewSet, basename='companysettings')
 
 # Push notification routes
 router.register(r'push/subscriptions', push_views.PushSubscriptionViewSet, basename='push-subscriptions')

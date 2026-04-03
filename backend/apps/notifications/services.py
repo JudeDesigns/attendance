@@ -288,6 +288,13 @@ class NotificationService:
         # Also notify admin users about overtime (simplified for Admin/Employee system)
         admin_success = self.send_notification_to_admins('overtime_admin', context)
 
+        # Also send to the configured overtime alert email (if set)
+        self._send_alert_to_configured_email(
+            'overtime_alert_email',
+            subject=f"Overtime Alert: {employee.full_name} ({employee.employee_id})",
+            message=f"{employee.full_name} ({employee.employee_id}) has worked {total_hours} hours on {context['date']}.",
+        )
+
         return employee_success or admin_success
     
     def send_late_clock_in_alert(self, employee, time_log, scheduled_start_time):
@@ -306,8 +313,17 @@ class NotificationService:
             'clock_in_time': time_log.clock_in_time.strftime('%H:%M:%S'),
             'date': time_log.clock_in_time.strftime('%Y-%m-%d'),
         }
-        
-        return self.send_notification('missed_clock_out', employee, context)
+
+        result = self.send_notification('missed_clock_out', employee, context)
+
+        # Also send to the configured stuck clock-in alert email
+        self._send_alert_to_configured_email(
+            'stuck_clockin_alert_email',
+            subject=f"Missed Clock-Out: {employee.full_name} ({employee.employee_id})",
+            message=f"{employee.full_name} ({employee.employee_id}) clocked in at {context['clock_in_time']} on {context['date']} and has not clocked out.",
+        )
+
+        return result
     
     def send_shift_reminder(self, employee, shift):
         """Send reminder about upcoming shift"""
@@ -535,6 +551,37 @@ class NotificationService:
 
         except Exception as e:
             logger.error(f"Error sending notification to admins: {str(e)}")
+            return False
+
+    def _send_alert_to_configured_email(self, settings_field, subject, message):
+        """Send an email to the address configured in CompanySettings.
+
+        Args:
+            settings_field: The CompanySettings field name (e.g. 'overtime_alert_email')
+            subject: Email subject
+            message: Email body
+        """
+        try:
+            from .models import CompanySettings
+            company_settings = CompanySettings.get_settings()
+            recipient_email = getattr(company_settings, settings_field, '')
+
+            if not recipient_email:
+                return False
+
+            from .email_queue import EmailQueue
+            EmailQueue.queue_email(
+                email_type=settings_field,
+                recipient=recipient_email,
+                subject=subject,
+                message=message,
+                template_data={}
+            )
+            logger.info(f"Alert email queued to {recipient_email} ({settings_field})")
+            return True
+
+        except Exception as e:
+            logger.error(f"Error sending alert to configured email ({settings_field}): {str(e)}")
             return False
 
 

@@ -488,6 +488,13 @@ class DetailedTimesheetReportGenerator(ReportGenerator):
         rows = [self._build_row(log) for log in time_logs]
         rows = sorted(rows, key=lambda x: (x['Employee Name'], datetime.strptime(x['Date'], '%m/%d/%Y')))
 
+        # Load configurable rate multipliers from CompanySettings
+        from apps.notifications.models import CompanySettings
+        settings = CompanySettings.get_settings()
+        regular_multiplier = float(settings.regular_rate_multiplier)
+        over_8_multiplier = float(settings.overtime_8_multiplier)
+        over_12_multiplier = float(settings.overtime_12_multiplier)
+
         # Group by employee
         from collections import OrderedDict
         employees = OrderedDict()
@@ -512,11 +519,11 @@ class DetailedTimesheetReportGenerator(ReportGenerator):
             total_over_8 = round(sum(r['over 8'] for r in emp_rows), 2)
             total_over_12 = round(sum(r['over 12'] for r in emp_rows), 2)
 
-            # Pay calculations (safe for null hourly_rate)
+            # Pay calculations using configurable multipliers (safe for null hourly_rate)
             if hourly_rate:
-                total_8_hrs_pay = round(total_8_hours * hourly_rate, 2)
-                total_over_8_pay = round(total_over_8 * hourly_rate * 1.5, 2)
-                total_over_12_pay = round(total_over_12 * hourly_rate * 2.0, 2)
+                total_8_hrs_pay = round(total_8_hours * hourly_rate * regular_multiplier, 2)
+                total_over_8_pay = round(total_over_8 * hourly_rate * over_8_multiplier, 2)
+                total_over_12_pay = round(total_over_12 * hourly_rate * over_12_multiplier, 2)
                 total_payment = round(total_8_hrs_pay + total_over_8_pay + total_over_12_pay, 2)
             else:
                 total_8_hrs_pay = None

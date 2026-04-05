@@ -24,7 +24,7 @@ def send_webhook_notification(self, event_type, payload):
             event_type=event_type,
             is_active=True
         )
-        
+
         for subscription in subscriptions:
             # Create delivery record
             delivery = WebhookDelivery.objects.create(
@@ -33,12 +33,12 @@ def send_webhook_notification(self, event_type, payload):
                 payload=payload,
                 status='PENDING'
             )
-            
+
             # Send webhook in separate task
             send_single_webhook.delay(delivery.id)
-            
+
         logger.info(f"Queued webhook notifications for event: {event_type}")
-        
+
     except Exception as e:
         logger.error(f"Error queuing webhook notifications for {event_type}: {str(e)}")
         raise
@@ -54,7 +54,7 @@ def send_single_webhook(self, delivery_id):
         delivery.attempt_count += 1
         delivery.status = 'RETRYING' if delivery.attempt_count > 1 else 'PENDING'
         delivery.save()
-        
+
         # Prepare headers
         headers = {
             'Content-Type': 'application/json',
@@ -62,11 +62,11 @@ def send_single_webhook(self, delivery_id):
             'X-WorkSync-Event': delivery.event_type,
             'X-WorkSync-Delivery': str(delivery.id),
         }
-        
+
         # Add secret key if configured
         if delivery.subscription.secret_key:
             headers['X-WorkSync-Signature'] = delivery.subscription.secret_key
-        
+
         # Send webhook
         response = requests.post(
             delivery.subscription.target_url,
@@ -74,11 +74,11 @@ def send_single_webhook(self, delivery_id):
             headers=headers,
             timeout=30
         )
-        
+
         # Update delivery record
         delivery.http_status_code = response.status_code
         delivery.response_body = response.text[:1000]  # Limit response body size
-        
+
         if response.status_code == 200:
             delivery.status = 'SUCCESS'
             logger.info(f"Webhook delivered successfully: {delivery.id}")
@@ -86,43 +86,43 @@ def send_single_webhook(self, delivery_id):
             delivery.status = 'FAILED'
             delivery.error_message = f"HTTP {response.status_code}: {response.text[:500]}"
             logger.warning(f"Webhook delivery failed: {delivery.id} - {delivery.error_message}")
-        
+
         delivery.save()
-        
+
         # Retry if failed and retries available
         if delivery.status == 'FAILED' and delivery.can_retry:
             # Exponential backoff: 1min, 5min, 15min
             retry_delays = [60, 300, 900]
             delay = retry_delays[min(delivery.attempt_count - 1, len(retry_delays) - 1)]
-            
+
             delivery.next_retry_at = timezone.now() + timedelta(seconds=delay)
             delivery.save()
-            
+
             # Schedule retry
             send_single_webhook.apply_async(args=[delivery_id], countdown=delay)
             logger.info(f"Webhook retry scheduled for delivery {delivery.id} in {delay} seconds")
-        
+
     except WebhookDelivery.DoesNotExist:
         logger.error(f"Webhook delivery not found: {delivery_id}")
     except requests.exceptions.RequestException as e:
         logger.error(f"Webhook request error for delivery {delivery_id}: {str(e)}")
-        
+
         # Update delivery record
         try:
             delivery = WebhookDelivery.objects.get(id=delivery_id)
             delivery.status = 'FAILED'
             delivery.error_message = str(e)
             delivery.save()
-            
+
             # Retry if available
             if delivery.can_retry:
                 retry_delays = [60, 300, 900]
                 delay = retry_delays[min(delivery.attempt_count - 1, len(retry_delays) - 1)]
                 send_single_webhook.apply_async(args=[delivery_id], countdown=delay)
-                
+
         except Exception as inner_e:
             logger.error(f"Error updating failed webhook delivery {delivery_id}: {str(inner_e)}")
-    
+
     except Exception as e:
         logger.error(f"Unexpected error sending webhook {delivery_id}: {str(e)}")
         raise
@@ -135,23 +135,23 @@ def send_sms_notification(employee_id, message, event_type=None):
     """
     try:
         from twilio.rest import Client
-        
+
         # Get Twilio credentials
         account_sid = settings.TWILIO_ACCOUNT_SID
         auth_token = settings.TWILIO_AUTH_TOKEN
         from_number = settings.TWILIO_PHONE_NUMBER
-        
+
         if not all([account_sid, auth_token, from_number]):
             logger.warning("Twilio credentials not configured, skipping SMS")
             return
-        
+
         # Get employee
         employee = Employee.objects.get(id=employee_id)
-        
+
         if not employee.phone_number:
             logger.warning(f"No phone number for employee {employee.employee_id}")
             return
-        
+
         # Create notification log
         notification_log = NotificationLog.objects.create(
             recipient=employee,
@@ -161,29 +161,29 @@ def send_sms_notification(employee_id, message, event_type=None):
             recipient_address=employee.phone_number,
             status='PENDING'
         )
-        
+
         # Send SMS
         client = Client(account_sid, auth_token)
-        
+
         sms = client.messages.create(
             body=message,
             from_=from_number,
             to=employee.phone_number
         )
-        
+
         # Update notification log
         notification_log.status = 'SENT'
         notification_log.external_id = sms.sid
         notification_log.sent_at = timezone.now()
         notification_log.save()
-        
+
         logger.info(f"SMS sent to {employee.employee_id}: {sms.sid}")
-        
+
     except Employee.DoesNotExist:
         logger.error(f"Employee not found: {employee_id}")
     except Exception as e:
         logger.error(f"Error sending SMS to employee {employee_id}: {str(e)}")
-        
+
         # Update notification log if it exists
         try:
             notification_log.status = 'FAILED'
@@ -201,21 +201,21 @@ def send_email_notification(employee_id, subject, message, event_type=None):
     try:
         from django.core.mail import get_connection, EmailMessage
         from .models import EmailConfiguration
-        
+
         # Get active email configuration
         config = EmailConfiguration.objects.filter(is_active=True).first()
-        
+
         if not config:
             logger.warning("No active email configuration found, skipping email")
             return
-            
+
         # Get employee
         employee = Employee.objects.get(id=employee_id)
-        
+
         if not employee.email:
             logger.warning(f"No email address for employee {employee.employee_id}")
             return
-            
+
         # Create notification log
         notification_log = NotificationLog.objects.create(
             recipient=employee,
@@ -226,7 +226,7 @@ def send_email_notification(employee_id, subject, message, event_type=None):
             recipient_address=employee.email,
             status='PENDING'
         )
-        
+
         # Use the email queue system that works in production
         from apps.notifications.email_queue import EmailQueue
 
@@ -237,19 +237,19 @@ def send_email_notification(employee_id, subject, message, event_type=None):
             message=message,
             template_data={'employee_name': employee.name}
         )
-        
+
         # Update notification log
         notification_log.status = 'SENT'
         notification_log.sent_at = timezone.now()
         notification_log.save()
-        
+
         logger.info(f"Email sent to {employee.employee_id}")
-        
+
     except Employee.DoesNotExist:
         logger.error(f"Employee not found: {employee_id}")
     except Exception as e:
         logger.error(f"Error sending email to employee {employee_id}: {str(e)}")
-        
+
         # Update notification log if it exists
         try:
             notification_log.status = 'FAILED'
@@ -266,13 +266,13 @@ def cleanup_old_webhook_deliveries():
     """
     try:
         cutoff_date = timezone.now() - timedelta(days=30)
-        
+
         deleted_count = WebhookDelivery.objects.filter(
             created_at__lt=cutoff_date
         ).delete()[0]
-        
+
         logger.info(f"Cleaned up {deleted_count} old webhook delivery records")
-        
+
     except Exception as e:
         logger.error(f"Error cleaning up webhook deliveries: {str(e)}")
 
@@ -284,12 +284,77 @@ def cleanup_old_notification_logs():
     """
     try:
         cutoff_date = timezone.now() - timedelta(days=90)
-        
+
         deleted_count = NotificationLog.objects.filter(
             created_at__lt=cutoff_date
         ).delete()[0]
-        
+
         logger.info(f"Cleaned up {deleted_count} old notification log records")
-        
+
     except Exception as e:
         logger.error(f"Error cleaning up notification logs: {str(e)}")
+
+
+
+@shared_task
+def process_email_queue():
+    """
+    Process all queued emails and send them via SMTP.
+    Runs every 60 seconds via Celery Beat.
+    """
+    import os, json, glob, ssl, smtplib
+    from email.mime.text import MIMEText
+    from email.mime.multipart import MIMEMultipart
+    from django.conf import settings as django_settings
+
+    queue_dir = '/var/www/attendance/backend/email_queue'
+    if not os.path.exists(queue_dir):
+        return {'status': 'no_queue_dir'}
+
+    email_files = glob.glob(os.path.join(queue_dir, '*.json'))
+    if not email_files:
+        return {'status': 'empty', 'count': 0}
+
+    sent = 0
+    failed = 0
+
+    try:
+        context = ssl.create_default_context()
+        context.check_hostname = False
+        context.verify_mode = ssl.CERT_NONE
+
+        server = smtplib.SMTP(django_settings.EMAIL_HOST, django_settings.EMAIL_PORT)
+        server.starttls(context=context)
+        server.login(django_settings.EMAIL_HOST_USER, django_settings.EMAIL_HOST_PASSWORD)
+
+        for email_file in email_files:
+            try:
+                with open(email_file, 'r') as f:
+                    email_data = json.load(f)
+
+                msg = MIMEMultipart('alternative')
+                msg['From'] = django_settings.DEFAULT_FROM_EMAIL
+                msg['To'] = email_data['recipient']
+                msg['Subject'] = email_data['subject']
+
+                msg.attach(MIMEText(email_data['message'], 'plain'))
+
+                html_body = email_data.get('html_message', '')
+                if html_body:
+                    msg.attach(MIMEText(html_body, 'html'))
+
+                server.send_message(msg)
+                os.remove(email_file)
+                sent += 1
+                logger.info(f"Email sent: {email_data['type']} to {email_data['recipient']}")
+
+            except Exception as e:
+                failed += 1
+                logger.error(f"Failed to send {email_file}: {str(e)}")
+
+        server.quit()
+
+    except Exception as e:
+        logger.error(f"SMTP connection failed during queue processing: {str(e)}")
+
+    return {'status': 'processed', 'sent': sent, 'failed': failed}

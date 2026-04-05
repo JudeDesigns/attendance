@@ -173,7 +173,7 @@ const NotificationBell = () => {
 
       {/* Dropdown Panel - Mobile Responsive */}
       {isOpen && (
-        <div className="absolute -right-2 sm:right-0 mt-2 w-[90vw] sm:w-80 max-w-sm glass-notification-dropdown z-[9999]">
+        <div className="fixed sm:absolute left-2 right-2 sm:left-auto sm:right-0 top-14 sm:top-auto sm:mt-2 sm:w-80 max-w-sm glass-notification-dropdown z-[9999]">
           <div className="py-1">
             {/* Header */}
             <div className="px-4 py-3 border-b border-white border-opacity-20">

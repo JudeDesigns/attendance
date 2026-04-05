@@ -102,13 +102,11 @@
 }
 
 /* Mobile-specific notification dropdown improvements */
-@media (max-width: 768px) {
+@media (max-width: 639px) {
   .glass-notification-dropdown {
-    /* Ensure proper positioning on mobile */
-    right: 0.5rem !important;
-    left: auto !important;
-    max-width: calc(100vw - 1rem);
-    width: 320px;
+    /* On mobile, fixed positioning with left/right insets handles centering */
+    max-width: none;
+    width: auto;
     border-radius: 12px;
     box-shadow: 0 16px 64px 0 rgba(0, 0, 0, 0.2);
   }

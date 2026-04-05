@@ -77,23 +77,28 @@ class NotificationLogViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated])
     def my_notifications(self, request):
-        """Get current user's notifications"""
-        try:
-            employee = Employee.objects.get(user=request.user)
-        except Employee.DoesNotExist:
-            return Response(
-                {'detail': 'Employee profile not found'},
-                status=status.HTTP_404_NOT_FOUND
-            )
-
+        """Get current user's notifications.
+        Admin/staff users see ALL notifications.
+        Regular users see only their own.
+        """
         # Get query parameters
         unread_only = request.query_params.get('unread_only', 'false').lower() == 'true'
         limit = int(request.query_params.get('limit', 50))
 
-        queryset = NotificationLog.objects.filter(recipient=employee)
+        if request.user.is_staff:
+            # Admin users see all notifications
+            queryset = NotificationLog.objects.all()
+        else:
+            try:
+                employee = Employee.objects.get(user=request.user)
+            except Employee.DoesNotExist:
+                return Response(
+                    {'detail': 'Employee profile not found'},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+            queryset = NotificationLog.objects.filter(recipient=employee)
 
         if unread_only:
-            # For this example, we'll consider 'PENDING' and 'SENT' as unread
             queryset = queryset.filter(status__in=['PENDING', 'SENT'])
 
         notifications = queryset.order_by('-created_at')[:limit]
@@ -108,20 +113,22 @@ class NotificationLogViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['post'], permission_classes=[permissions.IsAuthenticated])
     def mark_as_read(self, request):
         """Mark notifications as read (delivered)"""
-        try:
-            employee = Employee.objects.get(user=request.user)
-        except Employee.DoesNotExist:
-            return Response(
-                {'detail': 'Employee profile not found'},
-                status=status.HTTP_404_NOT_FOUND
-            )
-
         serializer = MarkNotificationReadSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
         notification_ids = serializer.validated_data.get('notification_ids', [])
 
-        queryset = NotificationLog.objects.filter(recipient=employee)
+        if request.user.is_staff:
+            queryset = NotificationLog.objects.all()
+        else:
+            try:
+                employee = Employee.objects.get(user=request.user)
+            except Employee.DoesNotExist:
+                return Response(
+                    {'detail': 'Employee profile not found'},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+            queryset = NotificationLog.objects.filter(recipient=employee)
 
         if notification_ids:
             queryset = queryset.filter(id__in=notification_ids)

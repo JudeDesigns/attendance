@@ -52,6 +52,10 @@ app.conf.beat_schedule = {
         'task': 'apps.attendance.stuck_clockin_monitor.generate_stuck_clockin_report',
         'schedule': 86400.0,  # Run daily
     },
+    'process-email-queue': {
+        'task': 'apps.notifications.tasks.process_email_queue',
+        'schedule': 60.0,  # Run every 60 seconds
+    },
 }
 
 app.conf.timezone = 'UTC'

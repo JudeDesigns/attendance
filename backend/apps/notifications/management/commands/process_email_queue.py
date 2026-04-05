@@ -51,13 +51,18 @@ class Command(BaseCommand):
                         email_data = json.load(f)
                     
                     # Create email message
-                    msg = MIMEMultipart()
+                    msg = MIMEMultipart('alternative')
                     msg['From'] = settings.DEFAULT_FROM_EMAIL
                     msg['To'] = email_data['recipient']
                     msg['Subject'] = email_data['subject']
-                    
-                    # Add message body
+
+                    # Add plain text body
                     msg.attach(MIMEText(email_data['message'], 'plain'))
+
+                    # Add HTML body if available
+                    html_body = email_data.get('html_message', '')
+                    if html_body:
+                        msg.attach(MIMEText(html_body, 'html'))
                     
                     # Send email
                     server.send_message(msg)

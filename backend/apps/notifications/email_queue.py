@@ -22,30 +22,32 @@ class EmailQueue:
         os.makedirs(cls.QUEUE_DIR, exist_ok=True)
     
     @classmethod
-    def queue_email(cls, email_type, recipient, subject, message, template_data=None):
+    def queue_email(cls, email_type, recipient, subject, message, template_data=None, html_message=None):
         """
         Queue an email for sending
-        
+
         Args:
             email_type: Type of email (test, break_reminder, shift_alert, etc.)
             recipient: Email address to send to
             subject: Email subject
-            message: Email message/body
+            message: Plain text email body
             template_data: Optional data for email templates
+            html_message: Optional HTML email body (sent alongside plain text)
         """
         cls.ensure_queue_dir()
-        
+
         # Create unique filename to prevent duplicates
         email_id = str(uuid.uuid4())
         timestamp = int(time.time())
         filename = f'{email_type}_{timestamp}_{email_id}.json'
-        
+
         email_data = {
             'id': email_id,
             'type': email_type,
             'recipient': recipient,
             'subject': subject,
             'message': message,
+            'html_message': html_message or '',
             'template_data': template_data or {},
             'created_at': timestamp,
             'status': 'queued'

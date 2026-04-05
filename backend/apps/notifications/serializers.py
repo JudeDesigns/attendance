@@ -222,7 +222,7 @@ class CompanySettingsSerializer(serializers.ModelSerializer):
         model = CompanySettings
         fields = [
             'id', 'regular_rate_multiplier', 'overtime_8_multiplier', 'overtime_12_multiplier',
-            'overtime_alert_email', 'stuck_clockin_alert_email', 'missed_clockout_hours',
-            'created_at', 'updated_at'
+            'overtime_alert_email', 'stuck_clockin_alert_email', 'driver_activity_alert_email',
+            'missed_clockout_hours', 'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']

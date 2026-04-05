@@ -584,6 +584,132 @@ class NotificationService:
             logger.error(f"Error sending alert to configured email ({settings_field}): {str(e)}")
             return False
 
+    def send_driver_activity_email(self, employee, event_type, details):
+        """
+        Send a formatted HTML email for Driver activity events.
+        Only sends if employee has DRIVER role and alert email is configured.
+
+        Args:
+            employee: Employee instance
+            event_type: 'clock_in', 'clock_out', 'break_start', 'break_end', 'break_waive'
+            details: dict with event-specific data
+        """
+        try:
+            # Only for DRIVER role employees
+            if not employee.role or employee.role.name.upper() != 'DRIVER':
+                return False
+
+            from .models import CompanySettings
+            settings = CompanySettings.get_settings()
+            recipient = settings.driver_activity_alert_email
+
+            if not recipient:
+                return False
+
+            from django.utils import timezone as tz
+            from apps.core.timezone_utils import convert_to_naive_la_time
+            now_la = convert_to_naive_la_time(tz.now())
+            timestamp = now_la.strftime('%b %d, %Y %I:%M %p')
+
+            event_labels = {
+                'clock_in': '🟢 Clock In',
+                'clock_out': '🔴 Clock Out',
+                'break_start': '☕ Break Started',
+                'break_end': '✅ Break Ended',
+                'break_waive': '⚠️ Break Waived',
+            }
+            event_colors = {
+                'clock_in': '#059669',
+                'clock_out': '#DC2626',
+                'break_start': '#D97706',
+                'break_end': '#2563EB',
+                'break_waive': '#9333EA',
+            }
+            event_label = event_labels.get(event_type, event_type)
+            accent = event_colors.get(event_type, '#374151')
+
+            subject = f"[Driver Activity] {employee.full_name} — {event_label}"
+
+            # Build detail rows with alternating backgrounds
+            detail_rows = ''
+            idx = 0
+            for key, val in details.items():
+                if key == 'event':
+                    continue
+                label = key.replace('_', ' ').title()
+                bg = '#F9FAFB' if idx % 2 == 0 else '#FFFFFF'
+                detail_rows += (
+                    f'<tr style="background:{bg};">'
+                    f'<td style="padding:10px 16px;font-size:13px;color:#6B7280;white-space:nowrap;">{label}</td>'
+                    f'<td style="padding:10px 16px;font-size:13px;font-weight:600;color:#111827;">{val}</td>'
+                    f'</tr>'
+                )
+                idx += 1
+
+            html = f"""<!DOCTYPE html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background:#F3F4F6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F3F4F6;padding:24px 0;">
+    <tr><td align="center">
+      <table width="520" cellpadding="0" cellspacing="0" style="background:#FFFFFF;border-radius:8px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.1);">
+        <!-- Accent bar -->
+        <tr><td style="height:4px;background:{accent};"></td></tr>
+        <!-- Header -->
+        <tr><td style="padding:24px 24px 16px 24px;">
+          <p style="margin:0 0 4px;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:{accent};">Driver Activity</p>
+          <h1 style="margin:0;font-size:20px;font-weight:700;color:#111827;">{event_label}</h1>
+          <p style="margin:6px 0 0;font-size:13px;color:#6B7280;">{timestamp} (PST)</p>
+        </td></tr>
+        <!-- Employee info -->
+        <tr><td style="padding:0 24px 16px;">
+          <table width="100%" cellpadding="0" cellspacing="0" style="background:#F9FAFB;border-radius:6px;border:1px solid #E5E7EB;">
+            <tr>
+              <td style="padding:12px 16px;">
+                <p style="margin:0;font-size:16px;font-weight:700;color:#111827;">{employee.full_name}</p>
+                <p style="margin:2px 0 0;font-size:13px;color:#6B7280;">ID: {employee.employee_id} &middot; Driver</p>
+              </td>
+            </tr>
+          </table>
+        </td></tr>
+        <!-- Details -->
+        <tr><td style="padding:0 24px 20px;">
+          <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #E5E7EB;border-radius:6px;overflow:hidden;">
+            {detail_rows}
+          </table>
+        </td></tr>
+        <!-- Footer -->
+        <tr><td style="padding:16px 24px;border-top:1px solid #E5E7EB;">
+          <p style="margin:0;font-size:11px;color:#9CA3AF;">WorkSync Attendance System &middot; This is an automated notification</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>"""
+
+            # Plain text fallback
+            plain = f"{event_label} — {timestamp} (PST)\n{'─' * 40}\n"
+            plain += f"Employee: {employee.full_name}\nID: {employee.employee_id}\nRole: Driver\n{'─' * 40}\n"
+            for key, val in details.items():
+                if key == 'event':
+                    continue
+                plain += f"{key.replace('_', ' ').title()}: {val}\n"
+            plain += f"{'─' * 40}\nWorkSync Attendance System"
+
+            from .email_queue import EmailQueue
+            EmailQueue.queue_email(
+                email_type='driver_activity',
+                recipient=recipient,
+                subject=subject,
+                message=plain,
+                html_message=html,
+            )
+            logger.info(f"Driver activity email queued: {employee.employee_id} — {event_type}")
+            return True
+
+        except Exception as e:
+            logger.error(f"Error sending driver activity email: {str(e)}")
+            return False
+
 
 # Global instance
 notification_service = NotificationService()

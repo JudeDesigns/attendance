@@ -220,6 +220,10 @@ class CompanySettings(models.Model):
         blank=True, default='',
         help_text="Email address to receive stuck clock-in alerts"
     )
+    driver_activity_alert_email = models.EmailField(
+        blank=True, default='',
+        help_text="Email address to receive Driver clock-in/out and break activity alerts"
+    )
     missed_clockout_hours = models.DecimalField(
         max_digits=4, decimal_places=1, default=2.0,
         help_text="Hours after shift end to trigger missed clock-out alert"

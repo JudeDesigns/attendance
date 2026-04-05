@@ -237,6 +237,18 @@ class TimeLogViewSet(viewsets.ModelViewSet):
             lambda: notification_service.send_clock_in_notification(employee, time_log)
         )
 
+        # Driver activity email
+        from apps.core.timezone_utils import convert_to_naive_la_time as to_la
+        clock_in_la = to_la(time_log.clock_in_time)
+        _emp, _details = employee, {
+            'event': 'Clock In',
+            'time': clock_in_la.strftime('%I:%M %p') if clock_in_la else '',
+            'date': clock_in_la.strftime('%b %d, %Y') if clock_in_la else '',
+            'method': time_log.clock_in_method or 'PORTAL',
+            'location': str(time_log.clock_in_location or 'N/A'),
+        }
+        transaction.on_commit(lambda: notification_service.send_driver_activity_email(_emp, 'clock_in', _details))
+
         response_serializer = TimeLogSerializer(time_log)
         return Response(response_serializer.data, status=status.HTTP_201_CREATED)
     
@@ -325,6 +337,20 @@ class TimeLogViewSet(viewsets.ModelViewSet):
         if duration_hours > 8:  # Standard 8-hour workday
             transaction.on_commit(lambda: notification_service.send_overtime_alert(employee, duration_hours))
 
+        # Driver activity email
+        from apps.core.timezone_utils import convert_to_naive_la_time as to_la
+        co_la = to_la(time_log.clock_out_time)
+        ci_la = to_la(time_log.clock_in_time)
+        _emp_co, _details_co = employee, {
+            'event': 'Clock Out',
+            'clock_out_time': co_la.strftime('%I:%M %p') if co_la else '',
+            'clock_in_time': ci_la.strftime('%I:%M %p') if ci_la else '',
+            'date': co_la.strftime('%b %d, %Y') if co_la else '',
+            'total_hours': f"{duration_hours:.2f}",
+            'overtime': 'Yes' if duration_hours > 8 else 'No',
+        }
+        transaction.on_commit(lambda: notification_service.send_driver_activity_email(_emp_co, 'clock_out', _details_co))
+
         response_serializer = TimeLogSerializer(time_log)
         return Response(response_serializer.data)
     
@@ -387,6 +413,14 @@ class TimeLogViewSet(viewsets.ModelViewSet):
             logger.info(f"QR Clock-in: {employee.employee_id} at {location.name}")
             # Send automated notification
             notification_service.send_clock_in_notification(employee, time_log)
+            # Driver activity email
+            from apps.core.timezone_utils import convert_to_naive_la_time as to_la
+            _ci_la = to_la(time_log.clock_in_time)
+            notification_service.send_driver_activity_email(employee, 'clock_in', {
+                'event': 'Clock In (QR)', 'time': _ci_la.strftime('%I:%M %p') if _ci_la else '',
+                'date': _ci_la.strftime('%b %d, %Y') if _ci_la else '',
+                'method': 'QR Code', 'location': str(location.name),
+            })
             message = 'Successfully clocked in'
         else:
             # Update existing time log
@@ -418,6 +452,17 @@ class TimeLogViewSet(viewsets.ModelViewSet):
             transaction.on_commit(lambda: notification_service.send_clock_out_notification(employee, time_log))
             if duration_hours > 8:
                 transaction.on_commit(lambda: notification_service.send_overtime_alert(employee, duration_hours))
+            # Driver activity email
+            _co_la = to_la(time_log.clock_out_time)
+            _ci_qr_la = to_la(time_log.clock_in_time)
+            _emp_qr, _det_qr = employee, {
+                'event': 'Clock Out (QR)', 'clock_out_time': _co_la.strftime('%I:%M %p') if _co_la else '',
+                'clock_in_time': _ci_qr_la.strftime('%I:%M %p') if _ci_qr_la else '',
+                'date': _co_la.strftime('%b %d, %Y') if _co_la else '',
+                'total_hours': f"{duration_hours:.2f}", 'location': str(location.name),
+                'overtime': 'Yes' if duration_hours > 8 else 'No',
+            }
+            transaction.on_commit(lambda: notification_service.send_driver_activity_email(_emp_qr, 'clock_out', _det_qr))
 
             message = 'Successfully clocked out'
         
@@ -1242,6 +1287,16 @@ class BreakViewSet(viewsets.ModelViewSet):
         message = f"Employee {employee.user.get_full_name()} started {break_instance.display_name} at {break_instance.start_time.strftime('%Y-%m-%d %H:%M:%S')}"
         create_attendance_notification(employee, 'break_started', message, active_time_log)
 
+        # Driver activity email — break start
+        from apps.core.timezone_utils import convert_to_naive_la_time as to_la
+        _bs_la = to_la(break_instance.start_time)
+        notification_service.send_driver_activity_email(employee, 'break_start', {
+            'break_type': break_instance.display_name,
+            'break_number': f"#{break_number}",
+            'start_time': _bs_la.strftime('%I:%M %p') if _bs_la else '',
+            'date': _bs_la.strftime('%b %d, %Y') if _bs_la else '',
+        })
+
         response_serializer = BreakSerializer(break_instance)
         return Response(response_serializer.data, status=status.HTTP_201_CREATED)
 
@@ -1296,6 +1351,18 @@ class BreakViewSet(viewsets.ModelViewSet):
         # Create notification
         message = f"Employee {employee.user.get_full_name()} ended a {break_instance.get_break_type_display()} at {break_instance.end_time.strftime('%Y-%m-%d %H:%M:%S')}. Duration: {break_instance.duration_minutes} minutes"
         create_attendance_notification(employee, 'break_ended', message, break_instance.time_log)
+
+        # Driver activity email — break end
+        from apps.core.timezone_utils import convert_to_naive_la_time as to_la
+        _be_start_la = to_la(break_instance.start_time)
+        _be_end_la = to_la(break_instance.end_time)
+        notification_service.send_driver_activity_email(employee, 'break_end', {
+            'break_type': break_instance.get_break_type_display(),
+            'start_time': _be_start_la.strftime('%I:%M %p') if _be_start_la else '',
+            'end_time': _be_end_la.strftime('%I:%M %p') if _be_end_la else '',
+            'duration': f"{break_instance.duration_minutes} minutes",
+            'date': _be_end_la.strftime('%b %d, %Y') if _be_end_la else '',
+        })
 
         response_serializer = BreakSerializer(break_instance)
         return Response(response_serializer.data)
@@ -1412,13 +1479,23 @@ class BreakViewSet(viewsets.ModelViewSet):
 
         if break_waiver:
             logger.info(f"Break waived by {employee.employee_id}: {waiver_reason}")
-            
+
             # Send notification to admins
             try:
                 hours_worked = round((timezone.now() - active_time_log.clock_in_time).total_seconds() / 3600, 2)
                 notification_service.send_break_waiver_notification(employee, waiver_reason, hours_worked)
             except Exception as e:
                 logger.error(f"Failed to send break waiver notification: {str(e)}")
+
+            # Driver activity email — break waive
+            from apps.core.timezone_utils import convert_to_naive_la_time as to_la
+            _bw_la = to_la(timezone.now())
+            notification_service.send_driver_activity_email(employee, 'break_waive', {
+                'reason': waiver_reason,
+                'hours_worked_so_far': f"{hours_worked:.2f}",
+                'date': _bw_la.strftime('%b %d, %Y') if _bw_la else '',
+                'time': _bw_la.strftime('%I:%M %p') if _bw_la else '',
+            })
 
             return Response({
                 'message': 'Break waiver recorded successfully',

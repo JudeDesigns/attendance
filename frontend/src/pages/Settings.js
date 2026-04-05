@@ -20,6 +20,7 @@ const Settings = () => {
     overtime_12_multiplier: '2.00',
     overtime_alert_email: '',
     stuck_clockin_alert_email: '',
+    driver_activity_alert_email: '',
     missed_clockout_hours: '2.0',
   });
 
@@ -40,6 +41,7 @@ const Settings = () => {
             overtime_12_multiplier: data.overtime_12_multiplier || '2.00',
             overtime_alert_email: data.overtime_alert_email || '',
             stuck_clockin_alert_email: data.stuck_clockin_alert_email || '',
+            driver_activity_alert_email: data.driver_activity_alert_email || '',
             missed_clockout_hours: data.missed_clockout_hours || '2.0',
           });
         }
@@ -337,6 +339,19 @@ const Settings = () => {
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent"
                     />
                     <p className="text-xs text-gray-400 mt-1">Receives an email when an employee stays clocked in past their shift</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Driver Activity Alert Email
+                    </label>
+                    <input
+                      type="email"
+                      value={companySettings.driver_activity_alert_email}
+                      onChange={(e) => handleCompanySettingsChange('driver_activity_alert_email', e.target.value)}
+                      placeholder="dispatch@company.com"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent"
+                    />
+                    <p className="text-xs text-gray-400 mt-1">Receives all Driver clock-ins, clock-outs, breaks taken, and break waivers</p>
                   </div>
                 </div>
               </div>

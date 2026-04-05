@@ -48,6 +48,16 @@ const AdminDashboard = () => {
   // Get locations
   const { data: locationsData } = useQuery('locations', locationAPI.list);
 
+  // Get ALL currently clocked-in employees (regardless of date — catches stuck clock-ins)
+  const { data: activeClockedInData } = useQuery(
+    'active-clockedin',
+    () => attendanceAPI.timeLogs({ status: 'CLOCKED_IN', page_size: 1000 }),
+    {
+      refetchInterval: 60000,
+      staleTime: 30000,
+    }
+  );
+
   // Get today's shifts (actual scheduled shifts)
   const { data: shiftsData } = useQuery(
     ['shifts', selectedDate],
@@ -62,17 +72,14 @@ const AdminDashboard = () => {
 
   const employees = Array.isArray(employeesData?.data) ? employeesData.data : (employeesData?.data?.results || []);
   const attendanceLogs = attendanceData?.data?.results || [];
+  const allActiveClockIns = activeClockedInData?.data?.results || [];
   const locations = locationsData?.data?.results || locationsData?.results || [];
   const shifts = Array.isArray(shiftsData?.data) ? shiftsData.data : (shiftsData?.data?.results || []);
 
-  // Debug logging
-  console.log('AdminDashboard - Selected date:', selectedDate);
-  console.log('AdminDashboard - Attendance logs:', attendanceLogs.length);
-  console.log('AdminDashboard - Shifts:', shifts.length);
-
   // Calculate statistics
   const totalEmployees = employees.length;
-  const currentlyClockedIn = attendanceLogs.filter(log => !log.clock_out_time).length;
+  // Use the dedicated active query — catches stuck clock-ins from ANY date
+  const currentlyClockedIn = allActiveClockIns.length;
   // Use actual scheduled shifts instead of attendance logs
   const completedShifts = shifts.filter(shift => {
     const shiftDate = new Date(shift.date + 'T00:00:00');

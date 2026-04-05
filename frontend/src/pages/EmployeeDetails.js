@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
-import { useQuery, useQueryClient } from 'react-query';
+import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns';
 import {
   ArrowLeftIcon,
@@ -31,6 +31,9 @@ const EmployeeDetails = () => {
   const [editingLog, setEditingLog] = useState(null);
   const [editForm, setEditForm] = useState({});
   const [editSaving, setEditSaving] = useState(false);
+  const [forceClockoutModal, setForceClockoutModal] = useState(false);
+  const [forceClockoutTime, setForceClockoutTime] = useState('');
+  const [forceClockoutReason, setForceClockoutReason] = useState('');
 
   // Get employee data from navigation state or fetch it
   const employeeFromState = location.state?.employee;
@@ -190,6 +193,53 @@ const EmployeeDetails = () => {
     const h = Math.floor(minutes / 60);
     const m = minutes % 60;
     return m > 0 ? `${h}h ${m}m` : `${h}h`;
+  };
+
+  // Detect active (stuck) clock-in session — any log without a clock_out_time
+  const activeLog = timeLogs.find(log => !log.clock_out_time && log.status === 'CLOCKED_IN');
+  const activeHours = activeLog
+    ? ((Date.now() - new Date(activeLog.clock_in_time).getTime()) / 3600000).toFixed(1)
+    : null;
+
+  // Force clock-out mutation
+  const forceClockoutMutation = useMutation(
+    (data) => attendanceAPI.forceClockout(data),
+    {
+      onSuccess: () => {
+        toast.success('Employee force-clocked out successfully');
+        setForceClockoutModal(false);
+        setForceClockoutTime('');
+        setForceClockoutReason('');
+        queryClient.invalidateQueries(['employee-timelogs']);
+        queryClient.invalidateQueries(['employee-breaks']);
+      },
+      onError: (err) => {
+        toast.error(err?.response?.data?.detail || 'Failed to force clock-out');
+      },
+    }
+  );
+
+  const openForceClockoutModal = () => {
+    // Default to current PST time
+    const now = new Date();
+    const pstParts = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/Los_Angeles',
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', hour12: false,
+    }).formatToParts(now);
+    const get = (type) => pstParts.find(p => p.type === type)?.value || '';
+    setForceClockoutTime(`${get('year')}-${get('month')}-${get('day')}T${get('hour')}:${get('minute')}`);
+    setForceClockoutReason('');
+    setForceClockoutModal(true);
+  };
+
+  const handleForceClockout = () => {
+    if (!activeLog || !forceClockoutTime) return;
+    forceClockoutMutation.mutate({
+      employee_id: employee?.employee_id,
+      clockout_time: new Date(forceClockoutTime).toISOString(),
+      reason: forceClockoutReason || 'Admin force clock-out from employee details',
+    });
   };
 
   // --- Edit Time Log handlers ---
@@ -428,6 +478,80 @@ const EmployeeDetails = () => {
                   {formatDuration(statusDataFromState.totalHours)}
                 </dd>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Active / Stuck Clock-In Alert */}
+      {activeLog && isAdmin && (
+        <div className={`rounded-lg border-l-4 p-4 shadow ${
+          parseFloat(activeHours) >= 12 ? 'bg-red-50 border-red-500' : 'bg-amber-50 border-amber-500'
+        }`}>
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <div>
+              <h3 className={`text-sm font-semibold ${
+                parseFloat(activeHours) >= 12 ? 'text-red-800' : 'text-amber-800'
+              }`}>
+                ⚠️ Active Clock-In — {activeHours} hours
+              </h3>
+              <p className="text-sm text-gray-600 mt-1">
+                Clocked in since {format(new Date(activeLog.clock_in_time), 'MMM d, yyyy h:mm a')} and has not clocked out.
+              </p>
+            </div>
+            <button
+              onClick={openForceClockoutModal}
+              className="bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-red-700 transition-colors whitespace-nowrap"
+            >
+              Force Clock-Out
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Force Clock-Out Modal */}
+      {forceClockoutModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-40 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Force Clock-Out</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              This will clock out <strong>{employee?.first_name} {employee?.last_name}</strong> who has been clocked in for <strong>{activeHours} hours</strong>.
+            </p>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Clock-Out Time</label>
+                <input
+                  type="datetime-local"
+                  value={forceClockoutTime}
+                  onChange={(e) => setForceClockoutTime(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Reason (optional)</label>
+                <textarea
+                  value={forceClockoutReason}
+                  onChange={(e) => setForceClockoutReason(e.target.value)}
+                  placeholder="e.g., Employee forgot to clock out"
+                  rows={2}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
+                />
+              </div>
+            </div>
+            <div className="flex justify-end space-x-3 mt-6">
+              <button
+                onClick={() => setForceClockoutModal(false)}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleForceClockout}
+                disabled={forceClockoutMutation.isLoading}
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 disabled:opacity-50"
+              >
+                {forceClockoutMutation.isLoading ? 'Clocking out...' : 'Confirm Force Clock-Out'}
+              </button>
             </div>
           </div>
         </div>

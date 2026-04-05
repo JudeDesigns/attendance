@@ -96,7 +96,11 @@ class StuckClockInManager:
             message = f"URGENT: You have been clocked in for {hours} hours. Please clock out immediately or contact your supervisor."
         else:  # CRITICAL_AUTO
             message = f"CRITICAL: You have been clocked in for {hours} hours. Your time will be automatically adjusted."
-        
+
+        # Get active log clock-in time safely (use TimeLog directly, not related_name)
+        active_log = TimeLog.objects.filter(employee=employee, status='CLOCKED_IN').first()
+        clock_in_time = active_log.clock_in_time if active_log else None
+
         # Send notification (email, SMS, push notification)
         self.notification_service.send_stuck_clockin_notification(
             'stuck_clockin_employee',
@@ -106,17 +110,23 @@ class StuckClockInManager:
                 'hours_clocked_in': hours,
                 'severity': severity,
                 'message': message,
-                'clock_in_time': employee.time_logs.filter(status='CLOCKED_IN').first().clock_in_time
+                'clock_in_time': clock_in_time
             }
         )
-    
+
     def _send_admin_alert(self, employee, hours, severity):
         """Send alert to admin users"""
-        # Get admin users only (simplified for Admin/Employee system)
+        from django.db.models import Q
+
+        # Get admin users — case-insensitive role match + is_staff fallback
         admins = Employee.objects.filter(
-            role__name='Admin'
-        )
-        
+            Q(role__name__iexact='admin') | Q(role__name__iexact='administrator') | Q(user__is_staff=True)
+        ).distinct()
+
+        # Get active log clock-in time safely
+        active_log = TimeLog.objects.filter(employee=employee, status='CLOCKED_IN').first()
+        clock_in_time = active_log.clock_in_time if active_log else None
+
         message = f"Employee {employee.full_name} ({employee.employee_id}) has been clocked in for {hours} hours."
 
         for admin in admins:
@@ -128,10 +138,17 @@ class StuckClockInManager:
                     'employee_id': employee.employee_id,
                     'hours_clocked_in': hours,
                     'severity': severity,
-                    'clock_in_time': employee.time_logs.filter(status='CLOCKED_IN').first().clock_in_time,
+                    'clock_in_time': clock_in_time,
                     'message': message
                 }
             )
+
+        # Also send to the configured stuck clock-in alert email (from Settings > Alerts)
+        self.notification_service._send_alert_to_configured_email(
+            'stuck_clockin_alert_email',
+            subject=f"Stuck Clock-In Alert [{severity}]: {employee.full_name} ({employee.employee_id})",
+            message=f"{message}\nSeverity: {severity}\nClocked in since: {clock_in_time}",
+        )
     
     def _log_stuck_clockin_alert(self, stuck_info):
         """Log the stuck clock-in alert for audit purposes"""
@@ -203,10 +220,11 @@ class StuckClockInManager:
             }
         )
         
-        # Notify admins
+        # Notify admins — case-insensitive role match + is_staff fallback
+        from django.db.models import Q
         admins = Employee.objects.filter(
-            role__name='Admin'
-        )
+            Q(role__name__iexact='admin') | Q(role__name__iexact='administrator') | Q(user__is_staff=True)
+        ).distinct()
 
         for admin in admins:
             self.notification_service.send_notification(

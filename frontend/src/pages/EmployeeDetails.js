@@ -104,6 +104,17 @@ const EmployeeDetails = () => {
     { staleTime: 5 * 60 * 1000, refetchOnWindowFocus: false }
   );
 
+  // Get active clock-in for this employee (regardless of date range — catches stuck sessions)
+  const { data: activeClockInData } = useQuery(
+    ['employee-active-clockin', employeeId],
+    () => attendanceAPI.timeLogs({
+      employee: employeeId,
+      status: 'CLOCKED_IN',
+      page_size: 5,
+    }),
+    { refetchInterval: 60000, staleTime: 30000 }
+  );
+
   // Get scheduled shifts for this employee
   const { data: shiftsData, isLoading: shiftsLoading } = useQuery(
     ['employee-shifts', employeeId, start, end],
@@ -195,8 +206,9 @@ const EmployeeDetails = () => {
     return m > 0 ? `${h}h ${m}m` : `${h}h`;
   };
 
-  // Detect active (stuck) clock-in session — any log without a clock_out_time
-  const activeLog = timeLogs.find(log => !log.clock_out_time && log.status === 'CLOCKED_IN');
+  // Detect active (stuck) clock-in session — from dedicated query, NOT the date-filtered timeLogs
+  const activeClockIns = activeClockInData?.data?.results || [];
+  const activeLog = activeClockIns[0] || null;
   const activeHours = activeLog
     ? ((Date.now() - new Date(activeLog.clock_in_time).getTime()) / 3600000).toFixed(1)
     : null;
@@ -211,7 +223,9 @@ const EmployeeDetails = () => {
         setForceClockoutTime('');
         setForceClockoutReason('');
         queryClient.invalidateQueries(['employee-timelogs']);
+        queryClient.invalidateQueries(['employee-time-logs']);
         queryClient.invalidateQueries(['employee-breaks']);
+        queryClient.invalidateQueries(['employee-active-clockin']);
       },
       onError: (err) => {
         toast.error(err?.response?.data?.detail || 'Failed to force clock-out');

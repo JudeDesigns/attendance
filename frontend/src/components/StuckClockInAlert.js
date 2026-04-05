@@ -17,7 +17,7 @@ const StuckClockInAlert = ({ isAdmin = false }) => {
   const queryClient = useQueryClient();
 
   // Get stuck clock-ins data (admin only)
-  const { data: stuckData, refetch } = useQuery(
+  const { data: stuckResponse, refetch } = useQuery(
     'stuckClockIns',
     () => attendanceAPI.get('/breaks/stuck_clockins/'),
     {
@@ -28,6 +28,8 @@ const StuckClockInAlert = ({ isAdmin = false }) => {
       refetchOnWindowFocus: true, // Refetch when window gains focus
     }
   );
+  // Extract the actual payload from the axios response
+  const stuckData = stuckResponse?.data || null;
 
   // Force clock-out mutation
   const forceClockoutMutation = useMutation(

@@ -398,6 +398,8 @@ class TimeLogViewSet(viewsets.ModelViewSet):
                     f"QR Clock-out without scheduled shift: {employee.employee_id} at {timezone.now()}"
                 )
 
+        from apps.core.timezone_utils import convert_to_naive_la_time as to_la
+
         if action_type == 'clock_in':
             # Create new time log
             time_log = TimeLog.objects.create(
@@ -414,7 +416,6 @@ class TimeLogViewSet(viewsets.ModelViewSet):
             # Send automated notification
             notification_service.send_clock_in_notification(employee, time_log)
             # Driver activity email
-            from apps.core.timezone_utils import convert_to_naive_la_time as to_la
             _ci_la = to_la(time_log.clock_in_time)
             notification_service.send_driver_activity_email(employee, 'clock_in', {
                 'event': 'Clock In (QR)', 'time': _ci_la.strftime('%I:%M %p') if _ci_la else '',

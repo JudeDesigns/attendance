@@ -397,8 +397,13 @@ class DetailedTimesheetReportGenerator(ReportGenerator):
                 b_duration_str = ''
                 if b.end_time:
                     b_minutes = int((b.end_time - b.start_time).total_seconds() / 60)
+                    # Deduction rules:
+                    # - LUNCH (Break 2): fully deducted
+                    # - SHORT (Break 1 & 3): first 10 min free, excess is deducted
                     if b.break_type == 'LUNCH':
                         total_break_minutes += b_minutes
+                    elif b.break_type == 'SHORT' and b_minutes > 10:
+                        total_break_minutes += (b_minutes - 10)
                     b_h = b_minutes // 60
                     b_m = b_minutes % 60
                     b_duration_str = f"{b_h:02d} {b_m:02d}"

@@ -949,10 +949,10 @@ class TimeLogViewSet(viewsets.ModelViewSet):
                     b = breaks[i]
                     b_start = convert_to_user_timezone(b.start_time, log.employee.user)
                     b_end = convert_to_user_timezone(b.end_time, log.employee.user) if b.end_time else None
-                    
+
                     b_in = b_start.strftime('%H:%M') if b_start else ''
                     b_out = b_end.strftime('%H:%M') if b_end else ''
-                    
+
                     b_total_str = ''
                     b_minutes = 0
                     if b_start and b_end:
@@ -961,12 +961,16 @@ class TimeLogViewSet(viewsets.ModelViewSet):
                         bh = b_minutes // 60
                         bm = b_minutes % 60
                         b_total_str = f"{bh}h {bm}m"
-                    
+
                     break_data.extend([b_in, b_out, b_total_str])
-                    
-                    # Check if deducted (Lunch is typically deducted)
+
+                    # Deduction rules:
+                    # - LUNCH (Break 2): fully deducted
+                    # - SHORT (Break 1 & 3): first 10 min free, excess is deducted
                     if b.break_type == 'LUNCH':
                         total_deducted_minutes += b_minutes
+                    elif b.break_type == 'SHORT' and b_minutes > 10:
+                        total_deducted_minutes += (b_minutes - 10)
                 else:
                     break_data.extend(['', '', ''])
 

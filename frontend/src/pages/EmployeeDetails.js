@@ -209,9 +209,16 @@ const EmployeeDetails = () => {
   // Detect active (stuck) clock-in session — from dedicated query, NOT the date-filtered timeLogs
   const activeClockIns = activeClockInData?.data?.results || [];
   const activeLog = activeClockIns[0] || null;
-  const activeHours = activeLog
-    ? ((Date.now() - new Date(activeLog.clock_in_time).getTime()) / 3600000).toFixed(1)
-    : null;
+  // clock_in_time comes as naive LA time from the API (no timezone suffix).
+  // We must compare it against "now in LA", not the browser's local time.
+  const activeHours = (() => {
+    if (!activeLog) return null;
+    // Get current time in LA
+    const nowLA = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }));
+    // Parse the naive LA clock-in time (browser interprets it as local, so re-parse as LA)
+    const clockInLA = new Date(activeLog.clock_in_time);
+    return ((nowLA.getTime() - clockInLA.getTime()) / 3600000).toFixed(1);
+  })();
 
   // Force clock-out mutation
   const forceClockoutMutation = useMutation(

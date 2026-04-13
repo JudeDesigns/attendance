@@ -383,7 +383,8 @@ class DetailedTimesheetReportGenerator(ReportGenerator):
         # Process breaks (up to 3)
         breaks = list(log.breaks.all().order_by('start_time'))
         break_data = {}
-        total_break_minutes = 0
+        total_all_break_minutes = 0   # Sum of ALL break time (for "Total Break" display)
+        total_deducted_minutes = 0    # Only the deducted portion (for hours calculation)
 
         for i in range(3):
             prefix = f"break_{i+1}"
@@ -396,14 +397,15 @@ class DetailedTimesheetReportGenerator(ReportGenerator):
 
                 b_duration_str = ''
                 if b.end_time:
-                    b_minutes = int((b.end_time - b.start_time).total_seconds() / 60)
+                    b_minutes = round((b.end_time - b.start_time).total_seconds() / 60)
+                    total_all_break_minutes += b_minutes
                     # Deduction rules:
                     # - LUNCH (Break 2): fully deducted
                     # - SHORT (Break 1 & 3): first 10 min free, excess is deducted
                     if b.break_type == 'LUNCH':
-                        total_break_minutes += b_minutes
+                        total_deducted_minutes += b_minutes
                     elif b.break_type == 'SHORT' and b_minutes > 10:
-                        total_break_minutes += (b_minutes - 10)
+                        total_deducted_minutes += (b_minutes - 10)
                     b_h = b_minutes // 60
                     b_m = b_minutes % 60
                     b_duration_str = f"{b_h:02d} {b_m:02d}"
@@ -416,17 +418,22 @@ class DetailedTimesheetReportGenerator(ReportGenerator):
                 break_data[f'{prefix}_out'] = ''
                 break_data[f'{prefix}_total'] = ''
 
-        # Total break string
-        tb_h = total_break_minutes // 60
-        tb_m = total_break_minutes % 60
-        total_break_str = f"{tb_h:02d} {tb_m:02d}" if total_break_minutes > 0 else ''
+        # Total break string (shows ALL break time, not just deducted)
+        tb_h = total_all_break_minutes // 60
+        tb_m = total_all_break_minutes % 60
+        total_break_str = f"{tb_h:02d} {tb_m:02d}" if total_all_break_minutes > 0 else ''
 
-        # Calculate final hours (Total - Deducted Breaks)
-        final_hours_decimal = total_hours_decimal - (total_break_minutes / 60)
+        # Deducted break string (for "Total W/O Break" column)
+        db_h = total_deducted_minutes // 60
+        db_m = total_deducted_minutes % 60
+        total_deducted_str = f"{db_h:02d} {db_m:02d}" if total_deducted_minutes > 0 else ''
+
+        # Calculate final hours (Total - Deducted Breaks only)
+        final_hours_decimal = total_hours_decimal - (total_deducted_minutes / 60)
         final_hours = round(final_hours_decimal, 2)
 
         # Calculate Net Hours string
-        net_total_seconds = total_duration.total_seconds() - (total_break_minutes * 60)
+        net_total_seconds = total_duration.total_seconds() - (total_deducted_minutes * 60)
         net_h = int(net_total_seconds // 3600)
         net_m = int((net_total_seconds % 3600) // 60)
         net_hours_str = f"{net_h}h {net_m}m"

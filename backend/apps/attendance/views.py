@@ -906,7 +906,7 @@ class TimeLogViewSet(viewsets.ModelViewSet):
             'Break 1 In', 'Break 1 Out', 'Break 1 Total',
             'Break 2 In', 'Break 2 Out', 'Break 2 Total',
             'Break 3 In', 'Break 3 Out', 'Break 3 Total',
-            'Total Without Break', 'Finally Hours', '8 Hours', 'Over 8', 'Over 12'
+            'Total Break', 'Total Without Break', 'Finally Hours', '8 Hours', 'Over 8', 'Over 12'
         ]
         writer.writerow(headers)
 
@@ -941,6 +941,7 @@ class TimeLogViewSet(viewsets.ModelViewSet):
             # Process Breaks
             breaks = list(log.breaks.all().order_by('start_time'))
             break_data = []
+            total_all_break_minutes = 0   # Sum of ALL break time (for "Total Break" display)
             total_deducted_minutes = 0
             
             # We support up to 3 breaks in the CSV
@@ -957,12 +958,13 @@ class TimeLogViewSet(viewsets.ModelViewSet):
                     b_minutes = 0
                     if b_start and b_end:
                         b_duration = b_end - b_start
-                        b_minutes = int(b_duration.total_seconds() / 60)
+                        b_minutes = round(b_duration.total_seconds() / 60)
                         bh = b_minutes // 60
                         bm = b_minutes % 60
                         b_total_str = f"{bh}h {bm}m"
 
                     break_data.extend([b_in, b_out, b_total_str])
+                    total_all_break_minutes += b_minutes
 
                     # Deduction rules:
                     # - LUNCH (Break 2): fully deducted
@@ -1017,6 +1019,11 @@ class TimeLogViewSet(viewsets.ModelViewSet):
             sum_over_8 += over_8
             sum_over_12 += over_12
 
+            # Total Break string (sum of ALL break time)
+            tb_h = total_all_break_minutes // 60
+            tb_m = total_all_break_minutes % 60
+            total_break_str = f"{tb_h}h {tb_m}m" if total_all_break_minutes > 0 else ''
+
             # Construct Row
             row = [
                 date_str,
@@ -1025,6 +1032,7 @@ class TimeLogViewSet(viewsets.ModelViewSet):
                 end_time_str,
                 gross_hours_str,
                 *break_data, # Unpack the 9 break columns
+                total_break_str,
                 net_hours_str,
                 f"{finally_hours_decimal:.2f}",
                 f"{reg_hours:.2f}",
@@ -1037,7 +1045,8 @@ class TimeLogViewSet(viewsets.ModelViewSet):
         totals_row = [
             'TOTALS', '', '', '', '',
             '', '', '', '', '', '', '', '', '',  # 9 break columns empty
-            '',
+            '',  # Total Break
+            '',  # Total Without Break
             f"{sum_finally_hours:.2f}",
             f"{sum_reg_hours:.2f}",
             f"{sum_over_8:.2f}",

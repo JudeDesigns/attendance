@@ -79,10 +79,7 @@ const Layout = ({ children }) => {
       { name: 'Settings', href: '/settings', icon: CogIcon, alwaysShow: true } // Settings handles its own internal tabs
     );
     
-    // Only full admins can manage sub-admins
-    if (isAdmin) {
-      sidebarNav.push({ name: 'Sub-Admins', href: '/admin/sub-admins', icon: UsersIcon, alwaysShow: true });
-    }
+    // Sub-Admins management moved to Employee Management page
 
     // Filter based on granular permissions
     sidebarNav = sidebarNav.filter(item => item.alwaysShow || hasPermission(item.permission));

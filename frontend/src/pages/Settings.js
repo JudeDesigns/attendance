@@ -6,7 +6,7 @@ import TimezoneSettings from '../components/TimezoneSettings';
 import { toast } from 'react-hot-toast';
 
 const Settings = () => {
-  const { user, isAdmin, hasPermission } = useAuth();
+  const { user, hasPermission } = useAuth();
   const [activeTab, setActiveTab] = useState('timezone');
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');

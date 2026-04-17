@@ -222,9 +222,9 @@ class EmployeeViewSet(viewsets.ModelViewSet):
         """Prevent non-staff users from assigning admin roles"""
         if not self.request.user.is_staff:
             role = serializer.validated_data.get('role')
-            if role and role.name in ['ADMIN', 'SUPER_ADMIN']:
+            if role and role.name in ['ADMIN', 'SUPER_ADMIN', 'SUB_ADMIN']:
                 from rest_framework.exceptions import PermissionDenied
-                raise PermissionDenied("You do not have permission to assign or update to the ADMIN role.")
+                raise PermissionDenied("You do not have permission to assign or update to this role.")
 
     @transaction.atomic
     def perform_create(self, serializer):
@@ -240,8 +240,26 @@ class EmployeeViewSet(viewsets.ModelViewSet):
     def perform_update(self, serializer):
         if 'role' in serializer.validated_data:
             self._check_role_escalation(serializer)
+            
+        instance = serializer.instance
+        old_role = instance.role
+        
         """Update employee with audit logging"""
         employee = serializer.save()
+        
+        # Handle Sub-Admin promotions/demotions
+        if 'role' in serializer.validated_data:
+            new_role = employee.role
+            # If promoted to SUB_ADMIN, create empty permissions if they don't exist
+            if new_role.name == 'SUB_ADMIN' and (not old_role or old_role.name != 'SUB_ADMIN'):
+                from apps.employees.models import SubAdminPermission
+                SubAdminPermission.objects.get_or_create(employee=employee, defaults={'permissions': []})
+            
+            # If demoted FROM SUB_ADMIN to something else, remove permissions
+            elif old_role and old_role.name == 'SUB_ADMIN' and new_role.name != 'SUB_ADMIN':
+                from apps.employees.models import SubAdminPermission
+                SubAdminPermission.objects.filter(employee=employee).delete()
+
         logger.info(
             f"Employee updated: {employee.employee_id} ({employee.user.username}) "
             f"by user {self.request.user.username}"

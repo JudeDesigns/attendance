@@ -425,7 +425,11 @@ const EmployeeForm = ({ employee, onClose, onSuccess }) => {
                     
                     let filteredRoles = roles;
                     if (isSubAdmin) {
-                      filteredRoles = roles.filter(r => r.name !== 'ADMIN' && r.name !== 'SUPER_ADMIN');
+                      filteredRoles = roles.filter(r => 
+                        r.name !== 'ADMIN' && 
+                        r.name !== 'SUPER_ADMIN' && 
+                        r.name !== 'SUB_ADMIN'
+                      );
                     }
 
                     return filteredRoles.map(role => (

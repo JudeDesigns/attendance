@@ -21,7 +21,7 @@ const EmployeeDetails = () => {
   const { employeeId } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
-  const { isAdmin, hasPermission } = useAuth();
+  const { hasPermission } = useAuth();
   const queryClient = useQueryClient();
   const [dateRange, setDateRange] = useState('week');
   const [selectedDate, setSelectedDate] = useState(getPSTDate());

@@ -3,7 +3,7 @@ import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
 const ProtectedRoute = ({ children, requireAdmin = false, requiredPermission = null }) => {
-  const { loading, isAuthenticated, isAdmin, isSubAdmin, hasPermission } = useAuth();
+  const { loading, isAuthenticated, isAdmin, hasPermission } = useAuth();
   const location = useLocation();
 
   if (loading) {

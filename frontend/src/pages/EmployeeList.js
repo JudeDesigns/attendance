@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import {
   PlusIcon,
@@ -9,6 +10,7 @@ import {
   CheckCircleIcon,
   XCircleIcon,
   FunnelIcon,
+  UsersIcon,
   MinusCircleIcon
 } from '@heroicons/react/24/outline';
 import { employeeAPI } from '../services/api';
@@ -19,7 +21,8 @@ import { useAuth } from '../contexts/AuthContext';
 
 const EmployeeList = () => {
   const queryClient = useQueryClient();
-  const { hasPermission } = useAuth();
+  const navigate = useNavigate();
+  const { hasPermission, isAdmin } = useAuth();
   
   // State management
   const [showForm, setShowForm] = useState(false);
@@ -217,7 +220,16 @@ const EmployeeList = () => {
               Manage employee accounts, roles, and status
             </p>
           </div>
-          <div className="mt-4 sm:mt-0">
+          <div className="mt-4 sm:mt-0 flex space-x-3">
+            {isAdmin && (
+              <button
+                onClick={() => navigate('/admin/sub-admins')}
+                className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              >
+                <UsersIcon className="w-4 h-4 mr-2" />
+                Manage Sub-Admins
+              </button>
+            )}
             {hasPermission('create_employees') && (
               <button
                 onClick={() => setShowForm(true)}

@@ -6,7 +6,7 @@ import TimezoneSettings from '../components/TimezoneSettings';
 import { toast } from 'react-hot-toast';
 
 const Settings = () => {
-  const { user, isAdmin } = useAuth();
+  const { user, isAdmin, hasPermission } = useAuth();
   const [activeTab, setActiveTab] = useState('timezone');
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -32,7 +32,7 @@ const Settings = () => {
       return response.data;
     },
     {
-      enabled: isAdmin,
+      enabled: hasPermission('manage_payroll_settings') || hasPermission('manage_alert_settings'),
       onSuccess: (data) => {
         if (data) {
           setCompanySettings({
@@ -68,9 +68,13 @@ const Settings = () => {
     { id: 'security', name: 'Security', icon: '🔒' },
   ];
 
-  const tabs = isAdmin
-    ? [...baseTabs, { id: 'payroll', name: 'Payroll', icon: '💰' }, { id: 'alerts', name: 'Alerts', icon: '🔔' }]
-    : baseTabs;
+  const tabs = [...baseTabs];
+  if (hasPermission('manage_payroll_settings')) {
+    tabs.push({ id: 'payroll', name: 'Payroll', icon: '💰' });
+  }
+  if (hasPermission('manage_alert_settings')) {
+    tabs.push({ id: 'alerts', name: 'Alerts', icon: '🔔' });
+  }
 
   const handleTimezoneChange = (newTimezone) => {
     toast.success(`Timezone updated to ${newTimezone}`);
@@ -242,7 +246,7 @@ const Settings = () => {
             </div>
           )}
 
-          {activeTab === 'payroll' && isAdmin && (
+          {activeTab === 'payroll' && hasPermission('manage_payroll_settings') && (
             <div className="glass-card p-6">
               <h2 className="text-xl font-semibold glass-text-primary mb-2">Overtime Rate Multipliers</h2>
               <p className="glass-text-secondary text-sm mb-6">
@@ -305,7 +309,7 @@ const Settings = () => {
             </div>
           )}
 
-          {activeTab === 'alerts' && isAdmin && (
+          {activeTab === 'alerts' && hasPermission('manage_alert_settings') && (
             <div className="space-y-6">
               <div className="glass-card p-6">
                 <h2 className="text-xl font-semibold glass-text-primary mb-2">Alert Email Recipients</h2>

@@ -9,6 +9,7 @@ import QuickActions from '../components/QuickActions';
 import StuckClockInAlert from '../components/StuckClockInAlert';
 import Pagination from '../components/Pagination';
 import usePagination from '../hooks/usePagination';
+import { useAuth } from '../contexts/AuthContext';
 import {
   UserGroupIcon,
   ClockIcon,
@@ -24,6 +25,7 @@ const AdminDashboard = () => {
   const [forceClockoutTarget, setForceClockoutTarget] = useState(null); // { employee_id, employee_name }
   const [forceClockoutLoading, setForceClockoutLoading] = useState(false);
   const queryClient = useQueryClient();
+  const { hasPermission } = useAuth();
 
   // Get all employees
   const { data: employeesData } = useQuery('employees', () => employeeAPI.list());
@@ -316,7 +318,7 @@ const AdminDashboard = () => {
                         {log.clock_in_method}
                       </td>
                       <td className="glass-table-cell whitespace-nowrap">
-                        {!log.clock_out_time && (
+                        {!log.clock_out_time && hasPermission('force_clockout') && (
                           <button
                             onClick={() => setForceClockoutTarget({ employee_id: log.employee_id, employee_name: log.employee_name })}
                             className="inline-flex items-center px-2.5 py-1.5 text-xs font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"

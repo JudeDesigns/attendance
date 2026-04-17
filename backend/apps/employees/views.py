@@ -27,6 +27,39 @@ class IsAdminUser(permissions.BasePermission):
         return request.user and request.user.is_authenticated and request.user.is_staff
 
 
+class HasEmployeePermission(permissions.BasePermission):
+    """
+    Permission to allow admins full access, or sub-admins if they have granular permissions.
+    """
+    def has_permission(self, request, view):
+        if not request.user or not request.user.is_authenticated:
+            return False
+            
+        if request.user.is_staff:
+            return True
+            
+        # Check sub-admin permissions
+        try:
+            profile = request.user.employee_profile
+            if profile.role.name != 'SUB_ADMIN':
+                return False
+                
+            perms = profile.sub_admin_permissions.permissions
+            
+            if view.action == 'create':
+                return 'create_employees' in perms
+            elif view.action in ['update', 'partial_update']:
+                return 'edit_employees' in perms
+            elif view.action == 'destroy':
+                return 'delete_employees' in perms
+            elif view.action in ['activate', 'deactivate', 'terminate']:
+                return 'manage_employee_status' in perms
+            
+            return False
+        except Exception:
+            return False
+
+
 class IsOwnerOrAdmin(permissions.BasePermission):
     """
     Custom permission to allow users to view/edit their own data or admins to access all.
@@ -166,7 +199,7 @@ class EmployeeViewSet(viewsets.ModelViewSet):
         Users can view their own profile
         """
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
-            return [IsAdminUser()]
+            return [HasEmployeePermission()]
         elif self.action in ['retrieve', 'me']:
             return [IsOwnerOrAdmin()]
         return [permissions.IsAuthenticated()]
@@ -178,11 +211,24 @@ class EmployeeViewSet(viewsets.ModelViewSet):
         # Non-admin users can only see active employees
         if not self.request.user.is_staff:
             queryset = queryset.filter(employment_status='ACTIVE')
+            
+            # Sub-admins should not see ADMIN or SUPER_ADMIN level accounts
+            if hasattr(self.request.user, 'employee_profile') and self.request.user.employee_profile.role.name == 'SUB_ADMIN':
+                queryset = queryset.exclude(role__name__in=['ADMIN', 'SUPER_ADMIN'])
         
         return queryset
     
+    def _check_role_escalation(self, serializer):
+        """Prevent non-staff users from assigning admin roles"""
+        if not self.request.user.is_staff:
+            role = serializer.validated_data.get('role')
+            if role and role.name in ['ADMIN', 'SUPER_ADMIN']:
+                from rest_framework.exceptions import PermissionDenied
+                raise PermissionDenied("You do not have permission to assign or update to the ADMIN role.")
+
     @transaction.atomic
     def perform_create(self, serializer):
+        self._check_role_escalation(serializer)
         """Create employee with audit logging"""
         employee = serializer.save()
         logger.info(
@@ -192,6 +238,8 @@ class EmployeeViewSet(viewsets.ModelViewSet):
     
     @transaction.atomic
     def perform_update(self, serializer):
+        if 'role' in serializer.validated_data:
+            self._check_role_escalation(serializer)
         """Update employee with audit logging"""
         employee = serializer.save()
         logger.info(
@@ -231,7 +279,7 @@ class EmployeeViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_404_NOT_FOUND
             )
     
-    @action(detail=True, methods=['post'], permission_classes=[IsAdminUser])
+    @action(detail=True, methods=['post'], permission_classes=[HasEmployeePermission])
     def activate(self, request, pk=None):
         """Activate an employee account"""
         employee = self.get_object()
@@ -242,7 +290,7 @@ class EmployeeViewSet(viewsets.ModelViewSet):
         logger.info(f"Employee activated: {employee.employee_id} by user {request.user.username}")
         return Response({'status': 'Employee activated'})
     
-    @action(detail=True, methods=['post'], permission_classes=[IsAdminUser])
+    @action(detail=True, methods=['post'], permission_classes=[HasEmployeePermission])
     def deactivate(self, request, pk=None):
         """Deactivate an employee account"""
         employee = self.get_object()
@@ -253,7 +301,7 @@ class EmployeeViewSet(viewsets.ModelViewSet):
         logger.info(f"Employee deactivated: {employee.employee_id} by user {request.user.username}")
         return Response({'status': 'Employee deactivated'})
 
-    @action(detail=True, methods=['post'], permission_classes=[IsAdminUser])
+    @action(detail=True, methods=['post'], permission_classes=[HasEmployeePermission])
     def terminate(self, request, pk=None):
         """Terminate an employee (soft delete - keeps records but marks as terminated)"""
         employee = self.get_object()
@@ -319,4 +367,54 @@ class EmployeeViewSet(viewsets.ModelViewSet):
             'inactive': inactive,
             'terminated': terminated
         })
+
+
+class SubAdminViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet specifically for managing sub-admins and their permissions.
+    Only full admins are allowed to use this.
+    """
+    permission_classes = [IsAdminUser]  # Only FULL admins can manage sub-admins
+    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
+    filterset_fields = ['employment_status']
+    search_fields = ['employee_id', 'user__first_name', 'user__last_name', 'user__email']
+    ordering_fields = ['employee_id', 'created_at']
+    ordering = ['-created_at']
+
+    def get_queryset(self):
+        """Only return employees with the SUB_ADMIN role."""
+        return Employee.objects.select_related(
+            'user', 'role', 'sub_admin_permissions'
+        ).filter(role__name='SUB_ADMIN')
+
+    def get_serializer_class(self):
+        from .serializers import SubAdminSerializer, SubAdminCreateSerializer, SubAdminUpdateSerializer
+        if self.action == 'create':
+            return SubAdminCreateSerializer
+        elif self.action in ['update', 'partial_update']:
+            return SubAdminUpdateSerializer
+        return SubAdminSerializer
+
+    @transaction.atomic
+    def perform_create(self, serializer):
+        """Create sub-admin and force role to SUB_ADMIN"""
+        role, _ = Role.objects.get_or_create(
+            name='SUB_ADMIN',
+            defaults={'description': 'Granular Sub Administrator'}
+        )
+        serializer.save(role=role)
+        logger.info(
+            f"Sub-admin created by user {self.request.user.username}"
+        )
+
+    def perform_destroy(self, instance):
+        """Instead of hard deleting, we might just want to demote them, 
+        but ModelViewSet destroy expects deletion. We will do a full hard delete."""
+        logger.warning(
+            f"Sub-admin deleted: {instance.employee_id} "
+            f"by admin {self.request.user.username}"
+        )
+        user_to_delete = instance.user
+        instance.delete()
+        user_to_delete.delete()
 

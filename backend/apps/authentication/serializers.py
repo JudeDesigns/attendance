@@ -12,10 +12,12 @@ class UserSerializer(serializers.ModelSerializer):
     employee_profile = serializers.SerializerMethodField()
     is_admin = serializers.SerializerMethodField()
     is_driver = serializers.SerializerMethodField()
+    is_sub_admin = serializers.SerializerMethodField()
+    permissions = serializers.SerializerMethodField()
 
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'first_name', 'last_name', 'employee_profile', 'is_admin', 'is_driver']
+        fields = ['id', 'username', 'email', 'first_name', 'last_name', 'employee_profile', 'is_admin', 'is_driver', 'is_sub_admin', 'permissions']
         read_only_fields = ['id']
 
     def get_employee_profile(self, obj):
@@ -46,6 +48,24 @@ class UserSerializer(serializers.ModelSerializer):
             return obj.employee_profile.role.name.lower() == 'driver'
         except Exception:
             return False
+
+    def get_is_sub_admin(self, obj):
+        """Check if user is a sub-admin"""
+        try:
+            return obj.employee_profile.is_sub_admin
+        except Exception:
+            return False
+
+    def get_permissions(self, obj):
+        """Get the user's permission keys.
+        Full admins get ['*']. Sub-admins get their specific list. Others get [].
+        """
+        if obj.is_staff or obj.is_superuser:
+            return ['*']
+        try:
+            return obj.employee_profile.get_all_permissions()
+        except Exception:
+            return []
 
 
 class LoginSerializer(serializers.Serializer):
@@ -82,10 +102,12 @@ class ProfileSerializer(serializers.ModelSerializer):
     employee_profile = serializers.SerializerMethodField()
     is_admin = serializers.SerializerMethodField()
     is_driver = serializers.SerializerMethodField()
+    is_sub_admin = serializers.SerializerMethodField()
+    permissions = serializers.SerializerMethodField()
 
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'first_name', 'last_name', 'employee_profile', 'is_admin', 'is_driver']
+        fields = ['id', 'username', 'email', 'first_name', 'last_name', 'employee_profile', 'is_admin', 'is_driver', 'is_sub_admin', 'permissions']
 
     def get_employee_profile(self, obj):
         """Get complete employee profile data"""
@@ -115,4 +137,22 @@ class ProfileSerializer(serializers.ModelSerializer):
             return obj.employee_profile.role.name.lower() == 'driver'
         except Exception:
             return False
+
+    def get_is_sub_admin(self, obj):
+        """Check if user is a sub-admin"""
+        try:
+            return obj.employee_profile.is_sub_admin
+        except Exception:
+            return False
+
+    def get_permissions(self, obj):
+        """Get the user's permission keys.
+        Full admins get ['*']. Sub-admins get their specific list. Others get [].
+        """
+        if obj.is_staff or obj.is_superuser:
+            return ['*']
+        try:
+            return obj.employee_profile.get_all_permissions()
+        except Exception:
+            return []
 

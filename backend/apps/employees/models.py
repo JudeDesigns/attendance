@@ -10,11 +10,64 @@ def get_current_date():
     return timezone.now().date()
 
 
+# All valid sub-admin permission keys
+SUB_ADMIN_PERMISSIONS = [
+    # Dashboard
+    'view_dashboard',
+    'force_clockout',
+    # Employee Management
+    'view_employees',
+    'create_employees',
+    'edit_employees',
+    'manage_employee_status',
+    'delete_employees',
+    'edit_time_logs',
+    'view_employee_status',
+    'export_data',
+    # Scheduling
+    'view_schedule',
+    'manage_schedule',
+    # Leave
+    'manage_leave',
+    # Locations
+    'manage_locations',
+    # Reports
+    'view_reports',
+    'generate_reports',
+    # Notifications
+    'view_notifications',
+    'manage_notification_templates',
+    # Webhooks
+    'manage_webhooks',
+    # Settings
+    'manage_payroll_settings',
+    'manage_alert_settings',
+]
+
+# Permissions that implicitly require view_employees
+PERMISSION_DEPENDENCIES = {
+    'create_employees': ['view_employees'],
+    'edit_employees': ['view_employees'],
+    'manage_employee_status': ['view_employees'],
+    'delete_employees': ['view_employees'],
+    'edit_time_logs': ['view_employees'],
+    'view_employee_status': ['view_employees'],
+    'export_data': ['view_employees'],
+    'view_schedule': ['view_employees'],
+    'manage_schedule': ['view_employees', 'view_schedule'],
+    'manage_leave': ['view_employees'],
+    'generate_reports': ['view_reports'],
+    'view_notifications': ['view_employees'],
+    'manage_notification_templates': ['view_notifications', 'view_employees'],
+}
+
+
 class Role(models.Model):
     """Employee roles with permissions"""
     ROLE_CHOICES = [
         ('EMPLOYEE', 'Employee'),
         ('DRIVER', 'Driver'),
+        ('SUB_ADMIN', 'Sub Administrator'),
         ('ADMIN', 'Administrator'),
         ('SUPER_ADMIN', 'Super Administrator'),
     ]
@@ -129,6 +182,10 @@ class Employee(models.Model):
         return self.role.name in ['ADMIN', 'SUPER_ADMIN']
 
     @property
+    def is_sub_admin(self):
+        return self.role.name == 'SUB_ADMIN'
+
+    @property
     def is_active_employee(self):
         return self.employment_status == 'ACTIVE'
 
@@ -159,8 +216,32 @@ class Employee(models.Model):
         ).first()
 
     def has_permission(self, permission):
-        """Check if employee has a specific permission"""
-        return permission in self.role.permissions
+        """Check if employee has a specific permission.
+        Full admins always have all permissions.
+        Sub-admins check against their SubAdminPermission record.
+        """
+        if self.is_admin:
+            return True
+        if self.is_sub_admin:
+            try:
+                return permission in self.sub_admin_permissions.permissions
+            except SubAdminPermission.DoesNotExist:
+                return False
+        return False
+
+    def get_all_permissions(self):
+        """Get the full list of permissions for this employee.
+        Full admins get ['*'] (wildcard). Sub-admins get their specific list.
+        Regular employees get [].
+        """
+        if self.is_admin:
+            return ['*']
+        if self.is_sub_admin:
+            try:
+                return list(self.sub_admin_permissions.permissions)
+            except SubAdminPermission.DoesNotExist:
+                return []
+        return []
 
     class Meta:
         db_table = 'employees'
@@ -205,3 +286,47 @@ class Location(models.Model):
     class Meta:
         db_table = 'locations'
         ordering = ['name']
+
+
+class SubAdminPermission(models.Model):
+    """Granular permission set for sub-admin employees.
+    Each sub-admin has exactly one SubAdminPermission record listing
+    the permission keys they are allowed to use.
+    """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    employee = models.OneToOneField(
+        Employee,
+        on_delete=models.CASCADE,
+        related_name='sub_admin_permissions',
+        help_text="The sub-admin employee this permission set belongs to"
+    )
+    permissions = models.JSONField(
+        default=list,
+        help_text="List of permission key strings (e.g. ['view_dashboard', 'manage_schedule'])"
+    )
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='created_sub_admin_permissions',
+        help_text="The admin user who created/last updated this permission set"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def clean(self):
+        """Validate that all permission keys are valid."""
+        from django.core.exceptions import ValidationError
+        if self.permissions:
+            invalid = [p for p in self.permissions if p not in SUB_ADMIN_PERMISSIONS]
+            if invalid:
+                raise ValidationError(f"Invalid permission keys: {', '.join(invalid)}")
+
+    def __str__(self):
+        return f"Permissions for {self.employee.employee_id} ({len(self.permissions)} perms)"
+
+    class Meta:
+        db_table = 'sub_admin_permissions'
+        verbose_name = 'Sub-Admin Permission'
+        verbose_name_plural = 'Sub-Admin Permissions'

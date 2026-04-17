@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { useQuery, useQueryClient, useMutation } from 'react-query';
 import { locationAPI } from '../services/api';
+import { useAuth } from '../contexts/AuthContext';
 
 import { generateQRCode } from '../utils/helpers';
 import {
@@ -17,6 +18,7 @@ import toast from 'react-hot-toast';
 
 const LocationManagement = () => {
   const queryClient = useQueryClient();
+  const { hasPermission } = useAuth();
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState(null);
   const [showQRModal, setShowQRModal] = useState(false);
@@ -233,22 +235,24 @@ const LocationManagement = () => {
             <h1 className="text-2xl font-bold glass-text-primary">Location Management</h1>
             <p className="glass-text-secondary">Manage work locations and their QR codes</p>
           </div>
-          <div className="flex space-x-3">
-            <button
-              onClick={() => setShowBulkPrint(true)}
-              className="uber-button-secondary flex items-center"
-            >
-              <PrinterIcon className="h-5 w-5 mr-2" />
-              Print All QR Codes
-            </button>
-            <button
-              onClick={() => setShowCreateForm(true)}
-              className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 flex items-center"
-            >
-              <PlusIcon className="h-5 w-5 mr-2" />
-              Add Location
-            </button>
-          </div>
+          {hasPermission('manage_locations') && (
+            <div className="flex space-x-3">
+              <button
+                onClick={() => setShowBulkPrint(true)}
+                className="uber-button-secondary flex items-center"
+              >
+                <PrinterIcon className="h-5 w-5 mr-2" />
+                Print All QR Codes
+              </button>
+              <button
+                onClick={() => setShowCreateForm(true)}
+                className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 flex items-center"
+              >
+                <PlusIcon className="h-5 w-5 mr-2" />
+                Add Location
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Statistics */}
@@ -344,20 +348,24 @@ const LocationManagement = () => {
                     >
                       <QrCodeIcon className="h-5 w-5" />
                     </button>
-                    <button
-                      onClick={() => setSelectedLocation(location)}
-                      className="text-indigo-600 hover:text-indigo-800 p-2 rounded-full hover:bg-indigo-50"
-                      title="Edit Location"
-                    >
-                      <PencilIcon className="h-5 w-5" />
-                    </button>
-                    <button
-                      onClick={() => handleDeleteLocation(location.id)}
-                      className="text-red-600 hover:text-red-800 p-2 rounded-full hover:bg-red-50"
-                      title="Delete Location"
-                    >
-                      <TrashIcon className="h-5 w-5" />
-                    </button>
+                    {hasPermission('manage_locations') && (
+                      <>
+                        <button
+                          onClick={() => setSelectedLocation(location)}
+                          className="text-indigo-600 hover:text-indigo-800 p-2 rounded-full hover:bg-indigo-50"
+                          title="Edit Location"
+                        >
+                          <PencilIcon className="h-5 w-5" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteLocation(location.id)}
+                          className="text-red-600 hover:text-red-800 p-2 rounded-full hover:bg-red-50"
+                          title="Delete Location"
+                        >
+                          <TrashIcon className="h-5 w-5" />
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
               </div>

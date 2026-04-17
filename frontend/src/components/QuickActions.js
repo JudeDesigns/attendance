@@ -15,7 +15,7 @@ import { useAuth } from '../contexts/AuthContext';
 
 const QuickActions = () => {
   const navigate = useNavigate();
-  const { isAdmin } = useAuth();
+  const { isAdmin, hasPermission } = useAuth();
   const queryClient = useQueryClient();
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
 
@@ -133,7 +133,7 @@ const QuickActions = () => {
       icon: UserAddIcon,
       color: 'bg-indigo-500 hover:bg-indigo-600',
       action: () => navigate('/employees'),
-      show: isAdmin
+      show: hasPermission('create_employees')
     },
     {
       name: 'Generate Report',
@@ -142,7 +142,7 @@ const QuickActions = () => {
       color: 'bg-orange-500 hover:bg-orange-600',
       action: () => generateQuickReport('ATTENDANCE_SUMMARY'),
       loading: isGeneratingReport,
-      show: isAdmin
+      show: hasPermission('generate_reports')
     },
     {
       name: 'Employee List',
@@ -150,7 +150,7 @@ const QuickActions = () => {
       icon: UsersIcon,
       color: 'bg-teal-500 hover:bg-teal-600',
       action: () => navigate('/employees'),
-      show: isAdmin
+      show: hasPermission('view_employees')
     },
     {
       name: 'Reports Dashboard',
@@ -158,7 +158,7 @@ const QuickActions = () => {
       icon: DocumentReportIcon,
       color: 'bg-pink-500 hover:bg-pink-600',
       action: () => navigate('/reports'),
-      show: isAdmin
+      show: hasPermission('view_reports')
     },
     {
       name: 'System Settings',
@@ -166,7 +166,7 @@ const QuickActions = () => {
       icon: CogIcon,
       color: 'bg-gray-500 hover:bg-gray-600',
       action: () => navigate('/settings'),
-      show: isAdmin
+      show: isAdmin || hasPermission('manage_payroll_settings') || hasPermission('manage_alert_settings')
     }
   ];
 
@@ -247,21 +247,21 @@ const QuickActions = () => {
             >
               → Detailed Time Tracking
             </a>
-            {isAdmin && (
-              <>
-                <a
-                  href="/admin"
-                  className="block text-sm text-blue-600 hover:text-blue-800"
-                >
-                  → Admin Dashboard
-                </a>
-                <a
-                  href="/reports"
-                  className="block text-sm text-blue-600 hover:text-blue-800"
-                >
-                  → Reports & Analytics
-                </a>
-              </>
+            {hasPermission('view_dashboard') && (
+              <a
+                href="/admin"
+                className="block text-sm text-blue-600 hover:text-blue-800"
+              >
+                → Admin Dashboard
+              </a>
+            )}
+            {hasPermission('view_reports') && (
+              <a
+                href="/reports"
+                className="block text-sm text-blue-600 hover:text-blue-800"
+              >
+                → Reports & Analytics
+              </a>
             )}
           </div>
         </div>

@@ -278,3 +278,100 @@ class EmployeeDetailSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
 
+
+# ==========================================
+# Sub-Admin Serializers
+# ==========================================
+
+from .models import SubAdminPermission, SUB_ADMIN_PERMISSIONS
+
+class SubAdminSerializer(serializers.ModelSerializer):
+    """Serializer for displaying sub-admins with their permissions"""
+    user = UserSerializer(read_only=True)
+    permissions = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = Employee
+        fields = [
+            'id', 'user', 'employee_id', 'employment_status', 
+            'permissions', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
+        
+    def get_permissions(self, obj):
+        try:
+            return obj.sub_admin_permissions.permissions
+        except SubAdminPermission.DoesNotExist:
+            return []
+
+
+class SubAdminCreateSerializer(EmployeeCreateSerializer):
+    """Serializer for creating a new sub-admin, including their permissions."""
+    permissions = serializers.JSONField(write_only=True, required=False, default=list)
+
+    class Meta(EmployeeCreateSerializer.Meta):
+        fields = EmployeeCreateSerializer.Meta.fields + ['permissions']
+        extra_kwargs = {
+            'role': {'required': False}
+        }
+
+    def validate_permissions(self, value):
+        if not isinstance(value, list):
+            raise serializers.ValidationError("Permissions must be a list of strings.")
+        invalid = [p for p in value if p not in SUB_ADMIN_PERMISSIONS]
+        if invalid:
+            raise serializers.ValidationError(f"Invalid permission keys: {', '.join(invalid)}")
+        return value
+
+    def create(self, validated_data):
+        permissions_list = validated_data.pop('permissions', [])
+        
+        # Ensure role is explicitly set to SUB_ADMIN later in view, 
+        # but just use EmployeeCreateSerializer's create first
+        employee = super().create(validated_data)
+        
+        # Create the permissions record
+        request = self.context.get('request')
+        created_by = request.user if request and request.user.is_authenticated else None
+        
+        SubAdminPermission.objects.create(
+            employee=employee,
+            permissions=permissions_list,
+            created_by=created_by
+        )
+        return employee
+
+
+class SubAdminUpdateSerializer(serializers.ModelSerializer):
+    """Serializer for updating just the sub-admin permissions and status."""
+    permissions = serializers.JSONField(write_only=True, required=True)
+    employment_status = serializers.ChoiceField(choices=Employee.EMPLOYMENT_STATUS_CHOICES, required=False)
+
+    class Meta:
+        model = Employee
+        fields = ['permissions', 'employment_status']
+
+    def validate_permissions(self, value):
+        if not isinstance(value, list):
+            raise serializers.ValidationError("Permissions must be a list of strings.")
+        invalid = [p for p in value if p not in SUB_ADMIN_PERMISSIONS]
+        if invalid:
+            raise serializers.ValidationError(f"Invalid permission keys: {', '.join(invalid)}")
+        return value
+
+    def update(self, instance, validated_data):
+        permissions_list = validated_data.pop('permissions', None)
+        
+        if permissions_list is not None:
+            # Update or create the permissions record
+            perm_record, created = SubAdminPermission.objects.get_or_create(
+                employee=instance,
+                defaults={'permissions': permissions_list}
+            )
+            if not created:
+                perm_record.permissions = permissions_list
+                perm_record.save()
+                
+        # Update employment status if provided
+        return super().update(instance, validated_data)
+

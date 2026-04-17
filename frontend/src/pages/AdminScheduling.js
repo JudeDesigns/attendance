@@ -20,9 +20,11 @@ import {
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 import { getPSTDateString } from '../utils/timezoneUtils';
+import { useAuth } from '../contexts/AuthContext';
 
 const AdminScheduling = () => {
   const queryClient = useQueryClient();
+  const { hasPermission } = useAuth();
   const [searchParams] = useSearchParams();
   const [selectedDate, setSelectedDate] = useState(getPSTDateString());
   const [showBulkForm, setShowBulkForm] = useState(false);
@@ -369,30 +371,34 @@ const AdminScheduling = () => {
               <ArrowPathIcon className="h-5 w-5 mr-2" />
               Refresh
             </button>
-            <button
-              onClick={() => setShowSpreadsheetImporter(true)}
-              className="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700 flex items-center"
-            >
-              <DocumentArrowUpIcon className="h-5 w-5 mr-2" />
-              Import Spreadsheet
-            </button>
-            <button
-              onClick={() => setShowBulkForm(true)}
-              className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 flex items-center"
-            >
-              <DocumentDuplicateIcon className="h-5 w-5 mr-2" />
-              Bulk Create
-            </button>
-            <button
-              onClick={() => {
-                setSelectedShift(null);
-                setShowShiftForm(true);
-              }}
-              className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 flex items-center"
-            >
-              <PlusIcon className="h-5 w-5 mr-2" />
-              Add Shift
-            </button>
+            {hasPermission('manage_schedule') && (
+              <>
+                <button
+                  onClick={() => setShowSpreadsheetImporter(true)}
+                  className="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700 flex items-center"
+                >
+                  <DocumentArrowUpIcon className="h-5 w-5 mr-2" />
+                  Import Spreadsheet
+                </button>
+                <button
+                  onClick={() => setShowBulkForm(true)}
+                  className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 flex items-center"
+                >
+                  <DocumentDuplicateIcon className="h-5 w-5 mr-2" />
+                  Bulk Create
+                </button>
+                <button
+                  onClick={() => {
+                    setSelectedShift(null);
+                    setShowShiftForm(true);
+                  }}
+                  className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 flex items-center"
+                >
+                  <PlusIcon className="h-5 w-5 mr-2" />
+                  Add Shift
+                </button>
+              </>
+            )}
           </div>
         </div>
 
@@ -529,27 +535,29 @@ const AdminScheduling = () => {
                                         </div>
                                       )}
                                     </div>
-                                    <div className="flex space-x-1">
-                                      <button
-                                        onClick={() => {
-                                          setSelectedShift(shift);
-                                          setShowShiftForm(true);
-                                        }}
-                                        className="text-blue-600 hover:text-blue-800"
-                                      >
-                                        <PencilIcon className="h-3 w-3" />
-                                      </button>
-                                      <button
-                                        onClick={() => handleDeleteShift(shift.id)}
-                                        className="text-red-600 hover:text-red-800"
-                                      >
-                                        <TrashIcon className="h-3 w-3" />
-                                      </button>
-                                    </div>
+                                    {hasPermission('manage_schedule') && (
+                                      <div className="flex space-x-1">
+                                        <button
+                                          onClick={() => {
+                                            setSelectedShift(shift);
+                                            setShowShiftForm(true);
+                                          }}
+                                          className="text-blue-600 hover:text-blue-800"
+                                        >
+                                          <PencilIcon className="h-3 w-3" />
+                                        </button>
+                                        <button
+                                          onClick={() => handleDeleteShift(shift.id)}
+                                          className="text-red-600 hover:text-red-800"
+                                        >
+                                          <TrashIcon className="h-3 w-3" />
+                                        </button>
+                                      </div>
+                                    )}
                                   </div>
                                 </div>
                               ))}
-                              {dayShifts.length === 0 && (
+                              {(dayShifts.length === 0 && hasPermission('manage_schedule')) && (
                                 <button
                                   onClick={() => {
                                     setSelectedShift({

@@ -370,14 +370,17 @@ class DetailedTimesheetReportGenerator(ReportGenerator):
         start_time = clock_in_la.strftime('%H:%M')
         end_time = clock_out_la.strftime('%H:%M') if clock_out_la else ''
 
-        # Calculate total duration (use current time for active sessions)
+        # Strip seconds for calculation to exactly match the formatted HH:MM strings
+        clock_in_min = clock_in_la.replace(second=0, microsecond=0)
         effective_end = clock_out_la or self._to_la(timezone.now())
-        total_duration = effective_end - clock_in_la
-        total_hours_decimal = total_duration.total_seconds() / 3600
+        effective_end_min = effective_end.replace(second=0, microsecond=0)
+        
+        total_duration_minutes = int((effective_end_min - clock_in_min).total_seconds() // 60)
+        total_hours_decimal = total_duration_minutes / 60.0
 
         # Format total hours as "Xh Ym"
-        hours = int(total_duration.total_seconds() // 3600)
-        minutes = int((total_duration.total_seconds() % 3600) // 60)
+        hours = total_duration_minutes // 60
+        minutes = total_duration_minutes % 60
         total_hours_str = f"{hours}h {minutes}m"
 
         # Process breaks (up to 3)
@@ -397,7 +400,10 @@ class DetailedTimesheetReportGenerator(ReportGenerator):
 
                 b_duration_str = ''
                 if b.end_time:
-                    b_minutes = round((b.end_time - b.start_time).total_seconds() / 60)
+                    b_start_min = b_start_la.replace(second=0, microsecond=0)
+                    b_end_min = b_end_la.replace(second=0, microsecond=0)
+                    b_minutes = int((b_end_min - b_start_min).total_seconds() // 60)
+                    
                     total_all_break_minutes += b_minutes
                     # Deduction rules:
                     # - LUNCH (Break 2): fully deducted
@@ -429,13 +435,13 @@ class DetailedTimesheetReportGenerator(ReportGenerator):
         total_deducted_str = f"{db_h:02d} {db_m:02d}" if total_deducted_minutes > 0 else ''
 
         # Calculate final hours (Total - Deducted Breaks only)
-        final_hours_decimal = total_hours_decimal - (total_deducted_minutes / 60)
+        final_hours_decimal = total_hours_decimal - (total_deducted_minutes / 60.0)
         final_hours = round(final_hours_decimal, 2)
 
         # Calculate Net Hours string
-        net_total_seconds = total_duration.total_seconds() - (total_deducted_minutes * 60)
-        net_h = int(net_total_seconds // 3600)
-        net_m = int((net_total_seconds % 3600) // 60)
+        net_total_minutes = total_duration_minutes - total_deducted_minutes
+        net_h = net_total_minutes // 60
+        net_m = net_total_minutes % 60
         net_hours_str = f"{net_h}h {net_m}m"
 
         # Overtime calculations

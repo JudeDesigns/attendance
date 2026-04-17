@@ -17,7 +17,7 @@ import {
 import toast from 'react-hot-toast';
 
 const AdminLeaveManagement = () => {
-  const { user } = useAuth();
+  const { user, hasPermission } = useAuth();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState('pending');
   const [selectedRequest, setSelectedRequest] = useState(null);
@@ -462,7 +462,7 @@ const AdminLeaveManagement = () => {
                   )}
 
                   {/* Action Buttons for Pending Requests */}
-                  {request.status === 'PENDING' && (
+                  {request.status === 'PENDING' && hasPermission('manage_leave') && (
                     <div className="flex space-x-3">
                       <button
                         onClick={() => handleApprove(request, { approved_by: user.id })}
@@ -484,7 +484,7 @@ const AdminLeaveManagement = () => {
                   )}
 
                   {/* Action Button for Approved Requests */}
-                  {request.status === 'APPROVED' && (
+                  {request.status === 'APPROVED' && hasPermission('manage_leave') && (
                     <div>
                       <button
                         onClick={() => handleReject(request)}
@@ -531,13 +531,15 @@ const AdminLeaveManagement = () => {
       <div className="bg-white shadow rounded-lg p-6">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-lg font-medium text-gray-900">Employee Leave Balances</h2>
-          <button
-            onClick={() => setShowInitializeModal(true)}
-            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-          >
-            <CalendarIcon className="h-4 w-4 mr-2" />
-            Initialize Balances
-          </button>
+          {hasPermission('manage_leave') && (
+            <button
+              onClick={() => setShowInitializeModal(true)}
+              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+            >
+              <CalendarIcon className="h-4 w-4 mr-2" />
+              Initialize Balances
+            </button>
+          )}
         </div>
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">

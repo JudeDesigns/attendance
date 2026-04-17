@@ -15,9 +15,11 @@ import { employeeAPI } from '../services/api';
 import EmployeeForm from '../components/EmployeeForm';
 import Pagination from '../components/Pagination';
 import usePagination from '../hooks/usePagination';
+import { useAuth } from '../contexts/AuthContext';
 
 const EmployeeList = () => {
   const queryClient = useQueryClient();
+  const { hasPermission } = useAuth();
   
   // State management
   const [showForm, setShowForm] = useState(false);
@@ -216,13 +218,15 @@ const EmployeeList = () => {
             </p>
           </div>
           <div className="mt-4 sm:mt-0">
-            <button
-              onClick={() => setShowForm(true)}
-              className="uber-button-primary inline-flex items-center"
-            >
-              <PlusIcon className="w-4 h-4 mr-2" />
-              Add Employee
-            </button>
+            {hasPermission('create_employees') && (
+              <button
+                onClick={() => setShowForm(true)}
+                className="uber-button-primary inline-flex items-center"
+              >
+                <PlusIcon className="w-4 h-4 mr-2" />
+                Add Employee
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -354,40 +358,48 @@ const EmployeeList = () => {
                     </div>
                   </div>
                   <div className="flex items-center space-x-2">
-                    <button
-                      onClick={() => handleToggleStatus(employee)}
-                      className={`inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded-full ${
-                        employee.employment_status === 'ACTIVE'
-                          ? 'text-red-700 bg-red-100 hover:bg-red-200'
-                          : 'text-green-700 bg-green-100 hover:bg-green-200'
-                      }`}
-                      disabled={toggleStatusMutation.isLoading}
-                    >
-                      {employee.employment_status === 'ACTIVE' ? 'Deactivate' : 'Activate'}
-                    </button>
-                    <button
-                      onClick={() => handleEdit(employee)}
-                      className="text-blue-600 hover:text-blue-900"
-                      title="Edit Employee"
-                    >
-                      <PencilIcon className="h-5 w-5" />
-                    </button>
-                    <button
-                      onClick={() => handleTerminate(employee)}
-                      className="text-orange-600 hover:text-orange-900"
-                      disabled={terminateMutation.isLoading}
-                      title="Terminate Employee (Soft Delete - Keeps Records)"
-                    >
-                      <MinusCircleIcon className="h-5 w-5" />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(employee)}
-                      className="text-red-600 hover:text-red-900"
-                      disabled={deleteMutation.isLoading}
-                      title="Permanently Delete Employee (Hard Delete - Removes All Data)"
-                    >
-                      <TrashIcon className="h-5 w-5" />
-                    </button>
+                    {hasPermission('manage_employee_status') && (
+                      <button
+                        onClick={() => handleToggleStatus(employee)}
+                        className={`inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded-full ${
+                          employee.employment_status === 'ACTIVE'
+                            ? 'text-red-700 bg-red-100 hover:bg-red-200'
+                            : 'text-green-700 bg-green-100 hover:bg-green-200'
+                        }`}
+                        disabled={toggleStatusMutation.isLoading}
+                      >
+                        {employee.employment_status === 'ACTIVE' ? 'Deactivate' : 'Activate'}
+                      </button>
+                    )}
+                    {hasPermission('edit_employees') && (
+                      <button
+                        onClick={() => handleEdit(employee)}
+                        className="text-blue-600 hover:text-blue-900"
+                        title="Edit Employee"
+                      >
+                        <PencilIcon className="h-5 w-5" />
+                      </button>
+                    )}
+                    {hasPermission('manage_employee_status') && (
+                      <button
+                        onClick={() => handleTerminate(employee)}
+                        className="text-orange-600 hover:text-orange-900"
+                        disabled={terminateMutation.isLoading}
+                        title="Terminate Employee (Soft Delete - Keeps Records)"
+                      >
+                        <MinusCircleIcon className="h-5 w-5" />
+                      </button>
+                    )}
+                    {hasPermission('delete_employees') && (
+                      <button
+                        onClick={() => handleDelete(employee)}
+                        className="text-red-600 hover:text-red-900"
+                        disabled={deleteMutation.isLoading}
+                        title="Permanently Delete Employee (Hard Delete - Removes All Data)"
+                      >
+                        <TrashIcon className="h-5 w-5" />
+                      </button>
+                    )}
                   </div>
                 </div>
               </li>

@@ -190,3 +190,56 @@ class IsOwnerOrReadOnly(permissions.BasePermission):
             return obj.employee.user == request.user
         
         return False
+
+
+class IsAdminOrSubAdmin(permissions.BasePermission):
+    """
+    Allow access if user is a full admin (is_staff) OR a sub-admin with
+    at least one permission. This replaces IsAdminUser for routes that
+    sub-admins should be able to reach.
+
+    Full admins (is_staff=True) always pass — existing behavior unchanged.
+    """
+    def has_permission(self, request, view):
+        if not request.user or not request.user.is_authenticated:
+            return False
+        # Full admin — always allowed
+        if request.user.is_staff:
+            return True
+        # Sub-admin — allowed if they have the sub-admin role
+        try:
+            employee = request.user.employee_profile
+            return employee.is_sub_admin
+        except Exception:
+            return False
+
+
+def HasSubAdminPermission(permission_key):
+    """
+    Factory that returns a permission class requiring a specific permission key.
+
+    Usage in a view:
+        permission_classes = [HasSubAdminPermission('manage_schedule')]
+
+    Full admins (is_staff) always pass — existing behavior unchanged.
+    Sub-admins pass only if their SubAdminPermission record includes the key.
+    Regular employees are denied.
+    """
+    class _PermissionClass(permissions.BasePermission):
+        def has_permission(self, request, view):
+            if not request.user or not request.user.is_authenticated:
+                return False
+            # Full admins always pass
+            if request.user.is_staff:
+                return True
+            # Check sub-admin permissions
+            try:
+                employee = request.user.employee_profile
+                return employee.has_permission(permission_key)
+            except Exception:
+                return False
+
+    # Give the class a readable name for DRF browsable API
+    _PermissionClass.__name__ = f'HasSubAdminPermission_{permission_key}'
+    _PermissionClass.__qualname__ = _PermissionClass.__name__
+    return _PermissionClass

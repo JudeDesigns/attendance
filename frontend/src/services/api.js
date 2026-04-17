@@ -84,6 +84,15 @@ export const employeeAPI = {
   // QR Code endpoints removed - individual employee QR codes no longer supported
 };
 
+// Sub-Admin API
+export const subAdminAPI = {
+  list: (params) => api.get('/sub-admins/', { params }),
+  get: (id) => api.get(`/sub-admins/${id}/`),
+  create: (data) => api.post('/sub-admins/', data),
+  update: (id, data) => api.patch(`/sub-admins/${id}/`, data),
+  delete: (id) => api.delete(`/sub-admins/${id}/`),
+};
+
 // Attendance API
 // Attendance API
 export const attendanceAPI = {

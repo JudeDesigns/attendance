@@ -15,6 +15,7 @@ import {
 import { reportsAPI } from '../services/api';
 import TimesheetModal from '../components/TimesheetModal';
 import { getPSTDateString } from '../utils/timezoneUtils';
+import { useAuth } from '../contexts/AuthContext';
 
 // Get PST date string for N days ago
 const getPSTDateStringDaysAgo = (daysAgo) => {
@@ -28,6 +29,7 @@ const getPSTDateStringDaysAgo = (daysAgo) => {
 
 const Reports = () => {
   const queryClient = useQueryClient();
+  const { hasPermission } = useAuth();
 
   // State management
   const [selectedReportType, setSelectedReportType] = useState('LATE_ARRIVAL');
@@ -106,6 +108,11 @@ const Reports = () => {
   );
 
   const handleGenerateReport = async () => {
+    if (!hasPermission('generate_reports')) {
+      alert('You do not have permission to generate reports.');
+      return;
+    }
+
     if (!startDate || !endDate) {
       alert('Please select start and end dates');
       return;
@@ -291,11 +298,12 @@ const Reports = () => {
 
           {/* Action Buttons */}
           <div className="flex gap-3">
-            <button
-              onClick={handleGenerateReport}
-              disabled={isGenerating || generateReportMutation.isLoading}
-              className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
+            {hasPermission('generate_reports') ? (
+              <button
+                onClick={handleGenerateReport}
+                disabled={isGenerating || generateReportMutation.isLoading}
+                className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
               {isGenerating || generateReportMutation.isLoading ? (
                 <div className="flex items-center justify-center">
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
@@ -308,7 +316,12 @@ const Reports = () => {
                 </div>
               )}
             </button>
-            {selectedReportType === 'DETAILED_TIMESHEET' && (
+            ) : (
+                <div className="flex-1 px-4 py-2 bg-gray-100 rounded-md text-gray-500 text-center text-sm border-2 border-dashed border-gray-300">
+                    You do not have permission to generate reports.
+                </div>
+            )}
+            {selectedReportType === 'DETAILED_TIMESHEET' && hasPermission('generate_reports') && (
               <button
                 onClick={handlePreviewTimesheet}
                 disabled={isLoadingTimesheet}

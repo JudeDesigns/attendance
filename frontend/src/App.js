@@ -23,6 +23,7 @@ import AdminScheduling from './pages/AdminScheduling';
 import AdminLeaveManagement from './pages/AdminLeaveManagement';
 import WebhookManagement from './pages/WebhookManagement';
 import LeaveManagement from './pages/LeaveManagement';
+import SubAdminManagement from './pages/SubAdminManagement';
 import EmployeeStatusDashboard from './pages/EmployeeStatusDashboard';
 import EmployeeDetails from './pages/EmployeeDetails';
 import LocationManagement from './pages/LocationManagement';
@@ -115,15 +116,23 @@ function App() {
 
               {/* Admin routes */}
               <Route path="/admin" element={
-                <ProtectedRoute requireAdmin={true}>
+                <ProtectedRoute requireAdmin={true} requiredPermission="view_dashboard">
                   <Layout>
                     <AdminDashboard />
                   </Layout>
                 </ProtectedRoute>
               } />
 
-              <Route path="/employees" element={
+              <Route path="/admin/sub-admins" element={
                 <ProtectedRoute requireAdmin={true}>
+                  <Layout>
+                    <SubAdminManagement />
+                  </Layout>
+                </ProtectedRoute>
+              } />
+
+              <Route path="/employees" element={
+                <ProtectedRoute requireAdmin={true} requiredPermission="view_employees">
                   <Layout>
                     <EmployeeList />
                   </Layout>
@@ -131,7 +140,7 @@ function App() {
               } />
 
               <Route path="/employee-status" element={
-                <ProtectedRoute requireAdmin={true}>
+                <ProtectedRoute requireAdmin={true} requiredPermission="view_employee_status">
                   <Layout>
                     <EmployeeStatusDashboard />
                   </Layout>
@@ -139,7 +148,7 @@ function App() {
               } />
 
               <Route path="/employee-details/:employeeId" element={
-                <ProtectedRoute requireAdmin={true}>
+                <ProtectedRoute requireAdmin={true} requiredPermission="view_employees">
                   <Layout>
                     <EmployeeDetails />
                   </Layout>
@@ -147,7 +156,7 @@ function App() {
               } />
 
               <Route path="/locations" element={
-                <ProtectedRoute requireAdmin={true}>
+                <ProtectedRoute requireAdmin={true} requiredPermission="manage_locations">
                   <Layout>
                     <LocationManagement />
                   </Layout>
@@ -159,7 +168,7 @@ function App() {
               {/* Employee QR Management route removed - individual employee QR codes no longer supported */}
 
               <Route path="/notifications" element={
-                <ProtectedRoute requireAdmin={true}>
+                <ProtectedRoute requireAdmin={true} requiredPermission="view_notifications">
                   <Layout>
                     <NotificationManagement />
                   </Layout>
@@ -167,7 +176,7 @@ function App() {
               } />
 
               <Route path="/notification-settings" element={
-                <ProtectedRoute requireAdmin={true}>
+                <ProtectedRoute requireAdmin={true} requiredPermission="manage_alert_settings">
                   <Layout>
                     <NotificationSettings />
                   </Layout>
@@ -183,7 +192,7 @@ function App() {
               } />
 
               <Route path="/reports" element={
-                <ProtectedRoute requireAdmin={true}>
+                <ProtectedRoute requireAdmin={true} requiredPermission="view_reports">
                   <Layout>
                     <Reports />
                   </Layout>
@@ -192,7 +201,7 @@ function App() {
 
               {/* Admin scheduling system */}
               <Route path="/admin/scheduling" element={
-                <ProtectedRoute requireAdmin={true}>
+                <ProtectedRoute requireAdmin={true} requiredPermission="view_schedule">
                   <Layout>
                     <AdminScheduling />
                   </Layout>
@@ -201,7 +210,7 @@ function App() {
 
               {/* Admin leave management with approval workflow */}
               <Route path="/admin/leave" element={
-                <ProtectedRoute requireAdmin={true}>
+                <ProtectedRoute requireAdmin={true} requiredPermission="manage_leave">
                   <Layout>
                     <AdminLeaveManagement />
                   </Layout>
@@ -210,7 +219,7 @@ function App() {
 
               {/* Webhook management */}
               <Route path="/webhooks" element={
-                <ProtectedRoute requireAdmin={true}>
+                <ProtectedRoute requireAdmin={true} requiredPermission="manage_webhooks">
                   <Layout>
                     <WebhookManagement />
                   </Layout>

@@ -2,8 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { useMutation, useQuery } from 'react-query';
 import { XMarkIcon } from '@heroicons/react/24/outline';
 import { employeeAPI } from '../services/api';
+import { useAuth } from '../contexts/AuthContext';
 
 const EmployeeForm = ({ employee, onClose, onSuccess }) => {
+  const { isSubAdmin } = useAuth();
   const isEditing = !!employee;
 
   // Password change state (edit mode only)
@@ -420,8 +422,13 @@ const EmployeeForm = ({ employee, onClose, onSuccess }) => {
                       console.error('Roles is not an array:', roles);
                       return <option disabled>Error loading roles</option>;
                     }
+                    
+                    let filteredRoles = roles;
+                    if (isSubAdmin) {
+                      filteredRoles = roles.filter(r => r.name !== 'ADMIN' && r.name !== 'SUPER_ADMIN');
+                    }
 
-                    return roles.map(role => (
+                    return filteredRoles.map(role => (
                       <option key={role.id} value={role.id}>
                         {role.name}
                       </option>

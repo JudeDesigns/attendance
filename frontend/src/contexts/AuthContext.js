@@ -130,7 +130,16 @@ export const AuthProvider = ({ children }) => {
     refreshToken,
     isAuthenticated: !!user,
     isAdmin: user?.is_admin || user?.employee_profile?.is_admin || false,
+    isSubAdmin: user?.is_sub_admin || false,
     isDriver: user?.is_driver || user?.employee_profile?.is_driver || false,
+    permissions: user?.permissions || [],
+    hasPermission: (key) => {
+      // Full admins implicitly have all permissions
+      if (user?.is_admin || user?.employee_profile?.is_admin) return true;
+      // Sub-admins must have the specific key or wildcard
+      const perms = user?.permissions || [];
+      return perms.includes('*') || perms.includes(key);
+    }
   };
 
   return (

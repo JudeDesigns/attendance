@@ -29,7 +29,7 @@ import {
 
 const Layout = ({ children }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const { user, logout, isAdmin } = useAuth();
+  const { user, logout, isAdmin, isSubAdmin, hasPermission } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -54,30 +54,38 @@ const Layout = ({ children }) => {
 
   // ── Desktop sidebar nav ────────────────────────────────────────────────────
   let sidebarNav = [
-    { name: 'Dashboard', href: '/', icon: HomeIcon },
-    { name: 'Clock In/Out', href: '/clock-in', icon: ClockIcon },
-    { name: 'Time Tracking', href: '/time-tracking', icon: ChartBarIcon },
-    { name: 'Schedule', href: '/schedule', icon: CalendarIcon },
-    { name: 'Leave Management', href: '/leave', icon: CalendarIcon },
+    { name: 'Dashboard', href: '/', icon: HomeIcon, alwaysShow: true },
+    { name: 'Clock In/Out', href: '/clock-in', icon: ClockIcon, alwaysShow: true },
+    { name: 'Time Tracking', href: '/time-tracking', icon: ChartBarIcon, alwaysShow: true },
+    { name: 'Schedule', href: '/schedule', icon: CalendarIcon, alwaysShow: true },
+    { name: 'Leave Management', href: '/leave', icon: CalendarIcon, alwaysShow: true },
   ];
 
-  if (isAdmin) {
+  if (isAdmin || isSubAdmin) {
     sidebarNav = sidebarNav.filter(item =>
       !['Schedule', 'Leave Management', 'Time Tracking'].includes(item.name)
     );
     sidebarNav.push(
-      { name: 'Admin Dashboard', href: '/admin', icon: UserGroupIcon },
-      { name: 'Employee Status', href: '/employee-status', icon: ChartBarIcon },
-      { name: 'Employee Management', href: '/employees', icon: UsersIcon },
-      { name: 'Location Management', href: '/locations', icon: MapPinIcon },
-      { name: 'Notification Management', href: '/notifications', icon: BellIcon },
-      { name: 'Notification Settings', href: '/notification-settings', icon: CogIcon },
-      { name: 'Admin Scheduling', href: '/admin/scheduling', icon: CalendarIcon },
-      { name: 'Leave Approvals', href: '/admin/leave', icon: CalendarIcon },
-      { name: 'Reports', href: '/reports', icon: DocumentReportIcon },
-      { name: 'Webhooks', href: '/webhooks', icon: CogIcon },
-      { name: 'Settings', href: '/settings', icon: CogIcon },
+      { name: 'Admin Dashboard', href: '/admin', icon: UserGroupIcon, permission: 'view_dashboard' },
+      { name: 'Employee Status', href: '/employee-status', icon: ChartBarIcon, permission: 'view_employee_status' },
+      { name: 'Employee Management', href: '/employees', icon: UsersIcon, permission: 'view_employees' },
+      { name: 'Location Management', href: '/locations', icon: MapPinIcon, permission: 'manage_locations' },
+      { name: 'Notification Management', href: '/notifications', icon: BellIcon, permission: 'view_notifications' },
+      { name: 'Notification Settings', href: '/notification-settings', icon: CogIcon, permission: 'manage_alert_settings' },
+      { name: 'Admin Scheduling', href: '/admin/scheduling', icon: CalendarIcon, permission: 'view_schedule' },
+      { name: 'Leave Approvals', href: '/admin/leave', icon: CalendarIcon, permission: 'manage_leave' },
+      { name: 'Reports', href: '/reports', icon: DocumentReportIcon, permission: 'view_reports' },
+      { name: 'Webhooks', href: '/webhooks', icon: CogIcon, permission: 'manage_webhooks' },
+      { name: 'Settings', href: '/settings', icon: CogIcon, alwaysShow: true } // Settings handles its own internal tabs
     );
+    
+    // Only full admins can manage sub-admins
+    if (isAdmin) {
+      sidebarNav.push({ name: 'Sub-Admins', href: '/admin/sub-admins', icon: UsersIcon, alwaysShow: true });
+    }
+
+    // Filter based on granular permissions
+    sidebarNav = sidebarNav.filter(item => item.alwaysShow || hasPermission(item.permission));
   }
 
   const navWithActive = sidebarNav.map(item => ({
@@ -85,7 +93,7 @@ const Layout = ({ children }) => {
     current: location.pathname === item.href,
   }));
 
-  const showBottomNav = !isAdmin;
+  const showBottomNav = !(isAdmin || isSubAdmin);
 
   return (
     <div className="flex flex-col glass-gradient-dark overflow-hidden w-full" style={{ height: '100dvh', maxHeight: '-webkit-fill-available' }}>

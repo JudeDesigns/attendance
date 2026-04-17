@@ -21,7 +21,7 @@ const EmployeeDetails = () => {
   const { employeeId } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
-  const { isAdmin } = useAuth();
+  const { isAdmin, hasPermission } = useAuth();
   const queryClient = useQueryClient();
   const [dateRange, setDateRange] = useState('week');
   const [selectedDate, setSelectedDate] = useState(getPSTDate());
@@ -404,13 +404,15 @@ const EmployeeDetails = () => {
           </div>
 
           <div className="flex space-x-3">
-            <button
-              onClick={() => navigate(`/admin/scheduling?employee=${employeeId}`)}
-              className="uber-button-primary inline-flex items-center"
-            >
-              <CalendarIcon className="h-4 w-4 mr-2" />
-              Schedule Shift
-            </button>
+            {hasPermission('manage_schedule') && (
+              <button
+                onClick={() => navigate(`/admin/scheduling?employee=${employeeId}`)}
+                className="uber-button-primary inline-flex items-center"
+              >
+                <CalendarIcon className="h-4 w-4 mr-2" />
+                Schedule Shift
+              </button>
+            )}
             <button
               onClick={handlePreviewTimesheet}
               className="inline-flex items-center px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500"
@@ -505,7 +507,7 @@ const EmployeeDetails = () => {
       )}
 
       {/* Active / Stuck Clock-In Alert */}
-      {activeLog && isAdmin && (
+      {activeLog && hasPermission('force_clockout') && (
         <div className={`rounded-lg border-l-4 p-4 shadow ${
           parseFloat(activeHours) >= 12 ? 'bg-red-50 border-red-500' : 'bg-amber-50 border-amber-500'
         }`}>
@@ -941,7 +943,7 @@ const EmployeeDetails = () => {
                                         In Progress
                                       </span>
                                     )}
-                                    {isAdmin && (
+                                    {hasPermission('edit_time_logs') && (
                                       <button
                                         onClick={() => openEditModal(activity.data)}
                                         className="ml-2 p-1 text-gray-400 hover:text-blue-600 transition-colors"

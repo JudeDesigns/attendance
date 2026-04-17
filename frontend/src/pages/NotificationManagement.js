@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery, useQueryClient, useMutation } from 'react-query';
 import { notificationAPI, employeeAPI } from '../services/api';
+import { useAuth } from '../contexts/AuthContext';
 
 import {
   BellIcon,
@@ -36,6 +37,7 @@ const getNotificationTypeIcon = (type) => {
 
 const NotificationManagement = () => {
   const queryClient = useQueryClient();
+  const { hasPermission } = useAuth();
   const [selectedTemplate, setSelectedTemplate] = useState(null);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [showTemplateModal, setShowTemplateModal] = useState(false);
@@ -136,15 +138,17 @@ const NotificationManagement = () => {
             <h1 className="text-2xl font-bold glass-text-primary">Notification Management</h1>
             <p className="glass-text-secondary">Manage notification templates and monitor delivery</p>
           </div>
-          <div className="flex space-x-3">
-            <button
-              onClick={() => setShowCreateForm(true)}
-              className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 flex items-center"
-            >
-              <PlusIcon className="h-5 w-5 mr-2" />
-              Create Template
-            </button>
-          </div>
+          {hasPermission('manage_notification_templates') && (
+            <div className="flex space-x-3">
+              <button
+                onClick={() => setShowCreateForm(true)}
+                className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 flex items-center"
+              >
+                <PlusIcon className="h-5 w-5 mr-2" />
+                Create Template
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Statistics */}
@@ -234,6 +238,7 @@ const NotificationManagement = () => {
                 setSelectedTemplate(template);
                 setShowTemplateModal(true);
               }}
+              hasPermission={hasPermission}
             />
           )}
 
@@ -281,7 +286,7 @@ const NotificationManagement = () => {
 };
 
 // Templates Tab Component
-const TemplatesTab = ({ templates, isLoading, onEdit, onDelete, onView }) => {
+const TemplatesTab = ({ templates, isLoading, onEdit, onDelete, onView, hasPermission }) => {
   if (isLoading) {
     return (
       <div className="text-center py-8">
@@ -355,18 +360,22 @@ const TemplatesTab = ({ templates, isLoading, onEdit, onDelete, onView }) => {
                   >
                     <EyeIcon className="h-4 w-4" />
                   </button>
-                  <button
-                    onClick={() => onEdit(template)}
-                    className="text-indigo-600 hover:text-indigo-900"
-                  >
-                    <PencilIcon className="h-4 w-4" />
-                  </button>
-                  <button
-                    onClick={() => onDelete(template.id)}
-                    className="text-red-600 hover:text-red-900"
-                  >
-                    <TrashIcon className="h-4 w-4" />
-                  </button>
+                  {hasPermission('manage_notification_templates') && (
+                    <>
+                      <button
+                        onClick={() => onEdit(template)}
+                        className="text-indigo-600 hover:text-indigo-900"
+                      >
+                        <PencilIcon className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => onDelete(template.id)}
+                        className="text-red-600 hover:text-red-900"
+                      >
+                        <TrashIcon className="h-4 w-4" />
+                      </button>
+                    </>
+                  )}
                 </div>
               </td>
             </tr>

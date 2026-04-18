@@ -16,7 +16,8 @@ import { getPSTDate, parsePSTDateTime, formatInPST } from '../utils/timezoneUtil
 
 
 const EmployeeStatusDashboard = () => {
-  const { isAdmin } = useAuth();
+  const { isAdmin, hasPermission } = useAuth();
+  const canView = isAdmin || hasPermission('view_employee_status');
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
@@ -33,7 +34,7 @@ const EmployeeStatusDashboard = () => {
     'employees',
     () => employeeAPI.list(),
     {
-      enabled: isAdmin, // Only fetch if admin
+      enabled: canView,
     }
   );
 
@@ -49,8 +50,8 @@ const EmployeeStatusDashboard = () => {
       });
     },
     {
-      enabled: isAdmin, // Only fetch if admin
-      refetchInterval: isAdmin ? 60000 : false,
+      enabled: canView,
+      refetchInterval: canView ? 60000 : false,
       staleTime: 30000,
     }
   );
@@ -63,14 +64,14 @@ const EmployeeStatusDashboard = () => {
       page_size: 1000 // Get all currently active employees
     }),
     {
-      enabled: isAdmin,
-      refetchInterval: isAdmin ? 60000 : false,
+      enabled: canView,
+      refetchInterval: canView ? 60000 : false,
       staleTime: 30000,
     }
   );
 
-  // Redirect non-admins to regular time tracking
-  if (!isAdmin) {
+  // Redirect users without access to regular time tracking
+  if (!canView) {
     navigate('/time-tracking');
     return null;
   }

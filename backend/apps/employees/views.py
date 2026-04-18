@@ -338,8 +338,16 @@ class EmployeeViewSet(viewsets.ModelViewSet):
         """Get employee's current clock-in status"""
         employee = self.get_object()
 
-        # Check permission - users can only view their own status, admins can view all
-        if not request.user.is_staff and employee.user != request.user:
+        # Check permission - users can only view their own status, admins/sub-admins can view all
+        is_admin_or_sub = request.user.is_staff
+        if not is_admin_or_sub:
+            try:
+                profile = request.user.employee_profile
+                if profile.is_sub_admin and profile.has_permission('view_employee_status'):
+                    is_admin_or_sub = True
+            except Exception:
+                pass
+        if not is_admin_or_sub and employee.user != request.user:
             return Response(
                 {'detail': 'You do not have permission to view this employee status'},
                 status=status.HTTP_403_FORBIDDEN

@@ -67,6 +67,7 @@ const Dashboard = () => {
     () => {
       const pstToday = getPSTDateString();
       return attendanceAPI.breaks({
+        time_log__employee: user?.employee_profile?.id,
         start_date: `${pstToday}T00:00:00`,
         end_date: `${pstToday}T23:59:59`,
       });

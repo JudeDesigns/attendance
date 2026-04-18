@@ -61,12 +61,22 @@ class NotificationLogViewSet(viewsets.ModelViewSet):
         """Set permissions based on action"""
         return [permissions.IsAuthenticated()]
 
+    def _is_notification_viewer(self, user):
+        """Check if user can view all notifications (admin or sub-admin with permission)."""
+        if user.is_staff:
+            return True
+        try:
+            profile = user.employee_profile
+            return profile.is_sub_admin and profile.has_permission('view_notifications')
+        except Exception:
+            return False
+
     def get_queryset(self):
         """Filter queryset based on user permissions"""
         queryset = super().get_queryset()
 
-        # Non-admin users can only see their own notifications
-        if not self.request.user.is_staff:
+        # Admins and sub-admins with view_notifications see everything
+        if not self._is_notification_viewer(self.request.user):
             try:
                 employee = Employee.objects.get(user=self.request.user)
                 queryset = queryset.filter(recipient=employee)
@@ -85,8 +95,8 @@ class NotificationLogViewSet(viewsets.ModelViewSet):
         unread_only = request.query_params.get('unread_only', 'false').lower() == 'true'
         limit = int(request.query_params.get('limit', 50))
 
-        if request.user.is_staff:
-            # Admin users see all notifications
+        if self._is_notification_viewer(request.user):
+            # Admin/sub-admin users see all notifications
             queryset = NotificationLog.objects.all()
         else:
             try:
@@ -118,7 +128,7 @@ class NotificationLogViewSet(viewsets.ModelViewSet):
 
         notification_ids = serializer.validated_data.get('notification_ids', [])
 
-        if request.user.is_staff:
+        if self._is_notification_viewer(request.user):
             queryset = NotificationLog.objects.all()
         else:
             try:
@@ -177,8 +187,8 @@ class NotificationLogViewSet(viewsets.ModelViewSet):
         """Delete a notification (only own notifications or admin)"""
         notification = self.get_object()
 
-        # Check if user owns this notification or is admin
-        if not request.user.is_staff:
+        # Check if user owns this notification or is admin/sub-admin
+        if not self._is_notification_viewer(request.user):
             try:
                 employee = Employee.objects.get(user=request.user)
                 if notification.recipient != employee:

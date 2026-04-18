@@ -95,8 +95,8 @@ const Layout = ({ children }) => {
   return (
     <div className="flex flex-col glass-gradient-dark overflow-hidden w-full" style={{ height: '100dvh', maxHeight: '-webkit-fill-available' }}>
 
-      {/* ── Mobile drawer sidebar (admin only) ──────────────────────────── */}
-      {isAdmin && (
+      {/* ── Mobile drawer sidebar (admin / sub-admin) ────────────────────── */}
+      {(isAdmin || isSubAdmin) && (
         <>
           <div
             className={`fixed inset-0 flex z-50 md:hidden transition-opacity duration-300 ease-in-out ${sidebarOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
@@ -204,7 +204,7 @@ const Layout = ({ children }) => {
             <div className="flex items-center justify-between px-4 py-3">
               {/* Left: hamburger (admin mobile) or app name (employee mobile) */}
               <div className="md:hidden">
-                {isAdmin ? (
+                {(isAdmin || isSubAdmin) ? (
                   <button
                     className="glass-button h-10 w-10 inline-flex items-center justify-center rounded-lg"
                     onClick={() => setSidebarOpen(!sidebarOpen)}

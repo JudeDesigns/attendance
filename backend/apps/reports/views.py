@@ -21,20 +21,33 @@ import os
 logger = logging.getLogger(__name__)
 
 
+def _is_report_viewer(user):
+    """Check if user can view reports (admin or sub-admin with permission)."""
+    if user.is_staff:
+        return True
+    try:
+        profile = user.employee_profile
+        return profile.is_sub_admin and (
+            profile.has_permission('view_reports') or profile.has_permission('generate_reports')
+        )
+    except Exception:
+        return False
+
+
 class ReportTemplateViewSet(viewsets.ModelViewSet):
     """ViewSet for managing report templates"""
     queryset = ReportTemplate.objects.all()
     serializer_class = ReportTemplateSerializer
     permission_classes = [permissions.IsAuthenticated]
-    
+
     def get_queryset(self):
         """Filter templates based on user permissions"""
         queryset = super().get_queryset()
-        
-        # Non-admin users can only see active templates
-        if not self.request.user.is_staff:
+
+        # Non-admin/non-report-viewer users can only see active templates
+        if not _is_report_viewer(self.request.user):
             queryset = queryset.filter(is_active=True)
-        
+
         return queryset
     
     def perform_create(self, serializer):
@@ -51,11 +64,11 @@ class ReportExecutionViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         """Filter executions based on user permissions"""
         queryset = super().get_queryset()
-        
-        # Non-admin users can only see their own executions
-        if not self.request.user.is_staff:
+
+        # Non-admin/non-report-viewer users can only see their own executions
+        if not _is_report_viewer(self.request.user):
             queryset = queryset.filter(requested_by=self.request.user)
-        
+
         return queryset
     
     def perform_create(self, serializer):

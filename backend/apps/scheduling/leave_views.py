@@ -20,6 +20,17 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+def _can_manage_leave(user):
+    """Check if user is admin or sub-admin with manage_leave permission."""
+    if user.is_staff:
+        return True
+    try:
+        profile = user.employee_profile
+        return profile.is_sub_admin and profile.has_permission('manage_leave')
+    except Exception:
+        return False
+
+
 class LeaveTypeViewSet(viewsets.ModelViewSet):
     """ViewSet for managing leave types"""
     queryset = LeaveType.objects.filter(is_active=True)
@@ -248,8 +259,8 @@ class LeaveRequestViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'])
     def pending_approvals(self, request):
-        """Get leave requests pending approval (Admin/Manager only)"""
-        if not request.user.is_staff:
+        """Get leave requests pending approval (Admin/Manager/Sub-admin)"""
+        if not _can_manage_leave(request.user):
             return Response(
                 {'error': 'Admin access required'},
                 status=status.HTTP_403_FORBIDDEN
@@ -271,8 +282,8 @@ class LeaveRequestViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'])
     def approve(self, request, pk=None):
-        """Approve a leave request (Admin only)"""
-        if not request.user.is_staff:
+        """Approve a leave request"""
+        if not _can_manage_leave(request.user):
             return Response(
                 {'error': 'Admin access required'},
                 status=status.HTTP_403_FORBIDDEN
@@ -303,8 +314,8 @@ class LeaveRequestViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'])
     def reject(self, request, pk=None):
-        """Reject a leave request (Admin only)"""
-        if not request.user.is_staff:
+        """Reject a leave request"""
+        if not _can_manage_leave(request.user):
             return Response(
                 {'error': 'Admin access required'},
                 status=status.HTTP_403_FORBIDDEN
@@ -346,8 +357,8 @@ class LeaveRequestViewSet(viewsets.ModelViewSet):
         try:
             leave_request = self.get_object()
             
-            # Check permissions - owner or admin
-            if not (request.user.is_staff or leave_request.employee.user == request.user):
+            # Check permissions - owner, admin, or sub-admin with manage_leave
+            if not (_can_manage_leave(request.user) or leave_request.employee.user == request.user):
                 return Response(
                     {'error': 'Permission denied'},
                     status=status.HTTP_403_FORBIDDEN

@@ -17,6 +17,7 @@ from .serializers import (
     ShiftBulkCreateSerializer, ShiftTemplateSerializer, MyScheduleSerializer,
     SpreadsheetImportSerializer
 )
+from apps.employees.permissions import HasSubAdminPermission
 import logging
 
 logger = logging.getLogger(__name__)
@@ -68,11 +69,11 @@ class ShiftViewSet(viewsets.ModelViewSet):
     def get_permissions(self):
         """Set permissions based on action"""
         if self.action in ['create', 'update', 'partial_update', 'destroy', 'bulk_create']:
-            return [IsAdminUser()]
+            return [HasSubAdminPermission('manage_schedule')()]
         elif self.action in ['retrieve', 'list']:
-            return [IsOwnerOrAdmin()]
+            return [permissions.IsAuthenticated()]
         return [permissions.IsAuthenticated()]
-    
+
     def get_queryset(self):
         """Filter queryset based on user permissions"""
         queryset = super().get_queryset()
@@ -81,13 +82,26 @@ class ShiftViewSet(viewsets.ModelViewSet):
         if not self.request.user.is_authenticated:
             return queryset.none()
 
-        # Non-admin users can only see their own shifts
-        if not self.request.user.is_staff:
+        # Full admins see everything
+        if self.request.user.is_staff:
+            pass
+        else:
+            # Check if user is a sub-admin with schedule viewing permissions
+            is_sub_admin_viewer = False
             try:
-                employee = Employee.objects.get(user=self.request.user)
-                queryset = queryset.filter(employee=employee)
-            except Employee.DoesNotExist:
-                queryset = queryset.none()
+                profile = self.request.user.employee_profile
+                if profile.is_sub_admin:
+                    is_sub_admin_viewer = profile.has_permission('view_schedule') or profile.has_permission('manage_schedule')
+            except Exception:
+                pass
+
+            if not is_sub_admin_viewer:
+                # Regular employees can only see their own shifts
+                try:
+                    employee = Employee.objects.get(user=self.request.user)
+                    queryset = queryset.filter(employee=employee)
+                except Employee.DoesNotExist:
+                    queryset = queryset.none()
         
         # Filter by date range if provided
         start_date = self.request.query_params.get('start_date')

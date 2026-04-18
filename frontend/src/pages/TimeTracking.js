@@ -14,20 +14,20 @@ import {
 import { getPSTDate } from '../utils/timezoneUtils';
 
 const TimeTracking = () => {
-  const { user } = useAuth();
+  const { user, isAdmin, hasPermission } = useAuth();
   const [dateRange, setDateRange] = useState('week');
   const [selectedDate, setSelectedDate] = useState(getPSTDate());
   const [selectedEmployee, setSelectedEmployee] = useState('me');
 
-  // Check if user is admin
-  const isAdmin = user?.employee_profile?.role?.name === 'Administrator' || user?.is_staff;
+  // Check if user can view all employees' time logs
+  const canViewAll = isAdmin || hasPermission('view_employees') || hasPermission('view_employee_status');
 
   // Get employees list for admin
   const { data: employeesData } = useQuery(
     'employees',
     () => employeeAPI.list(),
     {
-      enabled: isAdmin,
+      enabled: canViewAll,
     }
   );
 
@@ -70,7 +70,7 @@ const TimeTracking = () => {
       };
 
       // If not admin or selected 'me', filter by current user
-      if (!isAdmin || selectedEmployee === 'me') {
+      if (!canViewAll || selectedEmployee === 'me') {
         params.employee = user?.employee_profile?.id;
       } else if (selectedEmployee !== 'all') {
         params.employee = selectedEmployee;
@@ -157,7 +157,7 @@ const TimeTracking = () => {
             className="glass-input text-sm flex-1 min-w-0"
           />
 
-          {isAdmin && (
+          {canViewAll && (
             <select
               value={selectedEmployee}
               onChange={(e) => setSelectedEmployee(e.target.value)}

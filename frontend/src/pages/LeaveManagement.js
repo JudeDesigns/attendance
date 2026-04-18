@@ -17,7 +17,8 @@ import { PrimaryButton, SecondaryButton } from '../components/TouchButton';
 import toast from 'react-hot-toast';
 
 const LeaveManagement = () => {
-  const { user, isAdmin } = useAuth();
+  const { user, isAdmin, hasPermission } = useAuth();
+  const canManageLeave = isAdmin || hasPermission('manage_leave');
   const queryClient = useQueryClient();
 
   // State management
@@ -55,7 +56,7 @@ const LeaveManagement = () => {
     () => {
       if (activeTab === 'my-requests') {
         return schedulingAPI.getMyLeaveRequests(filterStatus !== 'all' ? { status: filterStatus } : {});
-      } else if (activeTab === 'pending-approvals' && isAdmin) {
+      } else if (activeTab === 'pending-approvals' && canManageLeave) {
         return schedulingAPI.getPendingLeaveApprovals();
       }
       return { data: { results: [] } };
@@ -310,7 +311,7 @@ const LeaveManagement = () => {
   const tabs = [
     { id: 'my-requests', name: 'My Requests', icon: DocumentTextIcon },
     { id: 'balances', name: 'Leave Balances', icon: CalendarIcon },
-    ...(isAdmin ? [{ id: 'pending-approvals', name: 'Pending Approvals', icon: ExclamationIcon }] : [])
+    ...(canManageLeave ? [{ id: 'pending-approvals', name: 'Pending Approvals', icon: ExclamationIcon }] : [])
   ];
 
   const statusFilters = [

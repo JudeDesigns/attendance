@@ -21,6 +21,7 @@ from .serializers import (
     ClockOutSerializer, QRCodeClockSerializer, AttendanceSummarySerializer,
     CurrentStatusSerializer, BreakSerializer, BreakStartSerializer, BreakEndSerializer
 )
+from apps.employees.permissions import HasSubAdminPermission, IsAdminOrSubAdmin
 import logging
 
 logger = logging.getLogger(__name__)
@@ -103,13 +104,27 @@ class TimeLogViewSet(viewsets.ModelViewSet):
         if not self.request.user.is_authenticated:
             return queryset.none()
 
-        # Non-admin users can only see their own time logs
-        if not self.request.user.is_staff:
+        # Full admins see everything
+        if self.request.user.is_staff:
+            pass
+        else:
+            # Check if user is a sub-admin with relevant viewing permissions
+            is_sub_admin_viewer = False
             try:
-                employee = Employee.objects.get(user=self.request.user)
-                queryset = queryset.filter(employee=employee)
-            except Employee.DoesNotExist:
-                queryset = queryset.none()
+                profile = self.request.user.employee_profile
+                if profile.is_sub_admin:
+                    viewing_perms = ['view_dashboard', 'view_employee_status', 'view_employees', 'view_reports', 'export_data', 'edit_time_logs', 'force_clockout']
+                    is_sub_admin_viewer = any(profile.has_permission(p) for p in viewing_perms)
+            except Exception:
+                pass
+
+            if not is_sub_admin_viewer:
+                # Regular employees can only see their own time logs
+                try:
+                    employee = Employee.objects.get(user=self.request.user)
+                    queryset = queryset.filter(employee=employee)
+                except Employee.DoesNotExist:
+                    queryset = queryset.none()
         
         # Filter by date range if provided
         start_date = self.request.query_params.get('start_date')
@@ -659,7 +674,7 @@ class TimeLogViewSet(viewsets.ModelViewSet):
         serializer = TimeLogSerializer(logs, many=True)
         return Response(serializer.data)
 
-    @action(detail=False, methods=['get'], permission_classes=[IsAdminUser])
+    @action(detail=False, methods=['get'], permission_classes=[HasSubAdminPermission('view_dashboard')])
     def summary(self, request):
         """Get attendance summary for all employees"""
         # Get date range from query params
@@ -846,7 +861,7 @@ class TimeLogViewSet(viewsets.ModelViewSet):
             'monthly_breakdown': monthly_breakdown
         })
 
-    @action(detail=False, methods=['get'], permission_classes=[IsAdminUser])
+    @action(detail=False, methods=['get'], permission_classes=[HasSubAdminPermission('export_data')])
     def export(self, request):
         """Export employee time logs as detailed CSV timesheet"""
         import csv
@@ -1057,7 +1072,7 @@ class TimeLogViewSet(viewsets.ModelViewSet):
         logger.info(f"Detailed timesheet exported by admin user {request.user.username}")
         return response
 
-    @action(detail=True, methods=['patch'], permission_classes=[IsAdminUser])
+    @action(detail=True, methods=['patch'], permission_classes=[HasSubAdminPermission('edit_time_logs')])
     @transaction.atomic
     def admin_edit(self, request, pk=None):
         """
@@ -1197,13 +1212,27 @@ class BreakViewSet(viewsets.ModelViewSet):
         if not self.request.user.is_authenticated:
             return queryset.none()
 
-        # Non-admin users can only see their own breaks
-        if not self.request.user.is_staff:
+        # Full admins see everything
+        if self.request.user.is_staff:
+            pass
+        else:
+            # Check if user is a sub-admin with relevant viewing permissions
+            is_sub_admin_viewer = False
             try:
-                employee = Employee.objects.get(user=self.request.user)
-                queryset = queryset.filter(time_log__employee=employee)
-            except Employee.DoesNotExist:
-                queryset = queryset.none()
+                profile = self.request.user.employee_profile
+                if profile.is_sub_admin:
+                    viewing_perms = ['view_dashboard', 'view_employee_status', 'view_employees', 'view_reports', 'export_data', 'edit_time_logs', 'force_clockout']
+                    is_sub_admin_viewer = any(profile.has_permission(p) for p in viewing_perms)
+            except Exception:
+                pass
+
+            if not is_sub_admin_viewer:
+                # Regular employees can only see their own breaks
+                try:
+                    employee = Employee.objects.get(user=self.request.user)
+                    queryset = queryset.filter(time_log__employee=employee)
+                except Employee.DoesNotExist:
+                    queryset = queryset.none()
 
         # Filter by date range if provided
         start_date = self.request.query_params.get('start_date')
@@ -1638,9 +1667,9 @@ class BreakViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-    @action(detail=False, methods=['get'], permission_classes=[IsAdminUser])
+    @action(detail=False, methods=['get'], permission_classes=[HasSubAdminPermission('view_dashboard')])
     def stuck_clockins(self, request):
-        """Get dashboard data for stuck clock-ins (Admin only)"""
+        """Get dashboard data for stuck clock-ins"""
         from .stuck_clockin_monitor import StuckClockInManager
 
         manager = StuckClockInManager()
@@ -1648,9 +1677,9 @@ class BreakViewSet(viewsets.ModelViewSet):
 
         return Response(dashboard_data)
 
-    @action(detail=False, methods=['post'], permission_classes=[IsAdminUser])
+    @action(detail=False, methods=['post'], permission_classes=[HasSubAdminPermission('force_clockout')])
     def force_clockout(self, request):
-        """Force clock-out for stuck employees (Admin only)"""
+        """Force clock-out for stuck employees"""
         employee_id = request.data.get('employee_id')
         clockout_time = request.data.get('clockout_time')
         reason = request.data.get('reason', 'Admin force clock-out')

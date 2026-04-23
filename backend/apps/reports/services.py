@@ -501,7 +501,14 @@ class DetailedTimesheetReportGenerator(ReportGenerator):
         return sorted(report_data, key=lambda x: (x['Employee Name'], datetime.strptime(x['Date'], '%m/%d/%Y')))
 
     def get_grouped_data(self):
-        """Get employee-grouped timesheet data with per-employee summaries and pay calculations"""
+        """Get employee-grouped timesheet data with per-employee summaries and pay calculations.
+
+        Overtime rule (Sun→Sat payroll weeks, 40h cap):
+          - Regular : min(week_total, 40h)  → 'Total 8 Hrs' pay
+          - Over 8  : weekly OT ≤ 8h        → 'Total Over 8' pay
+          - Over 12 : weekly OT > 8h        → 'Total Over 12' pay
+        Per-row daily columns (8 Hours, over 8, over 12) are kept as-is.
+        """
         time_logs = self._get_time_logs()
         rows = [self._build_row(log) for log in time_logs]
         rows = sorted(rows, key=lambda x: (x['Employee Name'], datetime.strptime(x['Date'], '%m/%d/%Y')))
@@ -510,11 +517,17 @@ class DetailedTimesheetReportGenerator(ReportGenerator):
         from apps.notifications.models import CompanySettings
         settings = CompanySettings.get_settings()
         regular_multiplier = float(settings.regular_rate_multiplier)
-        over_8_multiplier = float(settings.overtime_8_multiplier)
+        over_8_multiplier  = float(settings.overtime_8_multiplier)
         over_12_multiplier = float(settings.overtime_12_multiplier)
 
+        # Helper: return the Sunday that opens the Sun→Sat payroll week
+        def _week_sunday(date_obj):
+            day_of_week = date_obj.weekday()           # Mon=0 … Sun=6
+            days_since_sunday = (day_of_week + 1) % 7  # Sun=0, Mon=1 … Sat=6
+            return date_obj - timedelta(days=days_since_sunday)
+
         # Group by employee
-        from collections import OrderedDict
+        from collections import OrderedDict, defaultdict
         employees = OrderedDict()
         for row in rows:
             emp_name = row['Employee Name']
@@ -529,45 +542,110 @@ class DetailedTimesheetReportGenerator(ReportGenerator):
         # Build per-employee summaries
         result = []
         for emp_name, emp_data in employees.items():
-            emp_rows = emp_data['rows']
+            emp_rows   = emp_data['rows']
             hourly_rate = emp_data['hourly_rate']
 
-            total_finally_hours = round(sum(r['Finally Hours'] for r in emp_rows), 2)
-            total_8_hours = round(sum(r['8 Hours'] for r in emp_rows), 2)
-            total_over_8 = round(sum(r['over 8'] for r in emp_rows), 2)
-            total_over_12 = round(sum(r['over 12'] for r in emp_rows), 2)
+            # ── Group rows into Sun→Sat payroll weeks ─────────────────────
+            week_groups = defaultdict(list)
+            for row in emp_rows:
+                date_obj   = datetime.strptime(row['Date'], '%m/%d/%Y').date()
+                week_start = _week_sunday(date_obj)
+                week_groups[week_start].append(row)
 
-            # Pay calculations using configurable multipliers (safe for null hourly_rate)
+            # ── Apply 40h weekly cap; split OT into over-8 / over-12 ──────
+            week_summaries = []
+            grand_regular  = 0.0
+            grand_over_8   = 0.0   # weekly OT ≤ 8 h
+            grand_over_12  = 0.0   # weekly OT > 8 h
+            grand_finally  = 0.0
+
+            for week_start in sorted(week_groups.keys()):
+                week_end   = week_start + timedelta(days=6)   # Saturday
+                week_rows  = week_groups[week_start]
+                wk_finally = sum(r['Finally Hours'] for r in week_rows)
+                wk_regular = min(wk_finally, 40.0)
+                wk_ot      = max(0.0, wk_finally - 40.0)
+                wk_over_8  = min(wk_ot, 8.0)       # first 8h of OT
+                wk_over_12 = max(0.0, wk_ot - 8.0)  # OT beyond 8h
+
+                grand_regular += wk_regular
+                grand_over_8  += wk_over_8
+                grand_over_12 += wk_over_12
+                grand_finally += wk_finally
+
+                try:
+                    week_label = (
+                        f"{week_start.strftime('%b %-d')} – "
+                        f"{week_end.strftime('%b %-d, %Y')}"
+                    )
+                except ValueError:
+                    week_label = (
+                        f"{week_start.strftime('%b %d')} – "
+                        f"{week_end.strftime('%b %d, %Y')}"
+                    )
+
+                week_summaries.append({
+                    'week_start':     week_start.isoformat(),
+                    'week_label':     week_label,
+                    'finally_hours':  round(wk_finally, 2),
+                    'regular_hours':  round(wk_regular, 2),
+                    'overtime_hours': round(wk_ot,      2),
+                    'over_8_hours':   round(wk_over_8,  2),
+                    'over_12_hours':  round(wk_over_12, 2),
+                })
+
+            grand_regular = round(grand_regular, 2)
+            grand_over_8  = round(grand_over_8,  2)
+            grand_over_12 = round(grand_over_12, 2)
+            grand_finally = round(grand_finally, 2)
+
+            # ── Pay calculations (weekly OT basis, original key names) ────
             if hourly_rate:
-                total_8_hrs_pay = round(total_8_hours * hourly_rate * regular_multiplier, 2)
-                total_over_8_pay = round(total_over_8 * hourly_rate * over_8_multiplier, 2)
-                total_over_12_pay = round(total_over_12 * hourly_rate * over_12_multiplier, 2)
-                total_payment = round(total_8_hrs_pay + total_over_8_pay + total_over_12_pay, 2)
+                total_8_hrs_pay   = round(grand_regular * hourly_rate * regular_multiplier, 2)
+                total_over_8_pay  = round(grand_over_8  * hourly_rate * over_8_multiplier,  2)
+                total_over_12_pay = round(grand_over_12 * hourly_rate * over_12_multiplier, 2)
+                total_payment     = round(total_8_hrs_pay + total_over_8_pay + total_over_12_pay, 2)
             else:
-                total_8_hrs_pay = None
-                total_over_8_pay = None
+                total_8_hrs_pay   = None
+                total_over_8_pay  = None
                 total_over_12_pay = None
-                total_payment = None
+                total_payment     = None
+
+            grand_ot_total = round(grand_over_8 + grand_over_12, 2)
 
             result.append({
-                'name': emp_name,
+                'name':        emp_name,
                 'hourly_rate': hourly_rate,
-                'rows': emp_rows,
+                'rows':        emp_rows,
                 'summary': {
-                    'total_finally_hours': total_finally_hours,
-                    'total_8_hours': total_8_hours,
-                    'total_over_8': total_over_8,
-                    'total_over_12': total_over_12,
-                    'total_8_hrs_pay': total_8_hrs_pay,
-                    'total_over_8_pay': total_over_8_pay,
-                    'total_over_12_pay': total_over_12_pay,
-                    'total_payment': total_payment,
+                    'total_finally_hours': grand_finally,
+                    # Weekly-computed hour buckets (replace daily sums)
+                    'total_8_hours':       grand_regular,   # regular (≤40h/wk)
+                    'total_over_8':        grand_over_8,    # OT ≤ 8h per week
+                    'total_over_12':       grand_over_12,   # OT > 8h per week
+                    # Per-week breakdown (used by frontend for subtotal rows)
+                    'weeks':               week_summaries,
+                    # Brief OT note for display
+                    'ot_note': (
+                        f"{grand_regular}h reg (40h/wk cap) + {grand_ot_total}h OT"
+                        if grand_ot_total > 0 else
+                        f"{grand_regular}h reg (40h/wk cap)"
+                    ),
+                    # Original pay key names (restored)
+                    'total_8_hrs_pay':    total_8_hrs_pay,
+                    'total_over_8_pay':   total_over_8_pay,
+                    'total_over_12_pay':  total_over_12_pay,
+                    'total_payment':      total_payment,
                     'check': None,
-                    'cash': None,
+                    'cash':  None,
                 }
             })
 
         return result
+
+
+
+
 
 
 

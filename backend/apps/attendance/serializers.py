@@ -366,6 +366,7 @@ class BreakSerializer(serializers.ModelSerializer):
     duration_hours = serializers.FloatField(read_only=True)
     is_active = serializers.BooleanField(read_only=True)
     display_name = serializers.CharField(read_only=True)
+    was_waived = serializers.BooleanField(read_only=True)
 
     def to_representation(self, instance):
         """
@@ -398,10 +399,11 @@ class BreakSerializer(serializers.ModelSerializer):
             'id', 'time_log', 'employee_name', 'employee_id',
             'break_type', 'break_number', 'display_name',
             'start_time', 'end_time', 'notes',
+            'was_waived',
             'duration_minutes', 'duration_hours', 'is_active',
             'created_at', 'updated_at'
         ]
-        read_only_fields = ['id', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'created_at', 'updated_at', 'was_waived']
 
 
 class BreakStartSerializer(serializers.Serializer):

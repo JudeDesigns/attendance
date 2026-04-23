@@ -925,65 +925,51 @@ class TimeLogViewSet(viewsets.ModelViewSet):
         ]
         writer.writerow(headers)
 
-        # Accumulators for totals row
-        sum_finally_hours = 0.0
-        sum_reg_hours = 0.0
-        sum_over_8 = 0.0
-        sum_over_12 = 0.0
+        # ── Helper: Sunday that opens the Sun→Sat payroll week ─────────────
+        def _week_sunday(date_obj):
+            dow = date_obj.weekday()               # Mon=0 … Sun=6
+            return date_obj - timedelta(days=(dow + 1) % 7)
 
+        # ── Collect all rows into memory so we can group by week ────────────
+        all_rows = []
         for log in queryset.order_by('clock_in_time'):
-            # Convert main times to user's timezone
-            clock_in = convert_to_user_timezone(log.clock_in_time, log.employee.user) if log.clock_in_time else None
+            clock_in  = convert_to_user_timezone(log.clock_in_time,  log.employee.user) if log.clock_in_time  else None
             clock_out = convert_to_user_timezone(log.clock_out_time, log.employee.user) if log.clock_out_time else None
-            
-            # Basic info
-            date_str = clock_in.strftime('%m/%d/%Y') if clock_in else ''
-            day_str = clock_in.strftime('%A') if clock_in else ''
-            start_time_str = clock_in.strftime('%H:%M') if clock_in else ''
-            end_time_str = clock_out.strftime('%H:%M') if clock_out else ''
-            
-            # Gross Duration (Total Hours)
+
+            date_str      = clock_in.strftime('%m/%d/%Y') if clock_in else ''
+            day_str       = clock_in.strftime('%A')        if clock_in else ''
+            start_time_str = clock_in.strftime('%H:%M')   if clock_in else ''
+            end_time_str   = clock_out.strftime('%H:%M')  if clock_out else ''
+
             gross_hours_decimal = 0.0
-            gross_hours_str = ''
+            gross_hours_str     = ''
             if clock_in and clock_out:
-                duration = clock_out - clock_in
+                duration      = clock_out - clock_in
                 total_minutes = int(duration.total_seconds() / 60)
-                h = total_minutes // 60
-                m = total_minutes % 60
-                gross_hours_str = f"{h}h {m}m"
+                h, m          = divmod(total_minutes, 60)
+                gross_hours_str     = f"{h}h {m}m"
                 gross_hours_decimal = round(total_minutes / 60, 2)
-            
-            # Process Breaks
+
             breaks = list(log.breaks.all().order_by('start_time'))
-            break_data = []
-            total_all_break_minutes = 0   # Sum of ALL break time (for "Total Break" display)
-            total_deducted_minutes = 0
-            
-            # We support up to 3 breaks in the CSV
+            break_data              = []
+            total_all_break_minutes = 0
+            total_deducted_minutes  = 0
+
             for i in range(3):
                 if i < len(breaks):
-                    b = breaks[i]
+                    b       = breaks[i]
                     b_start = convert_to_user_timezone(b.start_time, log.employee.user)
-                    b_end = convert_to_user_timezone(b.end_time, log.employee.user) if b.end_time else None
-
-                    b_in = b_start.strftime('%H:%M') if b_start else ''
-                    b_out = b_end.strftime('%H:%M') if b_end else ''
-
+                    b_end   = convert_to_user_timezone(b.end_time,   log.employee.user) if b.end_time else None
+                    b_in    = b_start.strftime('%H:%M') if b_start else ''
+                    b_out   = b_end.strftime('%H:%M')   if b_end   else ''
                     b_total_str = ''
-                    b_minutes = 0
+                    b_minutes   = 0
                     if b_start and b_end:
-                        b_duration = b_end - b_start
-                        b_minutes = round(b_duration.total_seconds() / 60)
-                        bh = b_minutes // 60
-                        bm = b_minutes % 60
+                        b_minutes = round((b_end - b_start).total_seconds() / 60)
+                        bh, bm    = divmod(b_minutes, 60)
                         b_total_str = f"{bh}h {bm}m"
-
                     break_data.extend([b_in, b_out, b_total_str])
                     total_all_break_minutes += b_minutes
-
-                    # Deduction rules:
-                    # - LUNCH (Break 2): fully deducted
-                    # - SHORT (Break 1 & 3): first 10 min free, excess is deducted
                     if b.break_type == 'LUNCH':
                         total_deducted_minutes += b_minutes
                     elif b.break_type == 'SHORT' and b_minutes > 10:
@@ -991,86 +977,89 @@ class TimeLogViewSet(viewsets.ModelViewSet):
                 else:
                     break_data.extend(['', '', ''])
 
-            # Net Hours (Total Without Break)
-            # Net = Gross - Deducted Breaks
-            # Note: If gross is calculated from clock in to clock out, it includes the break time.
-            # So we subtract the deducted break time.
-            
-            net_minutes = 0
+            net_minutes             = 0
+            net_hours_str           = ''
+            finally_hours_decimal   = 0.0
             if clock_in and clock_out:
-                total_minutes = int((clock_out - clock_in).total_seconds() / 60)
-                net_minutes = total_minutes - total_deducted_minutes
-            
-            net_hours_str = ''
-            finally_hours_decimal = 0.0
-            
+                total_minutes   = int((clock_out - clock_in).total_seconds() / 60)
+                net_minutes     = total_minutes - total_deducted_minutes
             if net_minutes > 0:
-                nh = net_minutes // 60
-                nm = net_minutes % 60
-                net_hours_str = f"{nh}h {nm}m"
+                nh, nm            = divmod(net_minutes, 60)
+                net_hours_str     = f"{nh}h {nm}m"
                 finally_hours_decimal = round(net_minutes / 60, 2)
-            
-            # Overtime Calculations
-            reg_hours = 0.0
-            over_8 = 0.0
-            over_12 = 0.0
-            
+
+            # Daily OT columns — UNCHANGED semantics
             if finally_hours_decimal > 12:
                 reg_hours = 8.0
-                over_8 = 4.0
-                over_12 = finally_hours_decimal - 12.0
+                over_8    = 4.0
+                over_12   = finally_hours_decimal - 12.0
             elif finally_hours_decimal > 8:
                 reg_hours = 8.0
-                over_8 = finally_hours_decimal - 8.0
-                over_12 = 0.0
+                over_8    = finally_hours_decimal - 8.0
+                over_12   = 0.0
             else:
                 reg_hours = finally_hours_decimal
-                over_8 = 0.0
-                over_12 = 0.0
+                over_8    = 0.0
+                over_12   = 0.0
 
-            # Accumulate totals
-            sum_finally_hours += finally_hours_decimal
-            sum_reg_hours += reg_hours
-            sum_over_8 += over_8
-            sum_over_12 += over_12
-
-            # Total Break string (sum of ALL break time)
-            tb_h = total_all_break_minutes // 60
-            tb_m = total_all_break_minutes % 60
+            tb_h, tb_m = divmod(total_all_break_minutes, 60)
             total_break_str = f"{tb_h}h {tb_m}m" if total_all_break_minutes > 0 else ''
 
-            # Construct Row
-            row = [
-                date_str,
-                day_str,
-                start_time_str,
-                end_time_str,
-                gross_hours_str,
-                *break_data, # Unpack the 9 break columns
-                total_break_str,
-                net_hours_str,
-                f"{finally_hours_decimal:.2f}",
-                f"{reg_hours:.2f}",
-                f"{over_8:.2f}",
-                f"{over_12:.2f}"
-            ]
-            writer.writerow(row)
+            date_obj   = clock_in.date() if clock_in else None
+            week_start = _week_sunday(date_obj) if date_obj else None
 
-        # Write totals row
+            all_rows.append({
+                'date_obj':   date_obj,
+                'week_start': week_start,
+                'row': [
+                    date_str, day_str, start_time_str, end_time_str,
+                    gross_hours_str,
+                    *break_data,
+                    total_break_str, net_hours_str,
+                    f"{finally_hours_decimal:.2f}",
+                    f"{reg_hours:.2f}",
+                    f"{over_8:.2f}",
+                    f"{over_12:.2f}",
+                ],
+                'finally_hours': finally_hours_decimal,
+            })
+
+
+        # ── Write daily rows flat, track weekly totals for TOTALS row ───────
+        from collections import defaultdict
+        week_finally_map = defaultdict(float)
+
+        for entry in all_rows:
+            writer.writerow(entry['row'])
+            if entry['week_start'] is not None:
+                week_finally_map[entry['week_start']] += entry['finally_hours']
+
+        # ── Grand TOTALS row — weekly OT logic (40h cap, split to over-8/over-12)
+        grand_finally  = sum(e['finally_hours'] for e in all_rows)
+        grand_regular  = 0.0
+        grand_over_8   = 0.0
+        grand_over_12  = 0.0
+        for wk_finally in week_finally_map.values():
+            wk_regular  = min(wk_finally, 40.0)
+            wk_ot       = max(0.0, wk_finally - 40.0)
+            grand_regular += wk_regular
+            grand_over_8  += min(wk_ot, 8.0)
+            grand_over_12 += max(0.0, wk_ot - 8.0)
+
         totals_row = [
             'TOTALS', '', '', '', '',
-            '', '', '', '', '', '', '', '', '',  # 9 break columns empty
-            '',  # Total Break
-            '',  # Total Without Break
-            f"{sum_finally_hours:.2f}",
-            f"{sum_reg_hours:.2f}",
-            f"{sum_over_8:.2f}",
-            f"{sum_over_12:.2f}"
+            '', '', '', '', '', '', '', '', '',
+            '', '',
+            f"{grand_finally:.2f}",
+            f"{grand_regular:.2f}",
+            f"{grand_over_8:.2f}",
+            f"{grand_over_12:.2f}",
         ]
         writer.writerow(totals_row)
 
         logger.info(f"Detailed timesheet exported by admin user {request.user.username}")
         return response
+
 
     @action(detail=True, methods=['patch'], permission_classes=[HasSubAdminPermission('edit_time_logs')])
     @transaction.atomic
@@ -1123,7 +1112,47 @@ class TimeLogViewSet(viewsets.ModelViewSet):
         for b_data in breaks_data:
             break_id = b_data.get('id')
             if not break_id:
+                # ── New break (no existing DB record) ────────────────────
+                # Create only when both start AND end times are provided.
+                # If the admin left the empty slot blank, skip it silently.
+                start_raw = b_data.get('start_time')
+                end_raw   = b_data.get('end_time')
+                if not start_raw or not end_raw:
+                    continue   # blank empty slot — nothing to do
+
+                try:
+                    new_start = dt_parse(start_raw)
+                    if new_start.tzinfo is None:
+                        from django.utils.timezone import make_aware
+                        new_start = make_aware(new_start, la_tz)
+                    new_end = dt_parse(end_raw)
+                    if new_end.tzinfo is None:
+                        from django.utils.timezone import make_aware
+                        new_end = make_aware(new_end, la_tz)
+                except (ValueError, TypeError) as e:
+                    return Response({'detail': f'Invalid break time: {e}'}, status=status.HTTP_400_BAD_REQUEST)
+
+                if new_end <= new_start:
+                    return Response({'detail': 'Break end time must be after break start time'}, status=status.HTTP_400_BAD_REQUEST)
+                if time_log.clock_in_time and new_start < time_log.clock_in_time:
+                    return Response({'detail': 'Break start time cannot be before clock-in'}, status=status.HTTP_400_BAD_REQUEST)
+                if time_log.clock_out_time and new_end > time_log.clock_out_time:
+                    return Response({'detail': 'Break end time cannot be after clock-out'}, status=status.HTTP_400_BAD_REQUEST)
+
+                break_number = b_data.get('break_number')
+                break_type   = b_data.get('break_type') or ('LUNCH' if break_number == 2 else 'SHORT')
+                new_brk = Break(
+                    time_log=time_log,
+                    break_type=break_type,
+                    break_number=break_number,
+                    start_time=new_start,
+                    end_time=new_end,
+                )
+                breaks_to_save.append(new_brk)
+                changed.append(f'added break {break_number}')
                 continue
+            # ── Edit / delete existing break ──────────────────────────────
+
             try:
                 brk = Break.objects.get(id=break_id, time_log=time_log)
             except Break.DoesNotExist:
@@ -1134,6 +1163,7 @@ class TimeLogViewSet(viewsets.ModelViewSet):
                 changed.append(f'deleted break {break_id}')
                 continue
 
+            time_fields_changed = False
             for bf in ('start_time', 'end_time'):
                 raw = b_data.get(bf)
                 if raw is not None:
@@ -1143,16 +1173,21 @@ class TimeLogViewSet(viewsets.ModelViewSet):
                             from django.utils.timezone import make_aware
                             parsed = make_aware(parsed, la_tz)
                         setattr(brk, bf, parsed)
+                        time_fields_changed = True
                     except (ValueError, TypeError) as e:
                         return Response({'detail': f'Invalid break {bf}: {e}'}, status=status.HTTP_400_BAD_REQUEST)
 
-            # Validate break times are within shift bounds
-            if brk.start_time and time_log.clock_in_time and brk.start_time < time_log.clock_in_time:
-                return Response({'detail': f'Break start time cannot be before clock-in'}, status=status.HTTP_400_BAD_REQUEST)
-            if brk.end_time and time_log.clock_out_time and brk.end_time > time_log.clock_out_time:
-                return Response({'detail': f'Break end time cannot be after clock-out'}, status=status.HTTP_400_BAD_REQUEST)
-            if brk.start_time and brk.end_time and brk.end_time <= brk.start_time:
-                return Response({'detail': f'Break end time must be after break start time'}, status=status.HTTP_400_BAD_REQUEST)
+            # Only validate time constraints for breaks where times were actually
+            # changed in this request. Do NOT re-validate unchanged existing data
+            # because the DB may already contain edge-case times (e.g. start==end
+            # on a waived/auto-created break) that should not block other edits.
+            if time_fields_changed:
+                if brk.start_time and time_log.clock_in_time and brk.start_time < time_log.clock_in_time:
+                    return Response({'detail': 'Break start time cannot be before clock-in'}, status=status.HTTP_400_BAD_REQUEST)
+                if brk.end_time and time_log.clock_out_time and brk.end_time > time_log.clock_out_time:
+                    return Response({'detail': 'Break end time cannot be after clock-out'}, status=status.HTTP_400_BAD_REQUEST)
+                if brk.start_time and brk.end_time and brk.end_time <= brk.start_time:
+                    return Response({'detail': 'Break end time must be after break start time'}, status=status.HTTP_400_BAD_REQUEST)
 
             if 'break_number' in b_data:
                 brk.break_number = b_data['break_number']

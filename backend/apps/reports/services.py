@@ -552,26 +552,33 @@ class DetailedTimesheetReportGenerator(ReportGenerator):
                 week_start = _week_sunday(date_obj)
                 week_groups[week_start].append(row)
 
-            # ── Apply 40h weekly cap; split OT into over-8 / over-12 ──────
-            week_summaries = []
-            grand_regular  = 0.0
-            grand_over_8   = 0.0   # weekly OT ≤ 8 h
-            grand_over_12  = 0.0   # weekly OT > 8 h
-            grand_finally  = 0.0
+            # ── Correct OT bucket formula ─────────────────────────────
+            # 8 Hours (Regular TOTALS) = min(sum_of_daily_8h_col, 40)
+            # Over 8   TOTALS = sum_daily_over8_col + max(0, sum_daily_8h_col - 40)
+            # Over 12  TOTALS = sum_daily_over12_col  (plain sum, independent)
+            week_summaries     = []
+            grand_daily_8h     = 0.0   # sum of daily "8 Hours" col
+            grand_daily_over_8 = 0.0   # sum of daily "over 8"  col
+            grand_daily_over_12= 0.0   # sum of daily "over 12" col
+            grand_finally      = 0.0
 
             for week_start in sorted(week_groups.keys()):
-                week_end   = week_start + timedelta(days=6)   # Saturday
-                week_rows  = week_groups[week_start]
-                wk_finally = sum(r['Finally Hours'] for r in week_rows)
-                wk_regular = min(wk_finally, 40.0)
-                wk_ot      = max(0.0, wk_finally - 40.0)
-                wk_over_8  = min(wk_ot, 8.0)       # first 8h of OT
-                wk_over_12 = max(0.0, wk_ot - 8.0)  # OT beyond 8h
+                week_end  = week_start + timedelta(days=6)
+                week_rows = week_groups[week_start]
 
-                grand_regular += wk_regular
-                grand_over_8  += wk_over_8
-                grand_over_12 += wk_over_12
-                grand_finally += wk_finally
+                wk_finally     = sum(r['Finally Hours'] for r in week_rows)
+                wk_8h          = sum(float(r.get('8 Hours',  0) or 0) for r in week_rows)
+                wk_daily_over_8  = sum(float(r.get('over 8',  0) or 0) for r in week_rows)
+                wk_daily_over_12 = sum(float(r.get('over 12', 0) or 0) for r in week_rows)
+
+                grand_daily_8h      += wk_8h
+                grand_daily_over_8  += wk_daily_over_8
+                grand_daily_over_12 += wk_daily_over_12
+                grand_finally       += wk_finally
+
+                wk_excess    = max(0.0, wk_8h - 40.0)          # excess from 8h col cap
+                wk_regular   = min(wk_8h, 40.0)
+                wk_over_8_wk = round(wk_daily_over_8 + wk_excess, 2)
 
                 try:
                     week_label = (
@@ -585,18 +592,19 @@ class DetailedTimesheetReportGenerator(ReportGenerator):
                     )
 
                 week_summaries.append({
-                    'week_start':     week_start.isoformat(),
-                    'week_label':     week_label,
-                    'finally_hours':  round(wk_finally, 2),
-                    'regular_hours':  round(wk_regular, 2),
-                    'overtime_hours': round(wk_ot,      2),
-                    'over_8_hours':   round(wk_over_8,  2),
-                    'over_12_hours':  round(wk_over_12, 2),
+                    'week_start':    week_start.isoformat(),
+                    'week_label':    week_label,
+                    'finally_hours': round(wk_finally,     2),
+                    'regular_hours': round(wk_regular,     2),
+                    'over_8_hours':  wk_over_8_wk,
+                    'over_12_hours': round(wk_daily_over_12, 2),
                 })
 
-            grand_regular = round(grand_regular, 2)
-            grand_over_8  = round(grand_over_8,  2)
-            grand_over_12 = round(grand_over_12, 2)
+            # Grand totals
+            grand_excess  = max(0.0, grand_daily_8h - 40.0)    # excess from 8h col cap
+            grand_regular = round(min(grand_daily_8h, 40.0), 2)
+            grand_over_8  = round(grand_daily_over_8  + grand_excess, 2)
+            grand_over_12 = round(grand_daily_over_12, 2)
             grand_finally = round(grand_finally, 2)
 
             # ── Pay calculations (weekly OT basis, original key names) ────
@@ -619,12 +627,12 @@ class DetailedTimesheetReportGenerator(ReportGenerator):
                 'rows':        emp_rows,
                 'summary': {
                     'total_finally_hours': grand_finally,
-                    # Weekly-computed hour buckets (replace daily sums)
-                    'total_8_hours':       grand_regular,   # regular (≤40h/wk)
-                    'total_over_8':        grand_over_8,    # OT ≤ 8h per week
-                    'total_over_12':       grand_over_12,   # OT > 8h per week
+                    # Weekly-computed hour buckets (new rule)
+                    'total_8_hours': grand_regular,   # regular (≤40h/wk)
+                    'total_over_8':  grand_over_8,    # daily over-8 + weekly excess above 40h
+                    'total_over_12': grand_over_12,   # raw daily over-12 only
                     # Per-week breakdown (used by frontend for subtotal rows)
-                    'weeks':               week_summaries,
+                    'weeks': week_summaries,
                     # Brief OT note for display
                     'ot_note': (
                         f"{grand_regular}h reg (40h/wk cap) + {grand_ot_total}h OT"

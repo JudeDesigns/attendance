@@ -1025,35 +1025,47 @@ class TimeLogViewSet(viewsets.ModelViewSet):
             })
 
 
-        # ── Write daily rows flat, track weekly totals for TOTALS row ───────
+        # ── Write daily rows flat, track per-week col sums ──────────────
+        # row layout: date, day, start, end, gross, *breaks(9), total_break, net,
+        #             finally(-4), reg_8h(-3), over_8(-2), over_12(-1)
         from collections import defaultdict
-        week_finally_map = defaultdict(float)
+        week_8h_map     = defaultdict(float)  # sum of daily "8 Hours" col per week
+        week_over8_map  = defaultdict(float)  # sum of daily "over 8"  col per week
+        week_over12_map = defaultdict(float)  # sum of daily "over 12" col per week
 
         for entry in all_rows:
             writer.writerow(entry['row'])
-            if entry['week_start'] is not None:
-                week_finally_map[entry['week_start']] += entry['finally_hours']
+            wk = entry['week_start']
+            if wk is not None:
+                try:
+                    week_8h_map[wk]    += float(entry['row'][-3] or 0)  # reg_hours col
+                    week_over8_map[wk] += float(entry['row'][-2] or 0)  # over_8 col
+                    week_over12_map[wk]+= float(entry['row'][-1] or 0)  # over_12 col
+                except (ValueError, TypeError):
+                    pass
 
-        # ── Grand TOTALS row — weekly OT logic (40h cap, split to over-8/over-12)
-        grand_finally  = sum(e['finally_hours'] for e in all_rows)
-        grand_regular  = 0.0
-        grand_over_8   = 0.0
-        grand_over_12  = 0.0
-        for wk_finally in week_finally_map.values():
-            wk_regular  = min(wk_finally, 40.0)
-            wk_ot       = max(0.0, wk_finally - 40.0)
-            grand_regular += wk_regular
-            grand_over_8  += min(wk_ot, 8.0)
-            grand_over_12 += max(0.0, wk_ot - 8.0)
+        # ── Grand TOTALS row — correct OT formula ──────────────────────
+        # 8 Hours (Regular) = min(sum_daily_8h_col, 40)
+        # Over 8            = sum_daily_over8_col + max(0, sum_daily_8h_col - 40)
+        # Over 12           = sum_daily_over12_col  (plain sum, independent)
+        grand_finally   = sum(e['finally_hours'] for e in all_rows)
+        sum_daily_8h    = sum(week_8h_map.values())
+        sum_daily_over8 = sum(week_over8_map.values())
+        sum_daily_over12= sum(week_over12_map.values())
+
+        grand_regular = min(sum_daily_8h, 40.0)
+        grand_excess  = max(0.0, sum_daily_8h - 40.0)
+        grand_over_8  = sum_daily_over8 + grand_excess
+        grand_over_12 = sum_daily_over12
 
         totals_row = [
             'TOTALS', '', '', '', '',
             '', '', '', '', '', '', '', '', '',
             '', '',
-            f"{grand_finally:.2f}",
-            f"{grand_regular:.2f}",
-            f"{grand_over_8:.2f}",
-            f"{grand_over_12:.2f}",
+            f"{round(grand_finally, 2):.2f}",
+            f"{round(grand_regular, 2):.2f}",
+            f"{round(grand_over_8,  2):.2f}",
+            f"{round(grand_over_12, 2):.2f}",
         ]
         writer.writerow(totals_row)
 

@@ -401,11 +401,11 @@ const EmployeeDetails = () => {
       });
       
       // Create download link
-      const blob = new Blob([response.data], { type: 'text/csv' });
+      const blob = new Blob([response.data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `${employee?.user?.first_name}_${employee?.user?.last_name}_${start}_to_${end}.csv`;
+      link.download = `${employee?.user?.first_name}_${employee?.user?.last_name}_${start}_to_${end}.xlsx`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);

@@ -632,6 +632,12 @@ class DetailedTimesheetReportGenerator(ReportGenerator):
                     'total_8_hours': grand_regular,   # regular (≤40h/wk)
                     'total_over_8':  grand_over_8,    # daily over-8 + weekly excess above 40h
                     'total_over_12': grand_over_12,   # raw daily over-12 only
+                    
+                    # Multipliers for Excel Formulas
+                    'regular_multiplier': regular_multiplier,
+                    'over_8_multiplier':  over_8_multiplier,
+                    'over_12_multiplier': over_12_multiplier,
+                    
                     # Per-week breakdown (used by frontend for subtotal rows)
                     'weeks': week_summaries,
                     # Brief OT note for display

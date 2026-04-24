@@ -894,8 +894,11 @@ class TimeLogViewSet(viewsets.ModelViewSet):
             except ValueError:
                 pass
 
-        # Create CSV response
-        response = HttpResponse(content_type='text/csv')
+        import openpyxl
+        from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
+        
+        # Create Excel response
+        response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
 
         # Generate filename
         if employee_id:
@@ -910,20 +913,120 @@ class TimeLogViewSet(viewsets.ModelViewSet):
         if start_date and end_date:
             filename += f"_{start_date}_to_{end_date}"
 
-        response['Content-Disposition'] = f'attachment; filename="{filename}.csv"'
+        response['Content-Disposition'] = f'attachment; filename="{filename}.xlsx"'
 
-        # Write CSV data
-        writer = csv.writer(response)
+        # Setup Workbook
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "Timesheet"
+        ws.freeze_panes = "A3"  # Freeze first two rows
+
+        # Define styles
+        font_white_bold = Font(color="FFFFFF", bold=True)
+        font_dark_bold  = Font(color="1F2937", bold=True)
+        font_bold       = Font(bold=True)
+        align_center    = Alignment(horizontal="center", vertical="center")
+        align_left      = Alignment(horizontal="left", vertical="center")
         
-        # Define headers based on the user's requested format
+        thin_border = Border(
+            left=Side(style='thin', color='9CA3AF'),
+            right=Side(style='thin', color='9CA3AF'),
+            top=Side(style='thin', color='9CA3AF'),
+            bottom=Side(style='thin', color='9CA3AF')
+        )
+
+        fills = {
+            'dark_gray': PatternFill(start_color="1F2937", end_color="1F2937", fill_type="solid"),
+            'dark_blue': PatternFill(start_color="1A2744", end_color="1A2744", fill_type="solid"),
+            'green':     PatternFill(start_color="2D6A4F", end_color="2D6A4F", fill_type="solid"),
+            'red':       PatternFill(start_color="DC2626", end_color="DC2626", fill_type="solid"),
+            'light_org': PatternFill(start_color="F5E6C8", end_color="F5E6C8", fill_type="solid"),
+            'dark_org':  PatternFill(start_color="EA580C", end_color="EA580C", fill_type="solid"),
+            'slate':     PatternFill(start_color="1E293B", end_color="1E293B", fill_type="solid"),
+            'emerald':   PatternFill(start_color="065F46", end_color="065F46", fill_type="solid"),
+            
+            # Light backgrounds for daily rows
+            'l_blue':    PatternFill(start_color="F1F5F9", end_color="F1F5F9", fill_type="solid"),
+            'l_green':   PatternFill(start_color="D1FAE5", end_color="D1FAE5", fill_type="solid"),
+            'l_red':     PatternFill(start_color="FEE2E2", end_color="FEE2E2", fill_type="solid"),
+            'l_tan':     PatternFill(start_color="FEF3C7", end_color="FEF3C7", fill_type="solid"),
+            'l_org':     PatternFill(start_color="FFEDD5", end_color="FFEDD5", fill_type="solid"),
+            'l_gray':    PatternFill(start_color="F8FAFC", end_color="F8FAFC", fill_type="solid"),
+        }
+
+        # Set Column Widths
+        widths = [15, 15, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 15, 12, 12, 12, 12]
+        for i, w in enumerate(widths, 1):
+            ws.column_dimensions[openpyxl.utils.get_column_letter(i)].width = w
+
+        # ── Row 1: Group Header ──
+        # empty(5), B1(3), B2(3), B3(3), Totals(6)
+        ws.append([
+            '', '', '', '', '',
+            'Break 1 (not deducted)', '', '',
+            'Break 2 (deducted)', '', '',
+            'Break 3 (not deducted)', '', '',
+            'Total Hours', '', '', '', '', ''
+        ])
+        ws.merge_cells('F1:H1')
+        ws.merge_cells('I1:K1')
+        ws.merge_cells('L1:N1')
+        ws.merge_cells('O1:T1')
+
+        # Style Row 1
+        for cell in ws[1]:
+            cell.font = font_white_bold
+            cell.alignment = align_center
+            cell.border = thin_border
+            col_idx = cell.column
+            if col_idx <= 5:
+                cell.fill = fills['dark_gray']
+            elif col_idx <= 8:
+                cell.fill = fills['light_org']
+                cell.font = font_dark_bold
+            elif col_idx <= 11:
+                cell.fill = fills['dark_org']
+            elif col_idx <= 14:
+                cell.fill = fills['light_org']
+                cell.font = font_dark_bold
+            else:
+                cell.fill = fills['slate']
+
+        # ── Row 2: Column Headers ──
         headers = [
             'Date', 'Day', 'Start Time', 'End Time', 'Total Hours',
-            'Break 1 In', 'Break 1 Out', 'Break 1 Total',
-            'Break 2 In', 'Break 2 Out', 'Break 2 Total',
-            'Break 3 In', 'Break 3 Out', 'Break 3 Total',
-            'Total Break', 'Total Without Break', 'Finally Hours', '8 Hours', 'Over 8', 'Over 12'
+            'Break In', 'Break Out', 'Total Break',
+            'Break In', 'Break Out', 'Total Break',
+            'Start Time', 'End Time', 'Total Break',
+            'Total Break', 'Total W/O Break', 'Finally Hours', '8 Hours', 'Over 8', 'Over 12'
         ]
-        writer.writerow(headers)
+        ws.append(headers)
+
+        # Style Row 2
+        for cell in ws[2]:
+            cell.font = font_white_bold
+            cell.alignment = align_center
+            cell.border = thin_border
+            col_idx = cell.column
+            if col_idx <= 2:
+                cell.fill = fills['dark_blue']
+                cell.alignment = align_left
+            elif col_idx <= 4:
+                cell.fill = fills['green']
+            elif col_idx == 5:
+                cell.fill = fills['red']
+            elif col_idx <= 8:
+                cell.fill = fills['light_org']
+                cell.font = font_dark_bold
+            elif col_idx <= 11:
+                cell.fill = fills['dark_org']
+            elif col_idx <= 14:
+                cell.fill = fills['light_org']
+                cell.font = font_dark_bold
+            elif col_idx <= 16:
+                cell.fill = fills['red']
+            else:
+                cell.fill = fills['slate']
 
         # ── Helper: Sunday that opens the Sun→Sat payroll week ─────────────
         def _week_sunday(date_obj):
@@ -1034,7 +1137,21 @@ class TimeLogViewSet(viewsets.ModelViewSet):
         week_over12_map = defaultdict(float)  # sum of daily "over 12" col per week
 
         for entry in all_rows:
-            writer.writerow(entry['row'])
+            ws.append(entry['row'])
+            r_idx = ws.max_row
+            
+            for c_idx in range(1, 21):
+                cell = ws.cell(row=r_idx, column=c_idx)
+                cell.border = thin_border
+                if c_idx <= 2: cell.fill = fills['l_blue']
+                elif c_idx <= 4: cell.fill = fills['l_green']
+                elif c_idx == 5: cell.fill = fills['l_red']
+                elif c_idx <= 8: cell.fill = fills['l_tan']
+                elif c_idx <= 11: cell.fill = fills['l_org']
+                elif c_idx <= 14: cell.fill = fills['l_tan']
+                elif c_idx <= 16: cell.fill = fills['l_red']
+                else: cell.fill = fills['l_gray']
+
             wk = entry['week_start']
             if wk is not None:
                 try:
@@ -1065,12 +1182,18 @@ class TimeLogViewSet(viewsets.ModelViewSet):
             'TOTALS', '', '', '', '',
             '', '', '', '', '', '', '', '', '',
             '', '',
-            f"{round(grand_finally, 2):.2f}",
-            f"{round(grand_regular, 2):.2f}",
-            f"{round(grand_over_8,  2):.2f}",
-            f"{round(grand_over_12, 2):.2f}",
+            round(grand_finally, 2),
+            round(grand_regular, 2),
+            round(grand_over_8, 2),
+            round(grand_over_12, 2)
         ]
-        writer.writerow(totals_row)
+        t_row_idx = ws.max_row + 1
+        ws.append(totals_row)
+
+        for cell in ws[t_row_idx]:
+            cell.font = font_bold
+            
+        wb.save(response)
 
         logger.info(f"Detailed timesheet exported by admin user {request.user.username}")
         return response

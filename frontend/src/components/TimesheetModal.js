@@ -1,4 +1,6 @@
 import { useCallback } from 'react';
+import ExcelJS from 'exceljs';
+import { saveAs } from 'file-saver';
 import {
   ArrowDownTrayIcon as DownloadIcon,
   XMarkIcon,
@@ -87,79 +89,288 @@ function buildInterleavedRows(emp) {
 
 const TimesheetModal = ({ visible, onClose, title, timesheetData, isLoading, csvFilename }) => {
 
-  const handleExportCSV = useCallback(() => {
+  const handleExportExcel = useCallback(async () => {
     if (!timesheetData || timesheetData.length === 0) return;
 
-    const headers = [
-      'Employee', 'Date', 'Day', 'Start Time', 'End Time', 'Total Hours',
-      'Break 1 In', 'Break 1 Out', 'Break 1 Total',
-      'Break 2 In', 'Break 2 Out', 'Break 2 Total',
-      'Break 3 In', 'Break 3 Out', 'Break 3 Total',
-      'Total Break', 'Total Without Break', 'Finally Hours',
-      '8 Hours', 'Over 8', 'Over 12',
-      'Pay Label', 'Pay Amount'
-    ];
-    const csvRows = [headers.join(',')];
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet('Timesheet', {
+      views: [{ state: 'frozen', ySplit: 2 }] // Freeze first two rows (Group Header + Column Header)
+    });
 
+    // 1. Define Columns & Widths
+    sheet.columns = [
+      { header: 'Employee', key: 'emp', width: 18 },
+      { header: 'Date', key: 'date', width: 12 },
+      { header: 'Day', key: 'day', width: 12 },
+      { header: 'Start Time', key: 'start', width: 10 },
+      { header: 'End Time', key: 'end', width: 10 },
+      { header: 'Total Hours', key: 'total_hrs', width: 12 },
+      { header: 'Break In', key: 'b1_in', width: 10 },
+      { header: 'Break Out', key: 'b1_out', width: 10 },
+      { header: 'Total Break', key: 'b1_tot', width: 10 },
+      { header: 'Break In', key: 'b2_in', width: 10 },
+      { header: 'Break Out', key: 'b2_out', width: 10 },
+      { header: 'Total Break', key: 'b2_tot', width: 10 },
+      { header: 'Start Time', key: 'b3_in', width: 10 },
+      { header: 'End Time', key: 'b3_out', width: 10 },
+      { header: 'Total Break', key: 'b3_tot', width: 10 },
+      { header: 'Total Break', key: 'tot_b', width: 12 },
+      { header: 'Total W/O Break', key: 'tot_wo', width: 15 },
+      { header: 'Finally Hrs', key: 'finally', width: 12 },
+      { header: '8 Hours', key: 'reg8', width: 10 },
+      { header: 'Over 8', key: 'ov8', width: 10 },
+      { header: 'Over 12', key: 'ov12', width: 10 },
+      { header: 'Pay Label', key: 'pay_lbl', width: 25 },
+      { header: 'Pay Amount', key: 'pay_amt', width: 15 },
+    ];
+
+    // 2. Build the Group Header Row (Row 1)
+    sheet.spliceRows(1, 0, [
+      '', '', '', '', '', '', // empty above first 6 cols
+      'Break 1 (not deducted)', '', '',
+      'Break 2 (deducted)', '', '',
+      'Break 3 (not deducted)', '', '',
+      'Total Hours', '', '', '', '', '',
+      'Hourly Rate', ''
+    ]);
+
+    // Merge cells for the Group Header
+    sheet.mergeCells('G1:I1'); // Break 1
+    sheet.mergeCells('J1:L1'); // Break 2
+    sheet.mergeCells('M1:O1'); // Break 3
+    sheet.mergeCells('P1:U1'); // Total Hours
+    sheet.mergeCells('V1:W1'); // Hourly Rate
+
+    // 3. Apply Colors & Styles to Headers
+    const colors = {
+      darkBlue: 'FF1A2744', green: 'FF2D6A4F', red: 'FFDC2626',
+      lightOrange: 'FFF5E6C8', darkOrange: 'FFEA580C',
+      slate: 'FF1E293B', emerald: 'FF065F46'
+    };
+
+    const applyHeaderStyle = (rowIdx) => {
+      const row = sheet.getRow(rowIdx);
+      row.font = { bold: true };
+      row.alignment = { horizontal: 'center', vertical: 'middle' };
+      
+      const setColStyle = (start, end, bgHex, fontHex = 'FFFFFFFF') => {
+        for (let i = start; i <= end; i++) {
+          const cell = row.getCell(i);
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bgHex } };
+          cell.font = { color: { argb: fontHex }, bold: true };
+          cell.border = {
+            top: { style: 'thin', color: { argb: 'FF9CA3AF' } },
+            left: { style: 'thin', color: { argb: 'FF9CA3AF' } },
+            bottom: { style: 'thin', color: { argb: 'FF9CA3AF' } },
+            right: { style: 'thin', color: { argb: 'FF9CA3AF' } }
+          };
+        }
+      };
+
+      if (rowIdx === 1) {
+        setColStyle(1, 6, 'FF1F2937'); // empty dark gray
+        setColStyle(7, 9, colors.lightOrange, 'FF1F2937');
+        setColStyle(10, 12, colors.darkOrange);
+        setColStyle(13, 15, colors.lightOrange, 'FF1F2937');
+        setColStyle(16, 21, colors.slate);
+        setColStyle(22, 23, colors.emerald);
+      } else {
+        setColStyle(1, 3, colors.darkBlue);
+        setColStyle(4, 5, colors.green);
+        setColStyle(6, 6, colors.red);
+        setColStyle(7, 9, colors.lightOrange, 'FF1F2937');
+        setColStyle(10, 12, colors.darkOrange);
+        setColStyle(13, 15, colors.lightOrange, 'FF1F2937');
+        setColStyle(16, 17, colors.red);
+        setColStyle(18, 21, colors.slate);
+        setColStyle(22, 23, colors.emerald);
+      }
+    };
+
+    applyHeaderStyle(1); // Group header
+    applyHeaderStyle(2); // Column header
+
+    // 4. Fill Data
     timesheetData.forEach(emp => {
       const s = emp.summary;
 
       const payLines = [
-        { label: emp.name,           value: '' },
-        { label: 'Total 8 Hrs',      value: s?.total_8_hrs_pay   != null ? s.total_8_hrs_pay.toFixed(2)   : '' },
-        { label: 'Total Over 8',     value: s?.total_over_8_pay  != null ? s.total_over_8_pay.toFixed(2)  : '' },
-        { label: 'Total Over 12',    value: s?.total_over_12_pay != null ? s.total_over_12_pay.toFixed(2) : '' },
-        { label: 'Total Payment',    value: s?.total_payment     != null ? s.total_payment.toFixed(2)     : '' },
+        { label: emp.name,           value: '', bold: true },
+        { label: 'Hourly Rate',      value: '' }, // Rate injected later
+        { label: 'Total 8 Hrs',      value: '' }, // Formula injected later
+        { label: 'Total Over 8',     value: '' }, // Formula injected later
+        { label: 'Total Over 12',    value: '' }, // Formula injected later
+        { label: 'Total Payment',    value: '', bold: true }, // Formula injected later
         { label: 'Check',            value: '' },
         { label: 'Cash',             value: '' },
-        { label: s?.ot_note || '',   value: '' },
+        { label: s?.ot_note || '',   value: '', italic: true },
       ];
 
-      // Pad rows so the payline sidebar can fully render
-      const exportRows = [...(emp.rows || [])];
-      while (exportRows.length < payLines.length) {
-        exportRows.push({});
+      const interleavedRows = buildInterleavedRows(emp);
+
+      // Ensure we have enough DAILY rows to render the full pay sidebar
+      const dailyCount = interleavedRows.filter(r => r._type !== 'weekSubtotal').length;
+      if (dailyCount < payLines.length) {
+        const needed = payLines.length - dailyCount;
+        for (let i = 0; i < needed; i++) {
+          interleavedRows.push({
+            _type: 'row',
+            Date: '', Day: '', 'Start Time': '', 'End Time': '', 'Total Hours': '',
+            'Break 1 In': '', 'Break 1 Out': '', 'Break 1 Total': '',
+            'Break 2 In': '', 'Break 2 Out': '', 'Break 2 Total': '',
+            'Break 3 In': '', 'Break 3 Out': '', 'Break 3 Total': '',
+            'Total Break': '', 'Total Without Break': '',
+            'Finally Hours': '', '8 Hours': '', 'over 8': '', 'over 12': ''
+          });
+        }
       }
 
-      // Daily rows alongside Pay Summary sidebar
-      exportRows.forEach((row, idx) => {
-        const pl = payLines[idx] || { label: '', value: '' };
+      let pIdx = 0;
+      const payLineRowIndices = {};
 
-        const vals = [
-          row['Date'] ? emp.name : '', // Only show name if it's a real row
-          row['Date'] || '', row['Day'] || '', row['Start Time'] || '', row['End Time'] || '', row['Total Hours'] || '',
-          row['Break 1 In'] || '', row['Break 1 Out'] || '', row['Break 1 Total'] || '',
-          row['Break 2 In'] || '', row['Break 2 Out'] || '', row['Break 2 Total'] || '',
-          row['Break 3 In'] || '', row['Break 3 Out'] || '', row['Break 3 Total'] || '',
-          row['Total Break'] || '', row['Total Without Break'] || '', row['Finally Hours'] || '',
-          row['8 Hours'] || '', row['over 8'] || '', row['over 12'] || '',
-          pl.label, pl.value
-        ];
-        csvRows.push(vals.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(','));
+      // Light background colors matching UI
+      const fillLightBlue   = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } }; // Slightly lighter than e2e8f0
+      const fillLightGreen  = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD1FAE5' } };
+      const fillLightRed    = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEE2E2' } };
+      const fillLightTan    = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF3C7' } };
+      const fillLightOrange = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFEDD5' } };
+      const fillLightGray   = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8FAFC' } };
+
+      interleavedRows.forEach((item, rowIdx) => {
+        if (item._type === 'weekSubtotal') {
+          // ── Week Subtotal Row ──
+          const text = `${item.week_label}   Total: ${item.finally_hours}h   Regular (≤40h): ${item.regular_hours}h` + 
+                       (item.overtime_hours > 0 ? `   Overtime (>40h): ${item.overtime_hours}h` : '');
+          
+          const addedRow = sheet.addRow([
+            text, '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '',
+            '', '', '', '', '', ''
+          ]);
+          sheet.mergeCells(addedRow.number, 1, addedRow.number, 21);
+          
+          for (let c = 1; c <= 21; c++) {
+            const cell = addedRow.getCell(c);
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } };
+            cell.font = { color: { argb: 'FFFFFFFF' }, bold: true };
+            if (c === 1) cell.alignment = { horizontal: 'left', vertical: 'middle' };
+          }
+        } else {
+          // ── Daily Row ──
+          const pl = pIdx < payLines.length ? payLines[pIdx] : { label: '', value: '' };
+          
+          const rowData = [
+            item['Date'] ? emp.name : '',
+            item['Date'] || '', item['Day'] || '', item['Start Time'] || '', item['End Time'] || '', item['Total Hours'] || '',
+            item['Break 1 In'] || '', item['Break 1 Out'] || '', item['Break 1 Total'] || '',
+            item['Break 2 In'] || '', item['Break 2 Out'] || '', item['Break 2 Total'] || '',
+            item['Break 3 In'] || '', item['Break 3 Out'] || '', item['Break 3 Total'] || '',
+            item['Total Break'] || '', item['Total Without Break'] || '',
+            item['Finally Hours'] ? Number(item['Finally Hours']) : '',
+            item['8 Hours'] ? Number(item['8 Hours']) : '',
+            item['over 8'] ? Number(item['over 8']) : '',
+            item['over 12'] ? Number(item['over 12']) : '',
+            pl.label, pl.value
+          ];
+
+          const addedRow = sheet.addRow(rowData);
+          if (pIdx < payLines.length) {
+            payLineRowIndices[pIdx] = addedRow.number;
+          }
+
+          // Apply Light Backgrounds
+          for(let c=2; c<=3; c++) addedRow.getCell(c).fill = fillLightBlue;
+          for(let c=4; c<=5; c++) addedRow.getCell(c).fill = fillLightGreen;
+          addedRow.getCell(6).fill = fillLightRed;
+          for(let c=7; c<=9; c++) addedRow.getCell(c).fill = fillLightTan;
+          for(let c=10; c<=12; c++) addedRow.getCell(c).fill = fillLightOrange;
+          for(let c=13; c<=15; c++) addedRow.getCell(c).fill = fillLightTan;
+          for(let c=16; c<=17; c++) addedRow.getCell(c).fill = fillLightRed;
+          for(let c=18; c<=21; c++) addedRow.getCell(c).fill = fillLightGray;
+
+          // Apply Grid Borders
+          for(let c=1; c<=21; c++) {
+            addedRow.getCell(c).border = {
+              top: { style: 'thin', color: { argb: 'FFD1D5DB' } },
+              left: { style: 'thin', color: { argb: 'FFD1D5DB' } },
+              bottom: { style: 'thin', color: { argb: 'FFD1D5DB' } },
+              right: { style: 'thin', color: { argb: 'FFD1D5DB' } }
+            };
+          }
+
+          // Apply basic row styling (Pay Summary Side)
+          if (pl.bold) {
+            addedRow.getCell(22).font = { bold: true };
+            addedRow.getCell(23).font = { bold: true };
+          }
+          if (pl.italic) {
+            addedRow.getCell(22).font = { italic: true };
+          }
+
+          pIdx++;
+        }
       });
 
-      // TOTALS row (using weekly OT summary values from backend)
-      const totalsVals = [
-        emp.name + ' TOTALS', '', '', '', '', '',
-        '', '', '', '', '', '', '', '', '',
-        '', '',
+      // TOTALS row
+      const tRow = sheet.addRow([
+        emp.name + ' TOTALS', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '',
         s?.total_finally_hours ?? '',
-        s?.total_8_hours ?? '',    // weekly regular (<=40h/wk)
-        s?.total_over_8  ?? '',    // weekly OT <=8h
-        s?.total_over_12 ?? '',    // weekly OT >8h
-        '', '' // Empty Pay Label/Amount for total row
-      ];
-      csvRows.push(totalsVals.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(','));
-      csvRows.push('');
+        s?.total_8_hours ?? '',
+        s?.total_over_8 ?? '',
+        s?.total_over_12 ?? '',
+        '', ''
+      ]);
+      tRow.font = { bold: true };
+
+      // ── INJECT EXCEL FORMULAS ──
+      // Use the dynamically mapped row indices to support intermingled week subtotals
+      const r_Rate   = payLineRowIndices[1];
+      const r_Tot8   = payLineRowIndices[2];
+      const r_TotO8  = payLineRowIndices[3];
+      const r_TotO12 = payLineRowIndices[4];
+      const r_TotPay = payLineRowIndices[5];
+      
+      if (r_Rate) {
+        const rateCell = sheet.getCell(`W${r_Rate}`);
+        rateCell.value = Number(emp.hourly_rate || 0);
+        rateCell.numFmt = '"$"#,##0.00';
+      }
+
+      const regMult = s?.regular_multiplier ?? 1;
+      const o8Mult  = s?.over_8_multiplier ?? 1.5;
+      const o12Mult = s?.over_12_multiplier ?? 2;
+
+      if (r_Tot8) {
+        const total8Cell = sheet.getCell(`W${r_Tot8}`);
+        total8Cell.value = { formula: `W${r_Rate}*${regMult}*S${tRow.number}` };
+        total8Cell.numFmt = '"$"#,##0.00';
+      }
+
+      if (r_TotO8) {
+        const over8Cell = sheet.getCell(`W${r_TotO8}`);
+        over8Cell.value = { formula: `W${r_Rate}*${o8Mult}*T${tRow.number}` };
+        over8Cell.numFmt = '"$"#,##0.00';
+      }
+
+      if (r_TotO12) {
+        const over12Cell = sheet.getCell(`W${r_TotO12}`);
+        over12Cell.value = { formula: `W${r_Rate}*${o12Mult}*U${tRow.number}` };
+        over12Cell.numFmt = '"$"#,##0.00';
+      }
+
+      if (r_TotPay) {
+        const totalPayCell = sheet.getCell(`W${r_TotPay}`);
+        totalPayCell.value = { formula: `W${r_Tot8}+W${r_TotO8}+W${r_TotO12}` };
+        totalPayCell.numFmt = '"$"#,##0.00';
+      }
+      
+      // Empty spacer row between employees
+      sheet.addRow([]);
     });
 
-    const blob = new Blob([csvRows.join('\n')], { type: 'text/csv' });
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement('a');
-    a.href     = url;
-    a.download = csvFilename || 'timesheet.csv';
-    a.click();
-    URL.revokeObjectURL(url);
+    // 5. Generate File
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    saveAs(blob, (csvFilename || 'timesheet').replace('.csv', '.xlsx'));
   }, [timesheetData, csvFilename]);
 
 
@@ -176,8 +387,8 @@ const TimesheetModal = ({ visible, onClose, title, timesheetData, isLoading, csv
           <h2 className="text-lg font-bold text-gray-900">{title}</h2>
           <div className="flex items-center gap-3">
             {timesheetData && timesheetData.length > 0 && (
-              <button onClick={handleExportCSV} className="inline-flex items-center px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500">
-                <DownloadIcon className="h-4 w-4 mr-2" />Export CSV
+              <button onClick={handleExportExcel} className="inline-flex items-center px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500">
+                <DownloadIcon className="h-4 w-4 mr-2" />Export Excel
               </button>
             )}
             <button onClick={onClose} className="p-2 rounded-lg hover:bg-gray-100 transition-colors">

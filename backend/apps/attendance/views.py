@@ -1045,16 +1045,19 @@ class TimeLogViewSet(viewsets.ModelViewSet):
                     pass
 
         # ── Grand TOTALS row — correct OT formula ──────────────────────
-        # 8 Hours (Regular) = min(sum_daily_8h_col, 40)
-        # Over 8            = sum_daily_over8_col + max(0, sum_daily_8h_col - 40)
+        # 8 Hours (Regular) = sum of weekly min(sum_daily_8h_col, 40)
+        # Over 8            = sum_daily_over8_col + sum of weekly max(0, sum_daily_8h_col - 40)
         # Over 12           = sum_daily_over12_col  (plain sum, independent)
         grand_finally   = sum(e['finally_hours'] for e in all_rows)
-        sum_daily_8h    = sum(week_8h_map.values())
         sum_daily_over8 = sum(week_over8_map.values())
         sum_daily_over12= sum(week_over12_map.values())
 
-        grand_regular = min(sum_daily_8h, 40.0)
-        grand_excess  = max(0.0, sum_daily_8h - 40.0)
+        grand_regular = 0.0
+        grand_excess  = 0.0
+        for wk, sum_8h in week_8h_map.items():
+            grand_regular += min(sum_8h, 40.0)
+            grand_excess  += max(0.0, sum_8h - 40.0)
+
         grand_over_8  = sum_daily_over8 + grand_excess
         grand_over_12 = sum_daily_over12
 

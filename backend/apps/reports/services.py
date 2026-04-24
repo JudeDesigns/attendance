@@ -557,10 +557,11 @@ class DetailedTimesheetReportGenerator(ReportGenerator):
             # Over 8   TOTALS = sum_daily_over8_col + max(0, sum_daily_8h_col - 40)
             # Over 12  TOTALS = sum_daily_over12_col  (plain sum, independent)
             week_summaries     = []
-            grand_daily_8h     = 0.0   # sum of daily "8 Hours" col
             grand_daily_over_8 = 0.0   # sum of daily "over 8"  col
             grand_daily_over_12= 0.0   # sum of daily "over 12" col
             grand_finally      = 0.0
+            grand_regular      = 0.0
+            grand_excess       = 0.0
 
             for week_start in sorted(week_groups.keys()):
                 week_end  = week_start + timedelta(days=6)
@@ -571,14 +572,15 @@ class DetailedTimesheetReportGenerator(ReportGenerator):
                 wk_daily_over_8  = sum(float(r.get('over 8',  0) or 0) for r in week_rows)
                 wk_daily_over_12 = sum(float(r.get('over 12', 0) or 0) for r in week_rows)
 
-                grand_daily_8h      += wk_8h
+                wk_excess    = max(0.0, wk_8h - 40.0)          # excess from 8h col cap per week
+                wk_regular   = min(wk_8h, 40.0)                # capped regular per week
+                wk_over_8_wk = round(wk_daily_over_8 + wk_excess, 2)
+
+                grand_regular       += wk_regular
+                grand_excess        += wk_excess
                 grand_daily_over_8  += wk_daily_over_8
                 grand_daily_over_12 += wk_daily_over_12
                 grand_finally       += wk_finally
-
-                wk_excess    = max(0.0, wk_8h - 40.0)          # excess from 8h col cap
-                wk_regular   = min(wk_8h, 40.0)
-                wk_over_8_wk = round(wk_daily_over_8 + wk_excess, 2)
 
                 try:
                     week_label = (
@@ -601,8 +603,7 @@ class DetailedTimesheetReportGenerator(ReportGenerator):
                 })
 
             # Grand totals
-            grand_excess  = max(0.0, grand_daily_8h - 40.0)    # excess from 8h col cap
-            grand_regular = round(min(grand_daily_8h, 40.0), 2)
+            grand_regular = round(grand_regular, 2)
             grand_over_8  = round(grand_daily_over_8  + grand_excess, 2)
             grand_over_12 = round(grand_daily_over_12, 2)
             grand_finally = round(grand_finally, 2)

@@ -408,13 +408,14 @@ class DetailedTimesheetReportGenerator(ReportGenerator):
                     # Deduction rules:
                     # - LUNCH (Break 2): fully deducted
                     # - SHORT (Break 1 & 3): first 10 min free, excess is deducted
-                    if b.break_type == 'LUNCH':
+                    # - EMERGENCY: fully deducted
+                    if b.break_type in ('LUNCH', 'EMERGENCY'):
                         total_deducted_minutes += b_minutes
                     elif b.break_type == 'SHORT' and b_minutes > 10:
                         total_deducted_minutes += (b_minutes - 10)
                     b_h = b_minutes // 60
                     b_m = b_minutes % 60
-                    b_duration_str = f"{b_h:02d} {b_m:02d}"
+                    b_duration_str = f"{b_h}h {b_m}m"
 
                 break_data[f'{prefix}_in'] = b_start
                 break_data[f'{prefix}_out'] = b_end
@@ -427,12 +428,12 @@ class DetailedTimesheetReportGenerator(ReportGenerator):
         # Total break string (shows ALL break time, not just deducted)
         tb_h = total_all_break_minutes // 60
         tb_m = total_all_break_minutes % 60
-        total_break_str = f"{tb_h:02d} {tb_m:02d}" if total_all_break_minutes > 0 else ''
+        total_break_str = f"{tb_h}h {tb_m}m" if total_all_break_minutes > 0 else ''
 
         # Deducted break string (for "Total W/O Break" column)
         db_h = total_deducted_minutes // 60
         db_m = total_deducted_minutes % 60
-        total_deducted_str = f"{db_h:02d} {db_m:02d}" if total_deducted_minutes > 0 else ''
+        total_deducted_str = f"{db_h}h {db_m}m" if total_deducted_minutes > 0 else ''
 
         # Calculate final hours (Total - Deducted Breaks only)
         final_hours_decimal = total_hours_decimal - (total_deducted_minutes / 60.0)
@@ -494,10 +495,57 @@ class DetailedTimesheetReportGenerator(ReportGenerator):
 
         return time_logs
 
+    def _get_non_work_shift_rows(self):
+        """Build special rows for Day Off / Leave shifts in the date range."""
+        from apps.scheduling.models import Shift
+
+        non_work_types = ['DAY_OFF', 'SCHEDULED_LEAVE', 'UNSCHEDULED_LEAVE']
+        shifts = Shift.objects.filter(
+            shift_type__in=non_work_types,
+            start_time__date__gte=self.start_date,
+            start_time__date__lte=self.end_date,
+        ).select_related('employee__user')
+
+        if 'employee_ids' in self.filters:
+            shifts = shifts.filter(employee__employee_id__in=self.filters['employee_ids'])
+        if 'department' in self.filters:
+            shifts = shifts.filter(employee__department=self.filters['department'])
+
+        label_map = {
+            'DAY_OFF': 'Day Off',
+            'SCHEDULED_LEAVE': 'Scheduled Leave',
+            'UNSCHEDULED_LEAVE': 'Unscheduled Leave',
+        }
+
+        rows = []
+        for s in shifts:
+            date = self._to_la(s.start_time).date()
+            emp_name = s.employee.user.get_full_name() or s.employee.employee_id
+            label = label_map.get(s.shift_type, s.shift_type)
+            rows.append({
+                'Date': date.strftime('%m/%d/%Y'),
+                'Day': date.strftime('%A'),
+                'Employee Name': emp_name,
+                'Start Time': '',
+                'End Time': '',
+                'Total Hours': label,
+                'Break 1 In': '', 'Break 1 Out': '', 'Break 1 Total': '',
+                'Break 2 In': '', 'Break 2 Out': '', 'Break 2 Total': '',
+                'Break 3 In': '', 'Break 3 Out': '', 'Break 3 Total': '',
+                'Total Break': '',
+                'Total Without Break': '',
+                'Finally Hours': label,
+                '8 Hours': 0, 'over 8': 0, 'over 12': 0,
+                'Hourly Rate': float(s.employee.hourly_rate) if s.employee.hourly_rate else 0,
+                '_is_non_work': True,
+            })
+        return rows
+
     def get_data(self):
         """Get flat detailed timesheet data (used for CSV export)"""
         time_logs = self._get_time_logs()
         report_data = [self._build_row(log) for log in time_logs]
+        report_data.extend(self._get_non_work_shift_rows())
         return sorted(report_data, key=lambda x: (x['Employee Name'], datetime.strptime(x['Date'], '%m/%d/%Y')))
 
     def get_grouped_data(self):
@@ -511,6 +559,7 @@ class DetailedTimesheetReportGenerator(ReportGenerator):
         """
         time_logs = self._get_time_logs()
         rows = [self._build_row(log) for log in time_logs]
+        rows.extend(self._get_non_work_shift_rows())
         rows = sorted(rows, key=lambda x: (x['Employee Name'], datetime.strptime(x['Date'], '%m/%d/%Y')))
 
         # Load configurable rate multipliers from CompanySettings

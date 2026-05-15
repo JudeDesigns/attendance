@@ -14,6 +14,7 @@ from rest_framework.pagination import PageNumberPagination
 from datetime import datetime, timedelta
 from .models import TimeLog, Break
 from apps.employees.models import Employee, Location
+from apps.employees.audit_models import log_action
 from apps.notifications.models import NotificationLog
 from apps.notifications.services import notification_service
 from .serializers import (
@@ -952,6 +953,7 @@ class TimeLogViewSet(viewsets.ModelViewSet):
             'l_tan':     PatternFill(start_color="FEF3C7", end_color="FEF3C7", fill_type="solid"),
             'l_org':     PatternFill(start_color="FFEDD5", end_color="FFEDD5", fill_type="solid"),
             'l_gray':    PatternFill(start_color="F8FAFC", end_color="F8FAFC", fill_type="solid"),
+            'l_purple':  PatternFill(start_color="EDE9FE", end_color="EDE9FE", fill_type="solid"),
         }
 
         # Set Column Widths
@@ -1073,7 +1075,7 @@ class TimeLogViewSet(viewsets.ModelViewSet):
                         b_total_str = f"{bh}h {bm}m"
                     break_data.extend([b_in, b_out, b_total_str])
                     total_all_break_minutes += b_minutes
-                    if b.break_type == 'LUNCH':
+                    if b.break_type in ('LUNCH', 'EMERGENCY'):
                         total_deducted_minutes += b_minutes
                     elif b.break_type == 'SHORT' and b_minutes > 10:
                         total_deducted_minutes += (b_minutes - 10)
@@ -1127,6 +1129,56 @@ class TimeLogViewSet(viewsets.ModelViewSet):
                 'finally_hours': finally_hours_decimal,
             })
 
+        # ── Inject non-work shifts (Day Off / Leave) ────────────────────
+        from apps.scheduling.models import Shift as ShiftModel
+        non_work_types = ['DAY_OFF', 'SCHEDULED_LEAVE', 'UNSCHEDULED_LEAVE']
+        nw_qs = ShiftModel.objects.filter(
+            shift_type__in=non_work_types,
+        ).select_related('employee__user')
+
+        if start_date:
+            try:
+                nw_qs = nw_qs.filter(start_time__date__gte=datetime.fromisoformat(start_date).date())
+            except ValueError:
+                pass
+        if end_date:
+            try:
+                nw_qs = nw_qs.filter(start_time__date__lte=datetime.fromisoformat(end_date).date())
+            except ValueError:
+                pass
+        if employee_id:
+            nw_qs = nw_qs.filter(employee_id=employee_id)
+
+        label_map = {
+            'DAY_OFF': 'Day Off',
+            'SCHEDULED_LEAVE': 'Scheduled Leave',
+            'UNSCHEDULED_LEAVE': 'Unscheduled Leave',
+        }
+        for s in nw_qs:
+            s_local = convert_to_user_timezone(s.start_time, s.employee.user) if s.start_time else None
+            d = s_local.date() if s_local else None
+            label = label_map.get(s.shift_type, s.shift_type)
+            all_rows.append({
+                'date_obj': d,
+                'week_start': _week_sunday(d) if d else None,
+                'row': [
+                    d.strftime('%m/%d/%Y') if d else '',
+                    d.strftime('%A') if d else '',
+                    '', '',            # no start/end time
+                    label,             # Total Hours column shows label
+                    '', '', '',        # break 1
+                    '', '', '',        # break 2
+                    '', '', '',        # break 3
+                    '', '',            # total break, net
+                    label,             # Finally Hours
+                    '0.00', '0.00', '0.00',
+                ],
+                'finally_hours': 0.0,
+                '_is_non_work': True,
+            })
+
+        # Sort all rows by date so non-work rows appear in order
+        all_rows.sort(key=lambda e: e['date_obj'] or datetime.min.date())
 
         # ── Write daily rows flat, track per-week col sums ──────────────
         # row layout: date, day, start, end, gross, *breaks(9), total_break, net,
@@ -1139,11 +1191,14 @@ class TimeLogViewSet(viewsets.ModelViewSet):
         for entry in all_rows:
             ws.append(entry['row'])
             r_idx = ws.max_row
-            
+            is_non_work = entry.get('_is_non_work', False)
+
             for c_idx in range(1, 21):
                 cell = ws.cell(row=r_idx, column=c_idx)
                 cell.border = thin_border
-                if c_idx <= 2: cell.fill = fills['l_blue']
+                if is_non_work:
+                    cell.fill = fills['l_purple']
+                elif c_idx <= 2: cell.fill = fills['l_blue']
                 elif c_idx <= 4: cell.fill = fills['l_green']
                 elif c_idx == 5: cell.fill = fills['l_red']
                 elif c_idx <= 8: cell.fill = fills['l_tan']
@@ -1331,6 +1386,15 @@ class TimeLogViewSet(viewsets.ModelViewSet):
                 brk.break_number = b_data['break_number']
                 brk.break_type = 'LUNCH' if b_data['break_number'] == 2 else 'SHORT'
 
+            # Allow admin to toggle break waiver status
+            if 'was_waived' in b_data:
+                brk.was_waived = bool(b_data['was_waived'])
+                if brk.was_waived:
+                    brk.waiver_reason = b_data.get('waiver_reason', brk.waiver_reason or 'Admin override')
+                else:
+                    brk.waiver_reason = ''
+                changed.append(f'{"waived" if brk.was_waived else "un-waived"} break {break_id}')
+
             breaks_to_save.append(brk)
             changed.append(f'edited break {break_id}')
 
@@ -1344,6 +1408,14 @@ class TimeLogViewSet(viewsets.ModelViewSet):
             brk.save()
 
         logger.info(f"Admin {request.user.username} edited time log {time_log.id}: {changed}")
+        log_action(
+            request,
+            action='edit_time_log',
+            category='Time Logs',
+            target=time_log,
+            target_label=f"{time_log.employee.full_name} ({time_log.employee.employee_id}) — {time_log.clock_in_time.date()}",
+            after={'changes': changed},
+        )
 
         serializer = TimeLogSerializer(time_log)
         return Response({
@@ -1456,33 +1528,36 @@ class BreakViewSet(viewsets.ModelViewSet):
         # Get the active time log from context
         active_time_log = serializer.context['active_time_log']
 
+        break_type = serializer.validated_data['break_type']
+        is_emergency = break_type == 'EMERGENCY'
+
         # Determine the next break number from compliance manager
         from .break_compliance import BreakComplianceManager
         compliance = BreakComplianceManager()
         reqs = compliance.get_break_requirements(employee, active_time_log)
 
-        # Guard: reject if all 3 breaks have been taken/waived
-        if reqs.get('has_met_max_breaks'):
+        # Guard: reject if all 3 breaks have been taken/waived (unless emergency)
+        if reqs.get('has_met_max_breaks') and not is_emergency:
             return Response(
                 {'detail': 'All 3 breaks have already been taken or waived for this shift.'},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        break_number = reqs.get('break_number')
+        break_number = reqs.get('break_number') if not is_emergency else None
 
         # Fallback: if compliance didn't assign a break_number (e.g. manual break
         # before the 2-hour trigger), assign the next available slot so every break
         # gets a number and the 3-break cap works correctly.
-        if break_number is None:
+        # Emergency breaks don't get a numbered slot.
+        if break_number is None and not is_emergency:
             taken = set(reqs.get('breaks_taken', []))
             for candidate in [1, 2, 3]:
                 if candidate not in taken:
                     break_number = candidate
                     break
 
-        # Map break_number to correct break_type automatically
-        break_type = serializer.validated_data['break_type']
-        if break_number:
+        # Map break_number to correct break_type automatically (not for emergency)
+        if not is_emergency and break_number:
             break_type = 'LUNCH' if break_number == 2 else 'SHORT'
 
         # Create break
@@ -1931,6 +2006,15 @@ class BreakViewSet(viewsets.ModelViewSet):
             active_log.save()
 
         logger.info(f"Admin {request.user.username} force-clocked out {employee.employee_id}")
+        log_action(
+            request,
+            action='force_clockout',
+            category='Time Logs',
+            target=active_log,
+            target_label=f"{employee.full_name} ({employee.employee_id})",
+            before={'status': 'CLOCKED_IN', 'clock_in_time': str(active_log.clock_in_time)},
+            after={'status': 'CLOCKED_OUT', 'clock_out_time': str(clockout_time), 'reason': reason},
+        )
 
         return Response({
             'message': 'Employee successfully clocked out',

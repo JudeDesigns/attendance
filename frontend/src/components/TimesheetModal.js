@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 import {
@@ -49,7 +49,7 @@ function fmtWeekLabel(weekStartISO) {
  *   { _type: 'row',          ...originalRow }
  *   { _type: 'weekSubtotal', week_label, finally_hours, regular_hours, overtime_hours }
  */
-function buildInterleavedRows(emp) {
+function buildInterleavedRows(emp, { suppressWeeklySubtotals = false } = {}) {
   if (!emp.rows || emp.rows.length === 0) return [];
 
   // Group rows by payroll-week Sunday
@@ -64,6 +64,9 @@ function buildInterleavedRows(emp) {
   const result = [];
   weekOrder.forEach(wkKey => {
     weekMap[wkKey].forEach(r => result.push({ _type: 'row', ...r }));
+
+    // Skip weekly subtotal rows when range spans more than one week
+    if (suppressWeeklySubtotals) return;
 
     // Find pre-computed summary from backend; fall back to computing it here
     const backendWeek = emp.summary?.weeks?.find(w => w.week_start === wkKey);
@@ -88,6 +91,20 @@ function buildInterleavedRows(emp) {
 // ── component ────────────────────────────────────────────────────────────────
 
 const TimesheetModal = ({ visible, onClose, title, timesheetData, isLoading, csvFilename }) => {
+
+  // Determine if the data spans more than 7 days → suppress weekly subtotals
+  const suppressWeeklySubtotals = useMemo(() => {
+    if (!timesheetData || timesheetData.length === 0) return false;
+    const allDates = timesheetData.flatMap(emp =>
+      (emp.rows || []).map(r => r['Date']).filter(Boolean)
+    );
+    if (allDates.length === 0) return false;
+    const parsed = allDates.map(d => { const [m, dd, y] = d.split('/').map(Number); return new Date(y, m - 1, dd); });
+    const minDate = Math.min(...parsed);
+    const maxDate = Math.max(...parsed);
+    const daySpan = (maxDate - minDate) / (1000 * 60 * 60 * 24);
+    return daySpan > 7;
+  }, [timesheetData]);
 
   const handleExportExcel = useCallback(async () => {
     if (!timesheetData || timesheetData.length === 0) return;
@@ -206,7 +223,7 @@ const TimesheetModal = ({ visible, onClose, title, timesheetData, isLoading, csv
         { label: s?.ot_note || '',   value: '', italic: true },
       ];
 
-      const interleavedRows = buildInterleavedRows(emp);
+      const interleavedRows = buildInterleavedRows(emp, { suppressWeeklySubtotals });
 
       // Ensure we have enough DAILY rows to render the full pay sidebar
       const dailyCount = interleavedRows.filter(r => r._type !== 'weekSubtotal').length;
@@ -371,7 +388,7 @@ const TimesheetModal = ({ visible, onClose, title, timesheetData, isLoading, csv
     const buffer = await workbook.xlsx.writeBuffer();
     const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     saveAs(blob, (csvFilename || 'timesheet').replace('.csv', '.xlsx'));
-  }, [timesheetData, csvFilename]);
+  }, [timesheetData, csvFilename, suppressWeeklySubtotals]);
 
 
   if (!visible) return null;
@@ -421,7 +438,7 @@ const TimesheetModal = ({ visible, onClose, title, timesheetData, isLoading, csv
                   { label: s?.ot_note || '',   value: '', italic: true },
                 ];
 
-                const interleavedRows = buildInterleavedRows(emp);
+                const interleavedRows = buildInterleavedRows(emp, { suppressWeeklySubtotals });
 
                 // Ensure we have at least enough daily rows to render the full pay sidebar (8 lines long)
                 // Otherwise the sidebar gets abruptly cut off.

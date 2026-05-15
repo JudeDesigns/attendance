@@ -14,6 +14,7 @@ from .serializers import (
     RoleSerializer, EmployeeSerializer, EmployeeCreateSerializer,
     EmployeeUpdateSerializer, EmployeeDetailSerializer, LocationSerializer
 )
+from .audit_models import log_action
 import logging
 
 logger = logging.getLogger(__name__)
@@ -102,11 +103,13 @@ class RoleViewSet(viewsets.ModelViewSet):
         """Log role creation"""
         role = serializer.save()
         logger.info(f"Role created: {role.name} by user {self.request.user.username}")
+        log_action(self.request, 'create_role', 'System', target=role)
     
     def perform_update(self, serializer):
         """Log role update"""
         role = serializer.save()
         logger.info(f"Role updated: {role.name} by user {self.request.user.username}")
+        log_action(self.request, 'edit_role', 'System', target=role)
     
     def perform_destroy(self, instance):
         """Prevent deletion of roles with active employees"""
@@ -115,6 +118,8 @@ class RoleViewSet(viewsets.ModelViewSet):
                 "Cannot delete role with active employees. Please reassign employees first."
             )
         logger.warning(f"Role deleted: {instance.name} by user {self.request.user.username}")
+        log_action(self.request, 'delete_role', 'System',
+                   target_label=f"Role: {instance.name}")
         instance.delete()
 
 
@@ -152,11 +157,27 @@ class LocationViewSet(viewsets.ModelViewSet):
         """Log location creation"""
         location = serializer.save()
         logger.info(f"Location created: {location.name} by user {self.request.user.username}")
+        log_action(self.request, 'create_location', 'Locations', target=location)
     
     def perform_update(self, serializer):
         """Log location update"""
+        # Snapshot before-state
+        before = {
+            'name': serializer.instance.name,
+            'address': serializer.instance.address,
+            'is_active': serializer.instance.is_active,
+            'radius_meters': serializer.instance.radius_meters,
+        }
         location = serializer.save()
+        after = {
+            'name': location.name,
+            'address': location.address,
+            'is_active': location.is_active,
+            'radius_meters': location.radius_meters,
+        }
         logger.info(f"Location updated: {location.name} by user {self.request.user.username}")
+        log_action(self.request, 'edit_location', 'Locations',
+                   target=location, before=before, after=after)
     
     @action(detail=True, methods=['get'])
     def qr_code(self, request, pk=None):
@@ -235,18 +256,57 @@ class EmployeeViewSet(viewsets.ModelViewSet):
             f"Employee created: {employee.employee_id} ({employee.user.username}) "
             f"by user {self.request.user.username}"
         )
+        log_action(
+            self.request,
+            action='create_employee',
+            category='Employees',
+            target=employee,
+            after={
+                'employee_id': employee.employee_id,
+                'full_name': employee.full_name,
+                'role': employee.role.name,
+                'employment_status': employee.employment_status,
+                'hourly_rate': str(employee.hourly_rate or ''),
+                'department': employee.department,
+                'job_title': employee.job_title,
+            },
+        )
     
     @transaction.atomic
     def perform_update(self, serializer):
         if 'role' in serializer.validated_data:
             self._check_role_escalation(serializer)
-            
+
         instance = serializer.instance
         old_role = instance.role
-        
+
+        # Capture before-state snapshot
+        before_snapshot = {
+            'employee_id': instance.employee_id,
+            'full_name': instance.full_name,
+            'role': instance.role.name,
+            'employment_status': instance.employment_status,
+            'hourly_rate': str(instance.hourly_rate or ''),
+            'department': instance.department,
+            'job_title': instance.job_title,
+            'phone_number': instance.phone_number,
+        }
+
         """Update employee with audit logging"""
         employee = serializer.save()
-        
+
+        # Capture after-state snapshot
+        after_snapshot = {
+            'employee_id': employee.employee_id,
+            'full_name': employee.full_name,
+            'role': employee.role.name,
+            'employment_status': employee.employment_status,
+            'hourly_rate': str(employee.hourly_rate or ''),
+            'department': employee.department,
+            'job_title': employee.job_title,
+            'phone_number': employee.phone_number,
+        }
+
         # Handle Sub-Admin promotions/demotions
         if 'role' in serializer.validated_data:
             new_role = employee.role
@@ -254,7 +314,7 @@ class EmployeeViewSet(viewsets.ModelViewSet):
             if new_role.name == 'SUB_ADMIN' and (not old_role or old_role.name != 'SUB_ADMIN'):
                 from apps.employees.models import SubAdminPermission
                 SubAdminPermission.objects.get_or_create(employee=employee, defaults={'permissions': []})
-            
+
             # If demoted FROM SUB_ADMIN to something else, remove permissions
             elif old_role and old_role.name == 'SUB_ADMIN' and new_role.name != 'SUB_ADMIN':
                 from apps.employees.models import SubAdminPermission
@@ -264,6 +324,14 @@ class EmployeeViewSet(viewsets.ModelViewSet):
             f"Employee updated: {employee.employee_id} ({employee.user.username}) "
             f"by user {self.request.user.username}"
         )
+        log_action(
+            self.request,
+            action='edit_employee',
+            category='Employees',
+            target=employee,
+            before=before_snapshot,
+            after=after_snapshot,
+        )
     
     def perform_destroy(self, instance):
         """
@@ -272,10 +340,23 @@ class EmployeeViewSet(viewsets.ModelViewSet):
         user_to_delete = instance.user
         employee_id = instance.employee_id
         username = user_to_delete.username
+        label = str(instance)
 
         logger.warning(
             f"Employee deleted: {employee_id} ({username}) "
             f"by user {self.request.user.username}"
+        )
+        log_action(
+            self.request,
+            action='delete_employee',
+            category='Employees',
+            target_label=label,
+            before={
+                'employee_id': employee_id,
+                'full_name': instance.full_name,
+                'role': instance.role.name,
+                'employment_status': instance.employment_status,
+            },
         )
 
         # Delete the employee record first (this will cascade properly)
@@ -301,28 +382,37 @@ class EmployeeViewSet(viewsets.ModelViewSet):
     def activate(self, request, pk=None):
         """Activate an employee account"""
         employee = self.get_object()
+        old_status = employee.employment_status
         employee.employment_status = 'ACTIVE'
         employee.user.is_active = True
         employee.save()
         employee.user.save()
         logger.info(f"Employee activated: {employee.employee_id} by user {request.user.username}")
+        log_action(request, 'activate_employee', 'Employees', target=employee,
+                   before={'employment_status': old_status},
+                   after={'employment_status': 'ACTIVE'})
         return Response({'status': 'Employee activated'})
     
     @action(detail=True, methods=['post'], permission_classes=[HasEmployeePermission])
     def deactivate(self, request, pk=None):
         """Deactivate an employee account"""
         employee = self.get_object()
+        old_status = employee.employment_status
         employee.employment_status = 'INACTIVE'
         employee.user.is_active = False
         employee.save()
         employee.user.save()
         logger.info(f"Employee deactivated: {employee.employee_id} by user {request.user.username}")
+        log_action(request, 'deactivate_employee', 'Employees', target=employee,
+                   before={'employment_status': old_status},
+                   after={'employment_status': 'INACTIVE'})
         return Response({'status': 'Employee deactivated'})
 
     @action(detail=True, methods=['post'], permission_classes=[HasEmployeePermission])
     def terminate(self, request, pk=None):
         """Terminate an employee (soft delete - keeps records but marks as terminated)"""
         employee = self.get_object()
+        old_status = employee.employment_status
         employee.employment_status = 'TERMINATED'
         employee.user.is_active = False
         employee.save()
@@ -331,6 +421,9 @@ class EmployeeViewSet(viewsets.ModelViewSet):
             f"Employee terminated: {employee.employee_id} ({employee.user.username}) "
             f"by user {request.user.username}"
         )
+        log_action(request, 'terminate_employee', 'Employees', target=employee,
+                   before={'employment_status': old_status},
+                   after={'employment_status': 'TERMINATED'})
         return Response({'status': 'Employee terminated'})
     
     @action(detail=True, methods=['get'], permission_classes=[permissions.IsAuthenticated])
@@ -428,17 +521,64 @@ class SubAdminViewSet(viewsets.ModelViewSet):
             name='SUB_ADMIN',
             defaults={'description': 'Granular Sub Administrator'}
         )
-        serializer.save(role=role)
+        sub_admin = serializer.save(role=role)
         logger.info(
             f"Sub-admin created by user {self.request.user.username}"
         )
+        log_action(
+            self.request,
+            action='create_sub_admin',
+            category='Sub-Admins',
+            target=sub_admin,
+            after={
+                'employee_id': sub_admin.employee_id,
+                'full_name': sub_admin.full_name,
+            },
+        )
+
+    def perform_update(self, serializer):
+        """Update sub-admin permissions with audit logging."""
+        instance = serializer.instance
+        # Capture old permissions if they exist
+        try:
+            old_perms = list(instance.sub_admin_permissions.permissions)
+        except Exception:
+            old_perms = []
+
+        sub_admin = serializer.save()
+
+        try:
+            new_perms = list(sub_admin.sub_admin_permissions.permissions)
+        except Exception:
+            new_perms = []
+
+        logger.info(
+            f"Sub-admin updated: {sub_admin.employee_id} "
+            f"by admin {self.request.user.username}"
+        )
+        log_action(
+            self.request,
+            action='edit_sub_admin_permissions',
+            category='Sub-Admins',
+            target=sub_admin,
+            before={'permissions': old_perms},
+            after={'permissions': new_perms},
+        )
 
     def perform_destroy(self, instance):
-        """Instead of hard deleting, we might just want to demote them, 
+        """Instead of hard deleting, we might just want to demote them,
         but ModelViewSet destroy expects deletion. We will do a full hard delete."""
+        label = str(instance)
         logger.warning(
             f"Sub-admin deleted: {instance.employee_id} "
             f"by admin {self.request.user.username}"
+        )
+        log_action(
+            self.request,
+            action='delete_sub_admin',
+            category='Sub-Admins',
+            target_label=label,
+            before={'employee_id': instance.employee_id, 'full_name': instance.full_name},
         )
         user_to_delete = instance.user
         instance.delete()

@@ -295,6 +295,21 @@ def cleanup_old_notification_logs():
         logger.error(f"Error cleaning up notification logs: {str(e)}")
 
 
+@shared_task
+def cleanup_old_audit_logs():
+    """
+    Purge AuditLog entries older than 90 days.
+    Scheduled via Celery Beat — see CELERY_BEAT_SCHEDULE in settings.
+    """
+    try:
+        from apps.employees.audit_models import AuditLog
+        cutoff_date = timezone.now() - timedelta(days=90)
+        deleted_count, _ = AuditLog.objects.filter(timestamp__lt=cutoff_date).delete()
+        logger.info(f"Audit log cleanup: deleted {deleted_count} entries older than 90 days")
+        return deleted_count
+    except Exception as e:
+        logger.error(f"Error cleaning up audit logs: {str(e)}")
+        return 0
 
 @shared_task
 def process_email_queue():

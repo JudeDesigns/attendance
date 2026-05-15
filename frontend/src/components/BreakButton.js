@@ -134,6 +134,7 @@ const BreakButton = ({ className = "", currentStatus }) => {
     buttonText = "All Breaks Completed";
     buttonIcon = CheckCircleIcon;
     isDisabled = true;
+    // Emergency break is still allowed — handled separately below
   } else {
     buttonClass += "bg-gray-300 text-gray-500 cursor-not-allowed opacity-50 blur-sm";
     buttonText = "Break Not Available";
@@ -192,6 +193,19 @@ const BreakButton = ({ className = "", currentStatus }) => {
               </span>
             )}
           </div>
+        )}
+
+        {/* Emergency Break — always available when clocked in and not on break */}
+        {isCurrentlyClockedIn && !hasActiveBreak && (
+          <button
+            onClick={() => handleStartBreak('EMERGENCY')}
+            disabled={startBreakMutation.isLoading}
+            className="mt-2 w-full flex items-center justify-center gap-1.5 text-xs font-medium text-orange-700 bg-orange-50 border border-orange-200 hover:bg-orange-100 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
+            title="Take an emergency break (fully deductible)"
+          >
+            <ExclamationTriangleIcon className="h-3.5 w-3.5" />
+            Emergency Break
+          </button>
         )}
       </div>
 

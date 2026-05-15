@@ -275,14 +275,12 @@ const EmployeeDetails = () => {
   const openEditModal = (log) => {
     const logBreaks = breaks.filter(b => b.time_log === log.id);
 
-    const waivedBreaks = logBreaks.filter(b => b.was_waived || b.notes?.startsWith('WAIVED'));
-    const nonWaivedBreaks = logBreaks.filter(b => !b.was_waived && !b.notes?.startsWith('WAIVED'));
-
     const existingByNumber = {};
     let shortCount = 0;
 
-    // 1. Assign non-waived breaks to slots
-    nonWaivedBreaks.forEach(b => {
+    // Assign ALL breaks (including waived) to slots by break_number
+    logBreaks.forEach(b => {
+      if (!b.break_number && !b.break_type) return; // skip untyped legacy
       let num = b.break_number;
       if (!num) {
         if (b.break_type === 'LUNCH') num = 2;
@@ -291,56 +289,44 @@ const EmployeeDetails = () => {
           num = (shortCount === 1) ? 1 : 3;
         }
       }
-      if (num) existingByNumber[num] = b;
+      if (num && !existingByNumber[num]) existingByNumber[num] = b;
     });
 
-    // 2. Assign waived breaks to the remaining matching slots
-    const waivedNumbers = new Set();
-    waivedBreaks.forEach(b => {
-      let num = b.break_number;
-      if (!num) {
-        if (b.break_type === 'LUNCH' && !existingByNumber[2]) num = 2;
-        else if (b.break_type === 'SHORT') {
-          if (!existingByNumber[1] && !waivedNumbers.has(1)) num = 1;
-          else if (!existingByNumber[3] && !waivedNumbers.has(3)) num = 3;
-        }
-      }
-      if (num) waivedNumbers.add(num);
-    });
-
-    // Build the 3 standard slots (skip waived), filling in existing data where available
-    const breakSlots = BREAK_SLOTS
-      .filter(slot => !waivedNumbers.has(slot.break_number))
-      .map(slot => {
-        const existing = existingByNumber[slot.break_number];
-        if (existing) {
-          return {
-            id: existing.id,
-            start_time: existing.start_time ? format(new Date(existing.start_time), "yyyy-MM-dd'T'HH:mm") : '',
-            end_time: existing.end_time ? format(new Date(existing.end_time), "yyyy-MM-dd'T'HH:mm") : '',
-            break_number: slot.break_number,
-            display_name: slot.display_name,
-            break_type: slot.break_type,
-            delete: false,
-            isNew: false,
-          };
-        }
-        // No DB record yet — show empty slot so admin can add times
+    // Build the 3 standard slots, filling in existing data (including waived)
+    const breakSlots = BREAK_SLOTS.map(slot => {
+      const existing = existingByNumber[slot.break_number];
+      if (existing) {
+        const isWaived = existing.was_waived || existing.notes?.startsWith('WAIVED');
         return {
-          id: null,
-          start_time: '',
-          end_time: '',
+          id: existing.id,
+          start_time: existing.start_time ? format(new Date(existing.start_time), "yyyy-MM-dd'T'HH:mm") : '',
+          end_time: existing.end_time ? format(new Date(existing.end_time), "yyyy-MM-dd'T'HH:mm") : '',
           break_number: slot.break_number,
           display_name: slot.display_name,
           break_type: slot.break_type,
           delete: false,
-          isNew: true,
+          isNew: false,
+          was_waived: isWaived,
         };
-      });
+      }
+      // No DB record yet — show empty slot so admin can add times
+      return {
+        id: null,
+        start_time: '',
+        end_time: '',
+        break_number: slot.break_number,
+        display_name: slot.display_name,
+        break_type: slot.break_type,
+        delete: false,
+        isNew: true,
+        was_waived: false,
+      };
+    });
 
-    // Also include any legacy breaks (no break_number) that aren't waived
+    // Also include any legacy breaks (no break_number)
+    const assignedIds = new Set(Object.values(existingByNumber).map(b => b.id));
     const legacyBreaks = logBreaks
-      .filter(b => !b.break_number && !b.was_waived && !b.notes?.startsWith('WAIVED'))
+      .filter(b => !assignedIds.has(b.id))
       .map(b => ({
         id: b.id,
         start_time: b.start_time ? format(new Date(b.start_time), "yyyy-MM-dd'T'HH:mm") : '',
@@ -350,6 +336,7 @@ const EmployeeDetails = () => {
         break_type: b.break_type || 'SHORT',
         delete: false,
         isNew: false,
+        was_waived: b.was_waived || b.notes?.startsWith('WAIVED') || false,
       }));
 
     const form = {
@@ -378,6 +365,7 @@ const EmployeeDetails = () => {
         break_number: b.break_number || undefined,
         break_type: b.break_type || undefined,
         delete: b.delete || false,
+        was_waived: b.was_waived !== undefined ? b.was_waived : undefined,
       }));
       await attendanceAPI.adminEditTimeLog(editingLog.id, payload);
       toast.success('Time log updated successfully');
@@ -1140,22 +1128,6 @@ const EmployeeDetails = () => {
               </div>
 
               {/* Breaks */}
-              {/* Waived-break notice — shown when this log has waived breaks excluded from editing */}
-              {editingLog && (() => {
-                const waivedCount = breaks.filter(
-                  b => b.time_log === editingLog.id && (b.was_waived || b.notes?.startsWith('WAIVED'))
-                ).length;
-                return waivedCount > 0 ? (
-                  <div className="flex items-start gap-2 px-3 py-2 bg-yellow-50 border border-yellow-200 rounded-lg text-xs text-yellow-800">
-                    <svg className="w-4 h-4 mt-0.5 flex-shrink-0 text-yellow-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M12 2a10 10 0 110 20A10 10 0 0112 2z" />
-                    </svg>
-                    <span>
-                      {waivedCount} waived break{waivedCount > 1 ? 's are' : ' is'} not shown — waived breaks cannot be edited.
-                    </span>
-                  </div>
-                ) : null;
-              })()}
 
               {editForm.breaks?.length > 0 && (
                 <div>
@@ -1172,6 +1144,10 @@ const EmployeeDetails = () => {
                         className={`p-3 rounded-lg border ${
                           brk.delete
                             ? 'bg-red-50 border-red-200 opacity-60'
+                            : brk.was_waived
+                            ? 'bg-yellow-50 border-yellow-200'
+                            : brk.break_type === 'EMERGENCY'
+                            ? 'bg-red-50 border-red-200'
                             : brk.isNew
                             ? 'bg-blue-50 border-blue-200'
                             : 'bg-gray-50 border-gray-200'
@@ -1182,29 +1158,66 @@ const EmployeeDetails = () => {
                             <span className="text-sm font-medium text-gray-700">
                               {brk.display_name || `Break ${brk.break_number || idx + 1}`}
                             </span>
-                            {brk.isNew && (
+                            {brk.break_type === 'EMERGENCY' && (
+                              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-red-100 text-red-700 uppercase tracking-wide">
+                                Emergency
+                              </span>
+                            )}
+                            {brk.isNew && brk.break_type !== 'EMERGENCY' && (
                               <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 uppercase tracking-wide">
                                 Not recorded — add time
                               </span>
                             )}
+                            {brk.was_waived && (
+                              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-yellow-100 text-yellow-700 uppercase tracking-wide">
+                                Waived
+                              </span>
+                            )}
                           </div>
-                          {/* Only existing breaks can be deleted; new empty ones are just left blank */}
-                          {!brk.isNew && (
+                          {/* Delete/waive controls — existing breaks toggle delete flag, new emergency breaks remove from list */}
+                          {brk.isNew && brk.break_type === 'EMERGENCY' && (
                             <button
                               type="button"
                               onClick={() => {
-                                const updated = [...editForm.breaks];
-                                updated[idx] = { ...updated[idx], delete: !updated[idx].delete };
+                                const updated = editForm.breaks.filter((_, i) => i !== idx);
                                 setEditForm(f => ({ ...f, breaks: updated }));
                               }}
-                              className={`text-xs px-2 py-1 rounded ${
-                                brk.delete
-                                  ? 'bg-gray-200 text-gray-600'
-                                  : 'bg-red-100 text-red-600 hover:bg-red-200'
-                              }`}
+                              className="text-xs px-2 py-1 rounded bg-red-100 text-red-600 hover:bg-red-200"
                             >
-                              {brk.delete ? 'Undo Delete' : 'Delete'}
+                              Remove
                             </button>
+                          )}
+                          {!brk.isNew && (
+                            <div className="flex items-center gap-2">
+                              <label className="flex items-center gap-1 text-xs cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={brk.was_waived || false}
+                                  onChange={() => {
+                                    const updated = [...editForm.breaks];
+                                    updated[idx] = { ...updated[idx], was_waived: !updated[idx].was_waived };
+                                    setEditForm(f => ({ ...f, breaks: updated }));
+                                  }}
+                                  className="rounded border-gray-300 text-yellow-600 focus:ring-yellow-500"
+                                />
+                                <span className={brk.was_waived ? 'text-yellow-700 font-medium' : 'text-gray-500'}>Waived</span>
+                              </label>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const updated = [...editForm.breaks];
+                                  updated[idx] = { ...updated[idx], delete: !updated[idx].delete };
+                                  setEditForm(f => ({ ...f, breaks: updated }));
+                                }}
+                                className={`text-xs px-2 py-1 rounded ${
+                                  brk.delete
+                                    ? 'bg-gray-200 text-gray-600'
+                                    : 'bg-red-100 text-red-600 hover:bg-red-200'
+                                }`}
+                              >
+                                {brk.delete ? 'Undo Delete' : 'Delete'}
+                              </button>
+                            </div>
                           )}
                         </div>
                         {!brk.delete && (
@@ -1251,6 +1264,28 @@ const EmployeeDetails = () => {
                   </div>
                 </div>
               )}
+
+              {/* Add Emergency Break */}
+              <button
+                type="button"
+                onClick={() => {
+                  const newBreak = {
+                    id: null,
+                    isNew: true,
+                    break_type: 'EMERGENCY',
+                    break_number: null,
+                    display_name: `Emergency Break ${(editForm.breaks?.filter(b => b.break_type === 'EMERGENCY').length || 0) + 1}`,
+                    start_time: '',
+                    end_time: '',
+                    was_waived: false,
+                    delete: false,
+                  };
+                  setEditForm(f => ({ ...f, breaks: [...(f.breaks || []), newBreak] }));
+                }}
+                className="w-full py-2 px-3 text-sm font-medium text-red-700 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition-colors"
+              >
+                + Add Emergency Break
+              </button>
 
               {/* Notes */}
               <div>

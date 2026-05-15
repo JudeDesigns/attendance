@@ -76,7 +76,7 @@ class ShiftSerializer(serializers.ModelSerializer):
         model = Shift
         fields = [
             'id', 'employee', 'employee_name', 'employee_id', 'employee_timezone',
-            'location', 'start_time', 'end_time', 'start_time_local', 'end_time_local',
+            'location', 'shift_type', 'start_time', 'end_time', 'start_time_local', 'end_time_local',
             'duration_minutes', 'duration_hours', 'notes', 'is_published',
             'is_past', 'is_current', 'is_future',
             'created_by', 'created_by_name', 'created_at', 'updated_at'
@@ -86,11 +86,11 @@ class ShiftSerializer(serializers.ModelSerializer):
 
 class ShiftCreateSerializer(serializers.ModelSerializer):
     """Serializer for creating shifts with validation"""
-    
+
     class Meta:
         model = Shift
         fields = [
-            'employee', 'location', 'start_time', 'end_time', 
+            'employee', 'location', 'shift_type', 'start_time', 'end_time',
             'notes', 'is_published'
         ]
     
@@ -426,8 +426,8 @@ class LeaveBalanceSerializer(serializers.ModelSerializer):
     """Leave balance serializer with calculated fields"""
     employee_name = serializers.CharField(source='employee.user.get_full_name', read_only=True)
     leave_type_name = serializers.CharField(source='leave_type.display_name', read_only=True)
-    available_days = serializers.DecimalField(max_digits=5, decimal_places=2, read_only=True)
-    total_allocated = serializers.DecimalField(max_digits=5, decimal_places=2, read_only=True)
+    available_days = serializers.DecimalField(max_digits=5, decimal_places=0, read_only=True)
+    total_allocated = serializers.DecimalField(max_digits=5, decimal_places=0, read_only=True)
 
     class Meta:
         model = LeaveBalance

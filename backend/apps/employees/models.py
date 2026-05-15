@@ -330,3 +330,7 @@ class SubAdminPermission(models.Model):
         db_table = 'sub_admin_permissions'
         verbose_name = 'Sub-Admin Permission'
         verbose_name_plural = 'Sub-Admin Permissions'
+
+
+# Import AuditLog so Django picks it up for migrations
+from apps.employees.audit_models import AuditLog  # noqa: E402, F401

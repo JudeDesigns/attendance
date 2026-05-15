@@ -409,7 +409,7 @@ class BreakSerializer(serializers.ModelSerializer):
 class BreakStartSerializer(serializers.Serializer):
     """Serializer for starting a break"""
     break_type = serializers.ChoiceField(
-        choices=['LUNCH', 'SHORT', 'PERSONAL'],
+        choices=['LUNCH', 'SHORT', 'PERSONAL', 'EMERGENCY'],
         help_text="Type of break being taken"
     )
     notes = serializers.CharField(

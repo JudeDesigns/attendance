@@ -212,7 +212,7 @@ const AdminLeaveManagement = () => {
         toast.error('Please select a leave type');
         return;
       }
-      if (!manualAllocation || parseFloat(manualAllocation) < 0) {
+      if (!manualAllocation || parseInt(manualAllocation, 10) < 0) {
         toast.error('Please enter a valid allocation amount');
         return;
       }
@@ -221,8 +221,8 @@ const AdminLeaveManagement = () => {
         employee: selectedEmployee,
         leave_type: selectedLeaveType,
         year: initializeYear,
-        allocated_days: parseFloat(manualAllocation),
-        carried_over_days: carriedOverDays ? parseFloat(carriedOverDays) : 0,
+        allocated_days: parseInt(manualAllocation, 10),
+        carried_over_days: carriedOverDays ? parseInt(carriedOverDays, 10) : 0,
         used_days: 0,
         pending_days: 0
       };
@@ -569,13 +569,27 @@ const AdminLeaveManagement = () => {
                     {leaveTypes.map((type) => {
                       const balance = employeeBalances.find(b => b.leave_type === type.id);
                       return (
-                        <td key={type.id} className="px-6 py-4 whitespace-nowrap">
+                        <td
+                          key={type.id}
+                          className="px-6 py-4 whitespace-nowrap cursor-pointer hover:bg-blue-50 transition-colors"
+                          title="Click to edit allocation"
+                          onClick={() => {
+                            setInitializeMode('individual');
+                            setSelectedEmployee(employee.id);
+                            setSelectedLeaveType(type.id);
+                            setManualAllocation(balance ? String(balance.allocated_days) : String(type.annual_allocation));
+                            setCarriedOverDays(balance ? String(balance.carried_over_days) : '0');
+                            setInitializeYear(balance ? balance.year : new Date().getFullYear());
+                            setShowInitializeModal(true);
+                          }}
+                        >
                           <div className="text-sm text-gray-900">
                             {balance ? `${balance.available_days}/${balance.allocated_days}` : '0/0'}
                           </div>
                           <div className="text-xs text-gray-500">
                             {balance ? `Used: ${balance.used_days}` : 'No allocation'}
                           </div>
+                          <div className="text-xs text-blue-500 mt-0.5">Edit</div>
                         </td>
                       );
                     })}
@@ -781,7 +795,7 @@ const AdminLeaveManagement = () => {
                     <input
                       type="number"
                       min="0"
-                      step="0.5"
+                      step="1"
                       value={manualAllocation}
                       onChange={(e) => setManualAllocation(e.target.value)}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
@@ -797,7 +811,7 @@ const AdminLeaveManagement = () => {
                     <input
                       type="number"
                       min="0"
-                      step="0.5"
+                      step="1"
                       value={carriedOverDays}
                       onChange={(e) => setCarriedOverDays(e.target.value)}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"

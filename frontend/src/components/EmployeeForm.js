@@ -174,6 +174,15 @@ const EmployeeForm = ({ employee, onClose, onSuccess }) => {
       submitData.hourly_rate = parseFloat(submitData.hourly_rate);
     }
 
+    // Strip non-digit characters from phone numbers (keep leading +)
+    ['phone_number', 'emergency_contact_phone'].forEach(field => {
+      if (submitData[field]) {
+        const hasPlus = submitData[field].startsWith('+');
+        const digits = submitData[field].replace(/[^0-9]/g, '');
+        submitData[field] = hasPlus ? `+${digits}` : digits;
+      }
+    });
+
     // Include new password if provided in edit mode
     if (isEditing && newPassword) {
       submitData.new_password = newPassword;
@@ -297,8 +306,12 @@ const EmployeeForm = ({ employee, onClose, onSuccess }) => {
                   name="phone_number"
                   value={formData.phone_number}
                   onChange={handleChange}
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="+1234567890"
+                  className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 ${getFieldError('phone_number') ? 'border-red-300' : 'border-gray-300'}`}
                 />
+                {getFieldError('phone_number') && (
+                  <p className="mt-1 text-sm text-red-600">{getFieldError('phone_number')[0]}</p>
+                )}
               </div>
 
               <div>
@@ -323,8 +336,11 @@ const EmployeeForm = ({ employee, onClose, onSuccess }) => {
                   name="date_of_birth"
                   value={formData.date_of_birth}
                   onChange={handleChange}
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 ${getFieldError('date_of_birth') ? 'border-red-300' : 'border-gray-300'}`}
                 />
+                {getFieldError('date_of_birth') && (
+                  <p className="mt-1 text-sm text-red-600">{getFieldError('date_of_birth')[0]}</p>
+                )}
               </div>
             </div>
 

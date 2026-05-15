@@ -70,6 +70,19 @@ const EmployeeStatusDashboard = () => {
     }
   );
 
+  // Get active breaks (breaks with no end_time) to detect ON_BREAK status
+  const { data: activeBreaksData } = useQuery(
+    ['active-breaks'],
+    () => attendanceAPI.breaks({
+      page_size: 1000,
+    }),
+    {
+      enabled: canView,
+      refetchInterval: canView ? 30000 : false,
+      staleTime: 15000,
+    }
+  );
+
   // Redirect users without access to regular time tracking
   if (!canView) {
     navigate('/time-tracking');
@@ -80,7 +93,13 @@ const EmployeeStatusDashboard = () => {
   const attendanceLogs = attendanceData?.data?.results || attendanceData?.results || [];
   const currentlyActiveLogs = currentlyActiveData?.data?.results || currentlyActiveData?.results || [];
 
-
+  // Build set of time_log IDs that have an active (ongoing) break
+  const allBreaks = activeBreaksData?.data?.results || activeBreaksData?.results || [];
+  const timeLogIdsOnBreak = new Set(
+    allBreaks
+      .filter(b => b.is_active && !b.end_time)
+      .map(b => b.time_log)
+  );
 
   // Create employee status map
   const employeeStatusMap = {};
@@ -121,7 +140,12 @@ const EmployeeStatusDashboard = () => {
     // Check if employee is currently clocked in (from active logs)
     const activeLog = activeLogsByEmployee[empId]?.[0]; // Should only be one active log per employee
     if (activeLog && activeLog.status === 'CLOCKED_IN' && !activeLog.clock_out_time) {
-      employeeStatusMap[empId].currentStatus = 'CLOCKED_IN';
+      // Check if they are currently on a break
+      if (timeLogIdsOnBreak.has(activeLog.id)) {
+        employeeStatusMap[empId].currentStatus = 'ON_BREAK';
+      } else {
+        employeeStatusMap[empId].currentStatus = 'CLOCKED_IN';
+      }
       employeeStatusMap[empId].clockInTime = activeLog.clock_in_time;
     }
 
@@ -166,7 +190,11 @@ const EmployeeStatusDashboard = () => {
       // Check if this employee is currently clocked in (from active logs)
       const activeLog = activeLogsByEmployee[empId]?.[0];
       if (activeLog && activeLog.status === 'CLOCKED_IN' && !activeLog.clock_out_time) {
-        employeeStatusMap[empId].currentStatus = 'CLOCKED_IN';
+        if (timeLogIdsOnBreak.has(activeLog.id)) {
+          employeeStatusMap[empId].currentStatus = 'ON_BREAK';
+        } else {
+          employeeStatusMap[empId].currentStatus = 'CLOCKED_IN';
+        }
         employeeStatusMap[empId].clockInTime = activeLog.clock_in_time;
       }
     }
@@ -182,9 +210,11 @@ const EmployeeStatusDashboard = () => {
       employee.employee_id.toLowerCase().includes(searchTerm.toLowerCase());
 
     const empStatus = employeeStatusMap[employee.id];
+    const currentSt = empStatus?.currentStatus || 'CLOCKED_OUT';
     const matchesStatus = statusFilter === 'ALL' ||
-      (statusFilter === 'CLOCKED_IN' && empStatus?.currentStatus === 'CLOCKED_IN') ||
-      (statusFilter === 'CLOCKED_OUT' && (!empStatus || empStatus.currentStatus === 'CLOCKED_OUT'));
+      (statusFilter === 'CLOCKED_IN' && (currentSt === 'CLOCKED_IN' || currentSt === 'ON_BREAK')) ||
+      (statusFilter === 'ON_BREAK' && currentSt === 'ON_BREAK') ||
+      (statusFilter === 'CLOCKED_OUT' && currentSt === 'CLOCKED_OUT');
 
     return matchesSearch && matchesStatus;
   });
@@ -226,6 +256,14 @@ const EmployeeStatusDashboard = () => {
   };
 
   const getStatusBadge = (status) => {
+    if (status === 'ON_BREAK') {
+      return (
+        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+          <div className="w-2 h-2 bg-yellow-400 rounded-full mr-1 animate-pulse"></div>
+          On Break
+        </span>
+      );
+    }
     if (status === 'CLOCKED_IN') {
       return (
         <span className="glass-status-success inline-flex items-center">
@@ -324,6 +362,7 @@ const EmployeeStatusDashboard = () => {
             >
               <option value="ALL">All Status</option>
               <option value="CLOCKED_IN">Clocked In</option>
+              <option value="ON_BREAK">On Break</option>
               <option value="CLOCKED_OUT">Clocked Out</option>
             </select>
           </div>
@@ -331,7 +370,7 @@ const EmployeeStatusDashboard = () => {
       </div>
 
       {/* Summary Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-6">
         <div className="bg-white overflow-hidden shadow rounded-lg">
           <div className="p-5">
             <div className="flex items-center">
@@ -358,7 +397,25 @@ const EmployeeStatusDashboard = () => {
                 <dl>
                   <dt className="text-sm font-medium text-gray-500 truncate">Currently Clocked In</dt>
                   <dd className="text-lg font-medium text-gray-900">
-                    {Object.values(employeeStatusMap).filter(s => s.currentStatus === 'CLOCKED_IN').length}
+                    {Object.values(employeeStatusMap).filter(s => s.currentStatus === 'CLOCKED_IN' || s.currentStatus === 'ON_BREAK').length}
+                  </dd>
+                </dl>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white overflow-hidden shadow rounded-lg">
+          <div className="p-5">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <ClockIcon className="h-8 w-8 text-yellow-400" />
+              </div>
+              <div className="ml-5 w-0 flex-1">
+                <dl>
+                  <dt className="text-sm font-medium text-gray-500 truncate">On Break</dt>
+                  <dd className="text-lg font-medium text-gray-900">
+                    {Object.values(employeeStatusMap).filter(s => s.currentStatus === 'ON_BREAK').length}
                   </dd>
                 </dl>
               </div>
@@ -376,7 +433,7 @@ const EmployeeStatusDashboard = () => {
                 <dl>
                   <dt className="text-sm font-medium text-gray-500 truncate">Currently Clocked Out</dt>
                   <dd className="text-lg font-medium text-gray-900">
-                    {employees.length - Object.values(employeeStatusMap).filter(s => s.currentStatus === 'CLOCKED_IN').length}
+                    {employees.length - Object.values(employeeStatusMap).filter(s => s.currentStatus === 'CLOCKED_IN' || s.currentStatus === 'ON_BREAK').length}
                   </dd>
                 </dl>
               </div>

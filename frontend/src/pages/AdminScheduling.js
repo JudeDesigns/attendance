@@ -514,21 +514,31 @@ const AdminScheduling = () => {
                         return (
                           <td key={day.date} className="px-6 py-4 whitespace-nowrap">
                             <div className="space-y-1">
-                              {dayShifts.map((shift) => (
+                              {dayShifts.map((shift) => {
+                                const isNonWork = ['DAY_OFF', 'SCHEDULED_LEAVE', 'UNSCHEDULED_LEAVE'].includes(shift.shift_type);
+                                const shiftBg = isNonWork
+                                  ? shift.shift_type === 'DAY_OFF' ? 'bg-purple-100 text-purple-800'
+                                    : 'bg-orange-100 text-orange-800'
+                                  : shift.status === 'CONFIRMED' ? 'bg-green-100 text-green-800'
+                                    : shift.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800'
+                                    : 'bg-gray-100 text-gray-800';
+                                return (
                                 <div
                                   key={shift.id}
-                                  className={`text-xs p-2 rounded ${
-                                    shift.status === 'CONFIRMED' ? 'bg-green-100 text-green-800' :
-                                    shift.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800' :
-                                    'bg-gray-100 text-gray-800'
-                                  }`}
+                                  className={`text-xs p-2 rounded ${shiftBg}`}
                                 >
                                   <div className="flex items-center justify-between">
                                     <div>
-                                      <div className="font-medium">
-                                        {formatTime(getDisplayTime(shift, 'start'))} - {formatTime(getDisplayTime(shift, 'end'))}
-                                      </div>
-                                      <div>{shift.location || 'No location'}</div>
+                                      {isNonWork ? (
+                                        <div className="font-medium">
+                                          {shift.shift_type === 'DAY_OFF' ? 'Day Off' : shift.shift_type === 'SCHEDULED_LEAVE' ? 'Scheduled Leave' : 'Unscheduled Leave'}
+                                        </div>
+                                      ) : (
+                                        <div className="font-medium">
+                                          {formatTime(getDisplayTime(shift, 'start'))} - {formatTime(getDisplayTime(shift, 'end'))}
+                                        </div>
+                                      )}
+                                      <div>{shift.location || (isNonWork ? '' : 'No location')}</div>
                                       {shift.employee_timezone && (
                                         <div className="text-xs text-gray-500">
                                           {shift.employee_timezone}
@@ -556,7 +566,8 @@ const AdminScheduling = () => {
                                     )}
                                   </div>
                                 </div>
-                              ))}
+                              );
+                              })}
                               {(dayShifts.length === 0 && hasPermission('manage_schedule')) && (
                                 <button
                                   onClick={() => {
@@ -835,43 +846,60 @@ const ShiftForm = ({ shift, employees, templates, onSubmit, onClose, isLoading }
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Start Time</label>
-              <input
-                type="time"
-                name="start_time"
-                value={formData.start_time}
-                onChange={handleChange}
-                required
-                className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-              />
+          {['DAY_OFF', 'SCHEDULED_LEAVE', 'UNSCHEDULED_LEAVE'].includes(formData.shift_type) ? (
+            <p className="text-sm text-gray-500 italic py-2">
+              No times needed — this is a full-day {formData.shift_type === 'DAY_OFF' ? 'day off' : 'leave'} entry.
+            </p>
+          ) : (
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Start Time</label>
+                <input
+                  type="time"
+                  name="start_time"
+                  value={formData.start_time}
+                  onChange={handleChange}
+                  required
+                  className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">End Time</label>
+                <input
+                  type="time"
+                  name="end_time"
+                  value={formData.end_time}
+                  onChange={handleChange}
+                  required
+                  className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">End Time</label>
-              <input
-                type="time"
-                name="end_time"
-                value={formData.end_time}
-                onChange={handleChange}
-                required
-                className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-              />
-            </div>
-          </div>
+          )}
 
           <div>
             <label className="block text-sm font-medium text-gray-700">Shift Type</label>
             <select
               name="shift_type"
               value={formData.shift_type}
-              onChange={handleChange}
+              onChange={(e) => {
+                const val = e.target.value;
+                const isNonWork = ['DAY_OFF', 'SCHEDULED_LEAVE', 'UNSCHEDULED_LEAVE'].includes(val);
+                setFormData(prev => ({
+                  ...prev,
+                  shift_type: val,
+                  ...(isNonWork ? { start_time: '00:00', end_time: '23:59' } : {}),
+                }));
+              }}
               className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
             >
               <option value="REGULAR">Regular</option>
               <option value="OVERTIME">Overtime</option>
               <option value="HOLIDAY">Holiday</option>
               <option value="NIGHT">Night</option>
+              <option value="DAY_OFF">Day Off</option>
+              <option value="SCHEDULED_LEAVE">Scheduled Leave</option>
+              <option value="UNSCHEDULED_LEAVE">Unscheduled Leave</option>
             </select>
           </div>
 

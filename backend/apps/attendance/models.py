@@ -242,6 +242,7 @@ class Break(models.Model):
         ('LUNCH', 'Lunch Break'),
         ('SHORT', 'Short Break'),
         ('PERSONAL', 'Personal Break'),
+        ('EMERGENCY', 'Emergency Break'),
     ]
 
     BREAK_NUMBER_CHOICES = [

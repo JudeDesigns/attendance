@@ -12,10 +12,21 @@ from apps.employees.models import Employee, Location
 
 class Shift(models.Model):
     """Employee shift scheduling with conflict detection"""
-    
+
+    SHIFT_TYPE_CHOICES = [
+        ('REGULAR', 'Regular'),
+        ('OVERTIME', 'Overtime'),
+        ('HOLIDAY', 'Holiday'),
+        ('NIGHT', 'Night'),
+        ('DAY_OFF', 'Day Off'),
+        ('SCHEDULED_LEAVE', 'Scheduled Leave'),
+        ('UNSCHEDULED_LEAVE', 'Unscheduled Leave'),
+    ]
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     employee = models.ForeignKey(Employee, on_delete=models.CASCADE, related_name='shifts')
     location = models.CharField(max_length=200, blank=True, help_text="Work location (free text)")
+    shift_type = models.CharField(max_length=20, choices=SHIFT_TYPE_CHOICES, default='REGULAR')
     start_time = models.DateTimeField()
     end_time = models.DateTimeField()
     notes = models.TextField(blank=True)

@@ -60,6 +60,16 @@ const AdminDashboard = () => {
     }
   );
 
+  // Get active breaks to detect ON_BREAK status
+  const { data: activeBreaksData } = useQuery(
+    'admin-active-breaks',
+    () => attendanceAPI.breaks({ page_size: 1000 }),
+    {
+      refetchInterval: 30000,
+      staleTime: 15000,
+    }
+  );
+
   // Get today's shifts (actual scheduled shifts)
   const { data: shiftsData } = useQuery(
     ['shifts', selectedDate],
@@ -77,6 +87,14 @@ const AdminDashboard = () => {
   const allActiveClockIns = activeClockedInData?.data?.results || [];
   const locations = locationsData?.data?.results || locationsData?.results || [];
   const shifts = Array.isArray(shiftsData?.data) ? shiftsData.data : (shiftsData?.data?.results || []);
+
+  // Build set of time_log IDs that currently have an active (ongoing) break
+  const allBreaks = activeBreaksData?.data?.results || activeBreaksData?.results || [];
+  const timeLogIdsOnBreak = new Set(
+    allBreaks
+      .filter(b => b.is_active && !b.end_time)
+      .map(b => b.time_log)
+  );
 
   // Calculate statistics
   const totalEmployees = employees.length;
@@ -362,7 +380,9 @@ const AdminDashboard = () => {
               const todayAttendance = attendanceLogs.filter(log =>
                 log.employee_name === fullName || log.employee_id === employee.employee_id
               );
-              const isActive = todayAttendance.some(log => !log.clock_out_time);
+              const activeLog = todayAttendance.find(log => !log.clock_out_time);
+              const isActive = !!activeLog;
+              const isOnBreak = isActive && timeLogIdsOnBreak.has(activeLog?.id);
 
               return (
                 <div key={employee.employee_id} className="glass-employee-card">
@@ -383,9 +403,16 @@ const AdminDashboard = () => {
                         {employee.employment_status}
                       </span>
                       {isActive && (
-                        <span className="mt-1 inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                          Currently Working
-                        </span>
+                        isOnBreak ? (
+                          <span className="mt-1 inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                            <span className="w-2 h-2 bg-yellow-400 rounded-full mr-1 animate-pulse"></span>
+                            On Break
+                          </span>
+                        ) : (
+                          <span className="mt-1 inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                            Currently Working
+                          </span>
+                        )
                       )}
                     </div>
                   </div>

@@ -393,6 +393,16 @@ class DetailedTimesheetReportGenerator(ReportGenerator):
             prefix = f"break_{i+1}"
             if i < len(breaks):
                 b = breaks[i]
+
+                # If break was waived, show "Waived" instead of times
+                if b.was_waived:
+                    break_data[f'{prefix}_in'] = 'Waived'
+                    break_data[f'{prefix}_out'] = 'Waived'
+                    reason = b.waiver_reason or 'No reason given'
+                    break_data[f'{prefix}_total'] = reason
+                    # No deduction for waived breaks
+                    continue
+
                 b_start_la = self._to_la(b.start_time)
                 b_end_la = self._to_la(b.end_time)
                 b_start = b_start_la.strftime('%H:%M') if b_start_la else ''
@@ -403,7 +413,7 @@ class DetailedTimesheetReportGenerator(ReportGenerator):
                     b_start_min = b_start_la.replace(second=0, microsecond=0)
                     b_end_min = b_end_la.replace(second=0, microsecond=0)
                     b_minutes = int((b_end_min - b_start_min).total_seconds() // 60)
-                    
+
                     total_all_break_minutes += b_minutes
                     # Deduction rules:
                     # - LUNCH (Break 2): fully deducted

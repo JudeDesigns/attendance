@@ -1062,7 +1062,15 @@ class TimeLogViewSet(viewsets.ModelViewSet):
 
             for i in range(3):
                 if i < len(breaks):
-                    b       = breaks[i]
+                    b = breaks[i]
+
+                    # If break was waived, show "Waived" and the reason
+                    if b.was_waived:
+                        reason = b.waiver_reason or 'No reason given'
+                        break_data.extend(['Waived', 'Waived', reason])
+                        # No deduction for waived breaks
+                        continue
+
                     b_start = convert_to_user_timezone(b.start_time, log.employee.user)
                     b_end   = convert_to_user_timezone(b.end_time,   log.employee.user) if b.end_time else None
                     b_in    = b_start.strftime('%H:%M') if b_start else ''

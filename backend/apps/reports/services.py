@@ -395,11 +395,13 @@ class DetailedTimesheetReportGenerator(ReportGenerator):
                 b = breaks[i]
 
                 # If break was waived, show "Waived" instead of times
-                if b.was_waived:
+                if getattr(b, 'was_waived', False) or (b.notes and b.notes.startswith('WAIVED')):
                     break_data[f'{prefix}_in'] = 'Waived'
                     break_data[f'{prefix}_out'] = 'Waived'
-                    reason = b.waiver_reason or 'No reason given'
-                    break_data[f'{prefix}_total'] = reason
+                    reason = getattr(b, 'waiver_reason', '') or ''
+                    if not reason and b.notes and b.notes.startswith('WAIVED:'):
+                        reason = b.notes[len('WAIVED:'):].strip()
+                    break_data[f'{prefix}_total'] = reason or 'No reason given'
                     # No deduction for waived breaks
                     continue
 
@@ -544,7 +546,7 @@ class DetailedTimesheetReportGenerator(ReportGenerator):
                 'Break 3 In': '', 'Break 3 Out': '', 'Break 3 Total': '',
                 'Total Break': '',
                 'Total Without Break': '',
-                'Finally Hours': label,
+                'Finally Hours': 0,
                 '8 Hours': 0, 'over 8': 0, 'over 12': 0,
                 'Hourly Rate': float(s.employee.hourly_rate) if s.employee.hourly_rate else 0,
                 '_is_non_work': True,
@@ -626,7 +628,7 @@ class DetailedTimesheetReportGenerator(ReportGenerator):
                 week_end  = week_start + timedelta(days=6)
                 week_rows = week_groups[week_start]
 
-                wk_finally     = sum(r['Finally Hours'] for r in week_rows)
+                wk_finally     = sum(float(r['Finally Hours']) for r in week_rows if isinstance(r.get('Finally Hours'), (int, float)))
                 wk_8h          = sum(float(r.get('8 Hours',  0) or 0) for r in week_rows)
                 wk_daily_over_8  = sum(float(r.get('over 8',  0) or 0) for r in week_rows)
                 wk_daily_over_12 = sum(float(r.get('over 12', 0) or 0) for r in week_rows)

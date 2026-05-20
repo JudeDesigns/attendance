@@ -1065,9 +1065,11 @@ class TimeLogViewSet(viewsets.ModelViewSet):
                     b = breaks[i]
 
                     # If break was waived, show "Waived" and the reason
-                    if b.was_waived:
-                        reason = b.waiver_reason or 'No reason given'
-                        break_data.extend(['Waived', 'Waived', reason])
+                    if getattr(b, 'was_waived', False) or (b.notes and b.notes.startswith('WAIVED')):
+                        reason = getattr(b, 'waiver_reason', '') or ''
+                        if not reason and b.notes and b.notes.startswith('WAIVED:'):
+                            reason = b.notes[len('WAIVED:'):].strip()
+                        break_data.extend(['Waived', 'Waived', reason or 'No reason given'])
                         # No deduction for waived breaks
                         continue
 
